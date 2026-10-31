@@ -10,7 +10,13 @@ const ids = { kategori: 'evt-kat', produk: 'evt-prd', varian: 'evt-var' } as con
 
 describe('the ledger as the shop sees it', () => {
   it('starts as an empty shop', () => {
-    expect(emptyShop()).toEqual({ kategori: [], produk: [], varian: [], sales: [] });
+    expect(emptyShop()).toEqual({
+      kategori: [],
+      produk: [],
+      varian: [],
+      sales: [],
+      receipt: { header: { nama: 'KasirKu', keterangan: '' }, footer: 'Terima kasih sudah berbelanja.' },
+    });
   });
 
   it('records master data created on the device', () => {

@@ -12,7 +12,8 @@
  */
 
 import { formatQty, formatRupiah } from '../design/money';
-import type { Sale } from './types';
+import { receiptHtml } from './receiptHtml';
+import type { Printer, Sale } from './types';
 
 /** Who the nota is from, in the owner's own words (settings.updated). */
 export interface ReceiptHeader {
@@ -102,8 +103,26 @@ export function receiptOf(sale: Sale, shop: ReceiptShop = DEFAULT_RECEIPT): Rece
   };
 }
 
-/** The discount as the paper shows it: already signed, or the dash for none. */
-export function discountLine(nota: ReceiptData): string {
+/**
+ * Writes the sale's nota to a PDF and hands it to the phone's share sheet —
+ * which is also where "save to phone" lives on Android.
+ *
+ * The file is written even when the phone cannot share, so a phone without
+ * sharing has still printed the nota; `shared` says which happened rather than
+ * pretending the customer got a file they did not.
+ */
+export async function shareReceipt(
+  printer: Printer,
+  sale: Sale,
+  shop: ReceiptShop = DEFAULT_RECEIPT,
+): Promise<{ uri: string; shared: boolean }> {
+  const { uri } = await printer.printToFile(receiptHtml(receiptOf(sale, shop)));
+  if (!(await printer.canShare())) return { uri, shared: false };
+  await printer.share(uri, 'application/pdf');
+  return { uri, shared: true };
+}
+
+/** The discount as the paper shows it: already signed, or the dash for none. */export function discountLine(nota: ReceiptData): string {
   return nota.discount > 0 ? `−${formatRupiah(nota.discount)}` : '—';
 }
 

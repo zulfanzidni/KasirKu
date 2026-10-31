@@ -8,8 +8,22 @@
  */
 
 import type { Discount, PaymentMethod, SalePayment } from '../design/money';
+import type { ReceiptShop } from './receipt';
 
-export type { PaymentMethod, SalePayment } from '../design/money';
+export type { PaymentMethod, SalePayment };
+
+/**
+ * What the payment step hands the ledger. The discount is passed as it was
+ * typed (rupiah or percent) and settled against the lines' gross inside the
+ * draft, so the saved figure is the one the receipt prints.
+ */
+export interface PaymentInput {
+  discount: Discount;
+  /** Cash the customer put down. */
+  tendered: number;
+  /** Pembulatan step; omitted means the shop's default of Rp 500. */
+  cashStep?: number;
+}
 
 /** A unit a varian is counted in. Fixed at creation (GLOSSARY: Satuan). */
 export type Satuan = 'pcs' | 'bungkus' | 'kg' | 'liter' | 'sak';
@@ -182,4 +196,24 @@ export interface Shop {
   produk: Produk[];
   varian: Varian[];
   sales: Sale[];
+  /** The nota's header and footer (settings.updated). */
+  receipt: ReceiptShop;
+}
+
+// ---------------------------------------------------------------------------
+// Receipt printing
+// ---------------------------------------------------------------------------
+
+/**
+ * What the app can do with the phone that renders and shares paper. Both
+ * methods are set by the app entry, which is the one place that imports
+ * expo-print and expo-sharing; tests replace them to see what was printed.
+ */
+export interface Printer {
+  /** Renders the document and returns a path to the file it wrote. */
+  printToFile(html: string): Promise<{ uri: string }>;
+  /** Hands the file to Android's own share sheet, so the owner can pick WhatsApp or a files app. */
+  share(uri: string, mimeType: string): Promise<void>;
+  /** Whether this phone can share at all; a phone that cannot still prints. */
+  canShare(): Promise<boolean>;
 }

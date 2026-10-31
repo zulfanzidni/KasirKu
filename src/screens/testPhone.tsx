@@ -1,9 +1,11 @@
 import { connectPhone, type PhoneEnvironment } from '@/ledger/environment';
+import { connectPrinter } from '@/ledger/printer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 import { LedgerProvider, useApp, type AppState } from '@/ledger/useLedger';
 import { MemoryStore } from '@/ledger/memoryStore';
 import type { SqlDatabase } from '@/ledger/sqlDatabase';
+import type { Printer } from '@/ledger/types';
 
 /**
  * The phone, faked at its single seam: the SQLite file and the key-value store.
@@ -17,9 +19,23 @@ export const mockPhone: { store: MemoryStore; kv: Map<string, string> } = {
   kv: new Map<string, string>(),
 };
 
+/** Everything the phone printed this launch, and what it was asked to share. */
+export const mockPrinter: {
+  printed: string[];
+  shared: { uri: string; mimeType: string }[];
+  canShare: boolean;
+} = {
+  printed: [],
+  shared: [],
+  canShare: true,
+};
+
 export function resetPhone() {
   mockPhone.store = new MemoryStore();
   mockPhone.kv.clear();
+  mockPrinter.printed = [];
+  mockPrinter.shared = [];
+  mockPrinter.canShare = true;
   const env: PhoneEnvironment = {
     // The phone's file is a real SQLite-shaped database over the in-memory
     // log, so the provider runs its actual open-fold-read path.
@@ -35,6 +51,20 @@ export function resetPhone() {
     },
   };
   connectPhone(env);
+
+  const printer: Printer = {
+    async printToFile(html) {
+      mockPrinter.printed.push(html);
+      return { uri: `file:///cache/nota-${mockPrinter.printed.length}.pdf` };
+    },
+    async canShare() {
+      return mockPrinter.canShare;
+    },
+    async share(uri, mimeType) {
+      mockPrinter.shared.push({ uri, mimeType });
+    },
+  };
+  connectPrinter(printer);
 }
 
 /** The provider's own state, captured so a test can seed the log and read the cart. */

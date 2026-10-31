@@ -1,3 +1,4 @@
+import { DEFAULT_RECEIPT } from './receipt';
 import { saleNumberOf } from './saleNumber';
 import type { StoredEvent } from './store';
 import type {
@@ -16,7 +17,7 @@ import type {
  */
 
 export function emptyShop(): Shop {
-  return { kategori: [], produk: [], varian: [], sales: [] };
+  return { kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT };
 }
 
 export function foldEvents(events: readonly LedgerEvent[]): Shop {

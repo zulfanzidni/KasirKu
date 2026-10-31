@@ -15,7 +15,7 @@ import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
 import { openLedger, type Ledger } from './ledger';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
-import type { Shop, Varian } from './types';
+import type { PaymentInput, Shop, Varian } from './types';
 
 /**
  * The app's single connection to the record, plus the one piece of screen
@@ -42,8 +42,12 @@ export interface AppState {
   setLineQty(varianId: string, qty: number): void;
   removeLine(varianId: string): void;
   cancelCart(): void;
-  /** Writes exactly one `sale.completed` and empties the draft. Null when it could not run (already saving, empty nota). */
-  saveSale(): Promise<string | null>;
+  /**
+   * Writes exactly one `sale.completed` for the cart and the payment given.
+   * Null when another save is already running. A successful save empties the
+   * cart, which is what keeps a second tap from ever writing again.
+   */
+  saveSale(payment: PaymentInput): Promise<string | null>;
   forgetLastSale(): void;
 }
 
@@ -173,34 +177,40 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [updateCart],
   );
 
-  const saveSale = useCallback(async () => {
-    // The Bayar button disables itself the instant it is tapped, and this
-    // guard catches a second tap that lands in the same frame.
-    if (savingRef.current) return null;
-    const current = ledgerRef.current;
-    const lines = cartRef.current;
-    if (!current || lines.length === 0) return null;
-    savingRef.current = true;
-    try {
-      // The written sale is the nota the cashier read out, line for line —
-      // price included — never a re-lookup that could have moved since.
-      const sold = lines.reduce((sum, line) => sum + line.jumlah, 0);
-      const saleId = await current.recordSale(
-        lines.map((line) => ({ varianId: line.varianId, qty: line.qty, harga: line.harga, nama: line.nama })),
-        { discount: { kind: 'none' }, tendered: sold },
-      );
-      updateCart(emptyCart());
-      // The draft must be gone from disk before anything else is shown: a
-      // restored cart would otherwise offer to sell the same nota twice.
-      await persistCart(emptyCart());
-      await clearCart(kv);
-      setLastSaleId(saleId);
-      showShop(await current.shop());
-      return saleId;
-    } finally {
-      savingRef.current = false;
-    }
-  }, [kv, persistCart, showShop, updateCart]);
+  const saveSale = useCallback(
+    async (payment: PaymentInput) => {
+      // The save button disables itself the instant it is tapped; this guard
+      // catches a second tap that lands before that render, or during the
+      // write. It is closed before any await.
+      if (savingRef.current) return null;
+      const current = ledgerRef.current;
+      const lines = cartRef.current;
+      if (!current || lines.length === 0) return null;
+      savingRef.current = true;
+      try {
+        // The written sale is the nota the cashier read out, line for line —
+        // price included — never a re-lookup that could have moved since.
+        const saleId = await current.recordSale(
+          lines.map((line) => ({ varianId: line.varianId, qty: line.qty, harga: line.harga, nama: line.nama })),
+          payment,
+        );
+        updateCart(emptyCart());
+        // The draft must be gone from disk before anything else is shown: a
+        // restored cart would otherwise offer to sell the same nota twice.
+        await persistCart(emptyCart());
+        await clearCart(kv);
+        setLastSaleId(saleId);
+        showShop(await current.shop());
+        return saleId;
+      } finally {
+        // Only reached with the cart emptied (successfully, or past the write).
+        // A save that threw before writing reopens the guard, and one that threw
+        // after writing finds an empty cart, so neither can sell twice.
+        savingRef.current = false;
+      }
+    },
+    [kv, persistCart, showShop, updateCart],
+  );
 
   const value: AppState = {
     ready,

@@ -1,4 +1,5 @@
-import { createLedger, type Ledger, type PaymentInput } from './ledger';
+﻿import { createLedger, type Ledger } from './ledger';
+import type { PaymentInput } from './types';
 import { MemoryStore } from './memoryStore';
 import type { Shop } from './types';
 
@@ -7,7 +8,7 @@ import type { Shop } from './types';
  * log, record a sale with a payment, and read the sale back out of the shop.
  *
  * The expected figures are worked by hand from the spec's order of operations
- * (gross → discount → cash rounding → net → tendered → kembalian), not
+ * (gross â†’ discount â†’ cash rounding â†’ net â†’ tendered â†’ kembalian), not
  * recomputed with the app's own arithmetic.
  */
 
@@ -33,12 +34,12 @@ describe('taking cash for a sale', () => {
     const till = await newTill();
     const indomie = await till.varian({ nama: 'Indomie goreng', harga: 3500 });
 
-    // Gross 3 × 3.500 = 10.500, already on the step: nothing to round.
+    // Gross 3 Ã— 3.500 = 10.500, already on the step: nothing to round.
     const exact = await till.sell([{ varianId: indomie, qty: 3 }], { discount: { kind: 'none' }, tendered: 10500 });
     expect(exact.payment?.rounding).toBe(0);
     expect(exact.payment?.net).toBe(10500);
 
-    // Gross 13.350 → pembulatan +150 → net 13.500; 20.000 tendered, kembalian 6.500.
+    // Gross 13.350 â†’ pembulatan +150 â†’ net 13.500; 20.000 tendered, kembalian 6.500.
     const telur = await till.varian({ nama: 'Telur', harga: 4450 });
     const sale = await till.sell([{ varianId: telur, qty: 3 }], { discount: { kind: 'none' }, tendered: 20000 });
 

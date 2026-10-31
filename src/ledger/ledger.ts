@@ -6,7 +6,8 @@ import { createDbLedger, type SqlDatabase } from './dbLedger';
 import { roundLine } from './register';
 import { saleNumber } from './saleNumber';
 import type { LedgerStore, StoredEvent } from './store';
-import type { Shop } from './types';
+import type { PaymentInput, Shop } from './types';
+
 
 /**
  * The real ledger: expo-sqlite on the phone, whatever `SqlDatabase` is passed
@@ -28,19 +29,6 @@ export interface SaleLineInput {
   harga?: number;
   /** The name shown on the nota. */
   nama?: string;
-}
-
-/**
- * What the payment step hands the ledger. The discount is passed as it was
- * typed (rupiah or percent) and settled against the lines' gross inside the
- * draft, so the saved figure is the one the receipt prints.
- */
-export interface PaymentInput {
-  discount: Discount;
-  /** Cash the customer put down. */
-  tendered: number;
-  /** Pembulatan step; omitted means the shop's default of Rp 500. */
-  cashStep?: number;
 }
 
 /**

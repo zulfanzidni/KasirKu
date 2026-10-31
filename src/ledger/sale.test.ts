@@ -1,8 +1,9 @@
-import { createLedger, saleDraft, type PaymentInput, type SaleLineInput } from './ledger';
+﻿import { emptyShop } from './events';
+import { createLedger, saleDraft, type SaleLineInput } from './ledger';
 import { MemoryStore } from './memoryStore';
-import type { Shop, Varian } from './types';
+import type { PaymentInput, Shop, Varian } from './types';
 
-/** A sale rung up without taking cash yet — what these older tests assert about. */
+/** A sale rung up without taking cash yet â€” what these older tests assert about. */
 const tunai: PaymentInput = { discount: { kind: 'none' }, tendered: 0 };
 
 /**
@@ -24,7 +25,7 @@ const varian: Varian = {
 
 describe('writing a sale', () => {
   it('writes one line per varian with the quantity, price the nota carried, and total', () => {
-    const shop: Shop = { kategori: [], produk: [], varian: [varian], sales: [] };
+    const shop: Shop = { ...emptyShop(), varian: [varian] };
 
     expect(
       saleDraft([{ varianId: varian.id, qty: 0.25, harga: 16000, nama: 'Tepung terigu 1 kg' }], shop, tunai),
@@ -55,13 +56,13 @@ describe('writing a sale', () => {
   });
 
   it('falls back to the logged varian when the nota gives no price', () => {
-    const shop: Shop = { kategori: [], produk: [], varian: [varian], sales: [] };
+    const shop: Shop = { ...emptyShop(), varian: [varian] };
 
     expect(saleDraft([{ varianId: varian.id, qty: 3 }], shop, tunai).total).toBe(40500);
   });
 
   it('refuses a line for a varian that is not in the log', () => {
-    const shop: Shop = { kategori: [], produk: [], varian: [], sales: [] };
+    const shop: Shop = emptyShop();
 
     expect(() => saleDraft([{ varianId: 'hilang', qty: 1 }], shop, tunai)).toThrow('Varian hilang tidak ditemukan.');
   });
@@ -70,7 +71,7 @@ describe('writing a sale', () => {
 /**
  * The ledger records what it is given: two calls are two events. Keeping a
  * double tap from becoming two sales is the screen's job, and the screen
- * tests hold it — this pins that the log does not silently merge or drop.
+ * tests hold it â€” this pins that the log does not silently merge or drop.
  */
 describe('two saves handed to the ledger', () => {
   it('record two events rather than merging them', async () => {
