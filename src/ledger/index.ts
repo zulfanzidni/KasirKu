@@ -3,6 +3,16 @@ export { clearCart, loadCart, saveCart, type KeyValue } from './cartStorage';
 export { emptyShop, foldEvents, sumSales } from './events';
 export { openLedger, createLedger, saleDraft, type Ledger, type PaymentInput, type SaleLineInput } from './ledger';
 export { deviceCode, saleNumber, saleNumberOf, dayStamp } from './saleNumber';
+export {
+  DEFAULT_RECEIPT,
+  discountLine,
+  receiptOf,
+  roundingLine,
+  type ReceiptData,
+  type ReceiptHeader,
+  type ReceiptLine,
+  type ReceiptShop,
+} from './receipt';
 export { MemoryStore } from './memoryStore';
 export { produkWithVarian, saleHistory, searchVarian } from './queries';
 export {
