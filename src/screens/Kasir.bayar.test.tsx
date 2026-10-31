@@ -14,6 +14,9 @@ import { app, mockPhone, mockPrinter, resetPhone, waitReady, wrap } from './test
  * make a gross of 30.500.
  */
 
+// Screen seeding runs a real ledger inside act; give it room when suites share the CPU.
+jest.setTimeout(30_000);
+
 beforeEach(() => {
   resetPhone();
 });

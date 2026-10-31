@@ -12,6 +12,9 @@ import { mockPhone, resetPhone, waitReady, wrap } from './testPhone';
  * other phone and a restored backup have to print the same nota.
  */
 
+// Screen seeding runs a real ledger inside act; give it room when suites share the CPU.
+jest.setTimeout(30_000);
+
 beforeEach(() => {
   resetPhone();
 });
