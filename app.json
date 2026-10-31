@@ -7,7 +7,10 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "platforms": ["android", "web"],
+    "platforms": [
+      "android",
+      "web"
+    ],
     "android": {
       "package": "id.kasirku.app",
       "adaptiveIcon": {
@@ -16,7 +19,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true
     },
-    "plugins": ["expo-router", "expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-sqlite",
+      "expo-asset"
+    ],
     "experiments": {
       "typedRoutes": true
     }
