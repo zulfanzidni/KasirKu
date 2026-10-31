@@ -14,8 +14,11 @@ import { receiptOf, type ReceiptData, type ReceiptShop, type Sale } from '@/ledg
 
 export interface ReceiptScreenProps {
   sale: Sale;
-  /** The shop's header and footer from settings; defaults when nothing is set. */
-  shop?: ReceiptShop;
+  /**
+   * The shop's header and footer from settings. Required on purpose: a screen
+   * that forgets it would silently print a nota with the wrong shop name.
+   */
+  shop: ReceiptShop;
   onNewSale: () => void;
   onShare: () => void;
   sharing?: boolean;

@@ -17,7 +17,7 @@ import type {
  */
 
 export function emptyShop(): Shop {
-  return { kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT };
+  return { kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT, receiptAt: null };
 }
 
 export function foldEvents(events: readonly LedgerEvent[]): Shop {
@@ -72,6 +72,15 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
         shop.sales.push(sale);
         break;
       }
+
+      case 'settings.updated':
+        // Last write wins on the moment it was written: an older edit that
+        // syncs late must not undo a newer one the owner already sees.
+        if (shop.receiptAt === null || event.createdAt > shop.receiptAt) {
+          shop.receipt = event.payload.receipt;
+          shop.receiptAt = event.createdAt;
+        }
+        break;
     }
   }
 

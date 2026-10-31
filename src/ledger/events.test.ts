@@ -1,4 +1,5 @@
 import { emptyShop, foldEvents, sumSales, type LedgerEvent } from './events';
+import { DEFAULT_RECEIPT } from './receipt';
 export type { LedgerEvent };
 
 /**
@@ -10,13 +11,7 @@ const ids = { kategori: 'evt-kat', produk: 'evt-prd', varian: 'evt-var' } as con
 
 describe('the ledger as the shop sees it', () => {
   it('starts as an empty shop', () => {
-    expect(emptyShop()).toEqual({
-      kategori: [],
-      produk: [],
-      varian: [],
-      sales: [],
-      receipt: { header: { nama: 'KasirKu', keterangan: '' }, footer: 'Terima kasih sudah berbelanja.' },
-    });
+    expect(emptyShop()).toEqual({ kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT, receiptAt: null });
   });
 
   it('records master data created on the device', () => {

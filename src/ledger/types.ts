@@ -104,13 +104,19 @@ export type VarianUpdated = Event<
 
 export type VarianArchived = Event<'varian.archived', { varianId: string; archived: boolean }>;
 
+/** The shop's own words on a nota. `at` comes from the envelope's `created_at`,
+ * so it resolves per field against edits from the other phone exactly like the
+ * master data above: last write wins, not last arrival. */
+export type SettingsUpdated = Event<'settings.updated', { receipt: ReceiptShop }>;
+
 export type MasterEvent =
   | KategoriCreated
   | ProdukCreated
   | ProdukUpdated
   | VarianCreated
   | VarianUpdated
-  | VarianArchived;
+  | VarianArchived
+  | SettingsUpdated;
 
 // ---------------------------------------------------------------------------
 // Sales
@@ -198,6 +204,8 @@ export interface Shop {
   sales: Sale[];
   /** The nota's header and footer (settings.updated). */
   receipt: ReceiptShop;
+  /** When `receipt` was last written; null while it is still the default. */
+  receiptAt: string | null;
 }
 
 // ---------------------------------------------------------------------------

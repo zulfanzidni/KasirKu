@@ -11,6 +11,7 @@ import {
 import { phoneEnvironment } from './environment';
 import { emptyShop } from './events';
 import { createCatalog, type Catalog } from './catalog';
+import { createSettings, type Settings } from './settings';
 import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
 import { openLedger, type Ledger } from './ledger';
@@ -34,6 +35,8 @@ export interface AppState {
   /** The last sale saved this launch, for the confirmation screen. */
   lastSaleId: string | null;
   catalog: Catalog | null;
+  /** The shop's own words for the nota. Null until the log is open. */
+  settings: Settings | null;
 
   /** Adds one, or says a choice is needed before anything is added. */
   tapItem(varianId: string): TapOutcome;
@@ -151,6 +154,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   }, [kv, showShop]);
 
   const catalog = useMemo(() => (ready ? createCatalog(append) : null), [append, ready]);
+  const settings = useMemo(() => (ready ? createSettings(append) : null), [append, ready]);
 
   const tapItem = useCallback(
     (varianId: string): TapOutcome => {
@@ -220,6 +224,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     cartRestored,
     lastSaleId,
     catalog,
+    settings,
     tapItem,
     addVarian,
     setLineQty: (varianId, qty) => updateCart(setQty(cartRef.current, { varianId }, qty)),

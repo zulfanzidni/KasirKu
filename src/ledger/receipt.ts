@@ -31,7 +31,10 @@ export interface ReceiptShop {
 
 /** What the receipt shows when the owner has set nothing yet. */
 export const DEFAULT_RECEIPT: ReceiptShop = {
-  header: { nama: 'KasirKu', keterangan: '' },
+  header: {
+    nama: 'KasirKu',
+    keterangan: 'Atur nama toko di Pengaturan, Lainnya.',
+  },
   footer: 'Terima kasih sudah berbelanja.',
 };
 

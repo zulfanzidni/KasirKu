@@ -88,6 +88,7 @@ export function KasirScreen() {
       return (
         <ReceiptScreen
           sale={sale}
+          shop={shop.receipt}
           onNewSale={forgetLastSale}
           onShare={() => handleShare(sale)}
           sharing={sharing}
