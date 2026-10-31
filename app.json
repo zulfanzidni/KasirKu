@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "KasirKu",
+    "slug": "kasirku",
+    "scheme": "kasirku",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "platforms": ["android", "web"],
+    "android": {
+      "package": "id.kasirku.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F3EA"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": true
+    },
+    "plugins": ["expo-router", "expo-font"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
