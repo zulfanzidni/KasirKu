@@ -184,7 +184,10 @@ describe('after paying — the nota', () => {
     fireEvent.press(screen.getByTestId('simpan-pembayaran'));
     await act(async () => {});
 
-    fireEvent.press(screen.getByTestId('bagikan-nota'));
+    const bagikan = screen.getByTestId('bagikan-nota');
+    fireEvent.press(bagikan);
+    // A second tap while the share sheet is opening must not write the PDF twice.
+    fireEvent.press(bagikan);
     await act(async () => {});
 
     expect(mockPrinter.printed).toHaveLength(1);

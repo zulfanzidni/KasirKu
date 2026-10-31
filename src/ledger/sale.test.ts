@@ -1,9 +1,9 @@
-﻿import { emptyShop } from './events';
+import { emptyShop } from './events';
 import { createLedger, saleDraft, type SaleLineInput } from './ledger';
 import { MemoryStore } from './memoryStore';
 import type { PaymentInput, Shop, Varian } from './types';
 
-/** A sale rung up without taking cash yet â€” what these older tests assert about. */
+/** A sale rung up without taking cash yet — what these older tests assert about. */
 const tunai: PaymentInput = { discount: { kind: 'none' }, tendered: 0 };
 
 /**
@@ -71,7 +71,7 @@ describe('writing a sale', () => {
 /**
  * The ledger records what it is given: two calls are two events. Keeping a
  * double tap from becoming two sales is the screen's job, and the screen
- * tests hold it â€” this pins that the log does not silently merge or drop.
+ * tests hold it — this pins that the log does not silently merge or drop.
  */
 describe('two saves handed to the ledger', () => {
   it('record two events rather than merging them', async () => {

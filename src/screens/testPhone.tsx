@@ -62,6 +62,7 @@ export function resetPhone() {
     },
     async share(uri, mimeType) {
       mockPrinter.shared.push({ uri, mimeType });
+      await new Promise((resolve) => setTimeout(resolve, 150));
     },
   };
   connectPrinter(printer);
