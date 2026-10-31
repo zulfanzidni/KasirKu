@@ -7,6 +7,10 @@
  * what lets the same fold run on two phones and agree.
  */
 
+import type { Discount, PaymentMethod, SalePayment } from '../design/money';
+
+export type { PaymentMethod, SalePayment } from '../design/money';
+
 /** A unit a varian is counted in. Fixed at creation (GLOSSARY: Satuan). */
 export type Satuan = 'pcs' | 'bungkus' | 'kg' | 'liter' | 'sak';
 
@@ -111,7 +115,24 @@ export interface SaleLine {
   jumlah: number;
 }
 
-export type SaleCompleted = Event<'sale.completed', { lines: SaleLine[]; total: number }>;
+export type SaleCompleted = Event<'sale.completed', SalePayload>;
+
+/**
+ * Everything a sale records besides its lines.
+ *
+ * `total` is the gross — the sum of the rounded line totals, rounded once at
+ * the line — and is what the shop sold, before any discount. What the customer
+ * actually handed over lives in `payment`, whose `net` is the printed receipt
+ * total (gross − discount + pembulatan). `number` is the human-facing sale
+ * number; the event `id` remains the only key.
+ */
+export interface SalePayload {
+  /** Human-facing `YYYYMMDD-<device>-<seq>`. Never a key. */
+  number?: string;
+  lines: SaleLine[];
+  total: number;
+  payment?: SalePayment;
+}
 
 export type LedgerEvent = MasterEvent | SaleCompleted;
 
@@ -149,6 +170,10 @@ export interface Sale {
   createdAt: string;
   lines: SaleLine[];
   total: number;
+  /** `YYYYMMDD-<device>-<seq>`, derived from the log for sales written before numbering existed. */
+  number: string;
+  /** Absent only on a sale written before payment was recorded. */
+  payment: SalePayment | null;
 }
 
 /** The shop as the events say it is. */

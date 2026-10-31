@@ -184,8 +184,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     try {
       // The written sale is the nota the cashier read out, line for line —
       // price included — never a re-lookup that could have moved since.
+      const sold = lines.reduce((sum, line) => sum + line.jumlah, 0);
       const saleId = await current.recordSale(
         lines.map((line) => ({ varianId: line.varianId, qty: line.qty, harga: line.harga, nama: line.nama })),
+        { discount: { kind: 'none' }, tendered: sold },
       );
       updateCart(emptyCart());
       // The draft must be gone from disk before anything else is shown: a

@@ -60,6 +60,9 @@ describe('the ledger as the shop sees it', () => {
         id: 'sale-1',
         createdAt: '2026-10-31T09:15:00.000Z',
         total: 40500,
+        // Written before sales carried a number; the envelope still earns it one.
+        number: '20261031-GAWA-010',
+        payment: null,
         lines: [
           { varianId: ids.varian, nama: 'Tepung terigu 1 kg', satuan: 'kg', qty: 3, harga: 13500, jumlah: 40500 },
         ],

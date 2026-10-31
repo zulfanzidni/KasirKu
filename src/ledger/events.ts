@@ -1,3 +1,5 @@
+import { saleNumberOf } from './saleNumber';
+import type { StoredEvent } from './store';
 import type {
   Kategori,
   LedgerEvent,
@@ -63,6 +65,8 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
           createdAt: event.createdAt,
           lines: event.payload.lines,
           total: event.payload.total,
+          number: saleNumberOf(event as StoredEvent),
+          payment: event.payload.payment ?? null,
         };
         shop.sales.push(sale);
         break;

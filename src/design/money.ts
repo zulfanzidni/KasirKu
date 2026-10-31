@@ -117,6 +117,80 @@ export function computeTotals(input: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// The payment: gross → discount → pembulatan → net → tunai → kembalian
+// ---------------------------------------------------------------------------
+
+/**
+ * How a sale was paid. Only cash exists in v1, but the shape names the method
+ * so a transfer or a QRIS code is a value, not a new payload (ticket 07 adds
+ * split payment and hutang on top of this same field).
+ */
+export type PaymentMethod = 'tunai';
+
+/** The three cash steps the shop can choose between (spec §10e). */
+export const CASH_STEPS: readonly number[] = [100, 500, 1000];
+
+export interface CashPaymentInput {
+  /** Sum of the rounded line totals — what the nota reads before anything else. */
+  gross: number;
+  discount?: Discount;
+  /** Cash the customer put down. */
+  tendered: number;
+  /** Pembulatan step in rupiah; 500 unless the owner chose otherwise. */
+  cashStep?: number;
+  /**
+   * False only for a sale that is not being paid in full cash today. v1 is
+   * cash-only, so every sale through the till rounds.
+   */
+  applyRounding?: boolean;
+}
+
+/**
+ * The payment, written down. `net` is the figure the receipt prints as its
+ * total: gross − discount + pembulatan, so the printed lines add up to it.
+ */
+export interface SalePayment {
+  method: PaymentMethod;
+  discount: number;
+  /** The cash step used, kept so a later reader never re-guesses it. */
+  cashStep: number;
+  /** Signed: +150 when rounded up, −150 when rounded down, 0 when exact. */
+  rounding: number;
+  net: number;
+  tendered: number;
+  /** Never negative. A shortfall is hutang, which ticket 07 builds. */
+  kembalian: number;
+  /** The part of `net` not yet paid. Always 0 in v1. */
+  unpaid: number;
+}
+
+/**
+ * The one place cash is worked out, so the payment step and the saved sale can
+ * never disagree by a rupiah. The order is fixed by the spec: the discount is
+ * taken from the gross, pembulatan is applied to what is left, and kembalian is
+ * *tendered minus that rounded net* — never the other way round.
+ */
+export function settleCash(input: CashPaymentInput): SalePayment {
+  const step = input.cashStep ?? 500;
+  const discount = discountAmount(input.gross, input.discount ?? { kind: 'none' });
+  const afterDiscount = input.gross - discount;
+  const rounding = input.applyRounding === false ? 0 : roundingAdjustment(afterDiscount, step);
+  const net = afterDiscount + rounding;
+  const tendered = Math.max(0, Math.round(input.tendered));
+
+  return {
+    method: 'tunai',
+    discount,
+    cashStep: step,
+    rounding,
+    net,
+    tendered,
+    kembalian: Math.max(0, tendered - net),
+    unpaid: Math.max(0, net - tendered),
+  };
+}
+
 /**
  * Parse a rupiah string a human typed. Accepts "13.500", "13500", "Rp 13.500",
  * and ignores spaces. Returns null when it is not a number, so the field can
