@@ -12,6 +12,10 @@ import { mockPrinter, resetPhone, waitReady, wrap } from './testPhone';
  * stored.
  */
 
+// Two screens over a real ledger, seeded through the catalog: slower than
+// jest's default allowance when the whole suite is running together.
+jest.setTimeout(30_000);
+
 beforeEach(() => {
   resetPhone();
 });

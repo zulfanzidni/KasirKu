@@ -4,19 +4,19 @@ import { shareReceipt } from './receipt';
 import type { Sale } from './types';
 
 /**
- * Handing the customer a nota: the app writes a PDF and gives it to the phone's
- * share sheet. The test reads what was handed over — the document and the
- * share call — because that is what the customer receives.
+ * Handing the customer a nota: the app asks the printer for a file and gives
+ * it to the phone's share sheet. The test reads what was handed over, because
+ * that is what reaches the customer.
  */
 
 describe('sharing the nota of a sale', () => {
-  it('prints a PDF of the sale and hands that file to the share sheet', async () => {
+  it('prints the sale and hands that file to the share sheet', async () => {
     const sale = await sellIndomie();
     const printed: string[] = [];
     const shared: { uri: string; mimeType: string }[] = [];
     const printer = {
-      printToFile: async (html: string) => {
-        printed.push(html);
+      print: async (nota: { number: string }) => {
+        printed.push(nota.number);
         return { uri: 'file:///cache/nota-1.pdf' };
       },
       canShare: async () => true,
@@ -28,40 +28,15 @@ describe('sharing the nota of a sale', () => {
     const result = await shareReceipt(printer, sale);
 
     expect(result).toEqual({ uri: 'file:///cache/nota-1.pdf', shared: true });
-    expect(printed).toHaveLength(1);
+    // The phone was asked to print *this sale's* nota, not some other paper.
+    expect(printed).toEqual([sale.number]);
     expect(shared).toEqual([{ uri: 'file:///cache/nota-1.pdf', mimeType: 'application/pdf' }]);
-  });
-
-  it('puts the lines, the number and the kembalian on the paper it prints', async () => {
-    const sale = await sellIndomie();
-    let paper = '';
-    const printer = {
-      printToFile: async (html: string) => {
-        paper = html;
-        // A document, not an escape sequence: it is the PDF body expo-print gets.
-        expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
-        return { uri: 'file:///cache/nota.pdf' };
-      },
-      canShare: async () => true,
-      share: async () => {},
-    };
-
-    await shareReceipt(printer, sale);
-
-    expect(paper).toContain(sale.number);
-    expect(paper).toContain('Indomie goreng');
-    expect(paper).toContain('×2');
-    expect(paper).toContain('7.000');
-    expect(paper).toContain('Pembulatan');
-    expect(paper).toContain('Kembalian');
-    // 7.000 tendered for a 7.000 sale: nothing back.
-    expect(paper).toContain('Terima kasih sudah berbelanja.');
   });
 
   it('still writes the file when the phone cannot share, and says it was not shared', async () => {
     const sale = await sellIndomie();
     const printer = {
-      printToFile: async () => ({ uri: 'file:///cache/nota.pdf' }),
+      print: async () => ({ uri: 'file:///cache/nota.pdf' }),
       canShare: async () => false,
       share: async () => {
         throw new Error('tidak boleh dipanggil');

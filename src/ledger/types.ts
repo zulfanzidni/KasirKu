@@ -8,7 +8,7 @@
  */
 
 import type { Discount, PaymentMethod, SalePayment } from '../design/money';
-import type { ReceiptShop } from './receipt';
+import type { ReceiptData, ReceiptShop } from './receipt';
 
 export type { PaymentMethod, SalePayment };
 
@@ -218,8 +218,12 @@ export interface Shop {
  * expo-print and expo-sharing; tests replace them to see what was printed.
  */
 export interface Printer {
-  /** Renders the document and returns a path to the file it wrote. */
-  printToFile(html: string): Promise<{ uri: string }>;
+  /**
+   * Renders the nota and returns a path to the file it wrote. It takes the
+   * `ReceiptData`, not markup: a thermal slip later is another `print`, not a
+   * change to the sale flow.
+   */
+  print(nota: ReceiptData): Promise<{ uri: string }>;
   /** Hands the file to Android's own share sheet, so the owner can pick WhatsApp or a files app. */
   share(uri: string, mimeType: string): Promise<void>;
   /** Whether this phone can share at all; a phone that cannot still prints. */

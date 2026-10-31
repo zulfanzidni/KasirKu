@@ -101,7 +101,7 @@ export function computeTotals(input: {
   const subtotal = cartSubtotal(input.lines);
   const discount = discountAmount(subtotal, input.discount ?? { kind: 'none' });
   const net = subtotal - discount;
-  const rounding = input.applyRounding === false ? 0 : roundingAdjustment(net, input.cashStep ?? 500);
+  const rounding = input.applyRounding === false ? 0 : roundingAdjustment(net, input.cashStep ?? DEFAULT_CASH_STEP);
   const due = net + rounding;
   const tendered = Math.max(0, Math.round(input.tendered ?? 0));
 
@@ -128,8 +128,11 @@ export function computeTotals(input: {
  */
 export type PaymentMethod = 'tunai';
 
-/** The three cash steps the shop can choose between (spec §10e). */
+/** The cash steps the shop can choose between (spec §10e). */
 export const CASH_STEPS: readonly number[] = [100, 500, 1000];
+
+/** The step every sale is rounded to unless the owner's shop says otherwise. */
+export const DEFAULT_CASH_STEP = 500;
 
 export interface CashPaymentInput {
   /** Sum of the rounded line totals — what the nota reads before anything else. */
@@ -172,7 +175,7 @@ export interface SalePayment {
  * *tendered minus that rounded net* — never the other way round.
  */
 export function settleCash(input: CashPaymentInput): SalePayment {
-  const step = input.cashStep ?? 500;
+  const step = input.cashStep ?? DEFAULT_CASH_STEP;
   const discount = discountAmount(input.gross, input.discount ?? { kind: 'none' });
   const afterDiscount = input.gross - discount;
   const rounding = input.applyRounding === false ? 0 : roundingAdjustment(afterDiscount, step);

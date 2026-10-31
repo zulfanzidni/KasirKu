@@ -1,6 +1,7 @@
 import { createLedger, type Ledger } from './ledger';
 import { MemoryStore } from './memoryStore';
 import { receiptOf, shareReceipt } from './receipt';
+import { receiptHtml } from './receiptHtml';
 import type { Sale } from './types';
 
 /**
@@ -45,8 +46,8 @@ describe('the nota in the owner’s words', () => {
     const shop = await till.ledger.shop();
     await shareReceipt(
       {
-        printToFile: async (html: string) => {
-          paper = html;
+        print: async (nota) => {
+          paper = receiptHtml(nota);
           return { uri: 'file:///cache/nota.pdf' };
         },
         canShare: async () => true,

@@ -33,6 +33,7 @@ export {
   computeTotals,
   settleCash,
   CASH_STEPS,
+  DEFAULT_CASH_STEP,
   parseRupiah,
   parseQty,
   formatQty,

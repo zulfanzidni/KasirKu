@@ -9,7 +9,7 @@ import type { Printer } from './types';
  */
 export const printer: { current: Printer } = {
   current: {
-    printToFile: async () => {
+    print: async () => {
       throw new Error('Pencetak nota belum disambungkan.');
     },
     share: async () => {},

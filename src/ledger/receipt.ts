@@ -12,7 +12,6 @@
  */
 
 import { formatQty, formatRupiah } from '../design/money';
-import { receiptHtml } from './receiptHtml';
 import type { Printer, Sale } from './types';
 
 /** Who the nota is from, in the owner's own words (settings.updated). */
@@ -119,7 +118,7 @@ export async function shareReceipt(
   sale: Sale,
   shop: ReceiptShop = DEFAULT_RECEIPT,
 ): Promise<{ uri: string; shared: boolean }> {
-  const { uri } = await printer.printToFile(receiptHtml(receiptOf(sale, shop)));
+  const { uri } = await printer.print(receiptOf(sale, shop));
   if (!(await printer.canShare())) return { uri, shared: false };
   await printer.share(uri, 'application/pdf');
   return { uri, shared: true };

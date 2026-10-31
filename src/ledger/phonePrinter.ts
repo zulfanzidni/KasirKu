@@ -6,11 +6,14 @@
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { receiptHtml } from './receiptHtml';
 import type { Printer } from './types';
 
 export const phonePrinter: Printer = {
-  async printToFile(html) {
-    const { uri } = await Print.printToFileAsync({ html, base64: false });
+  async print(nota) {
+    // The PDF is drawn from the same `ReceiptData` the screen shows, so the
+    // paper and the screen can never disagree.
+    const { uri } = await Print.printToFileAsync({ html: receiptHtml(nota), base64: false });
     return { uri };
   },
 

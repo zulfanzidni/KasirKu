@@ -1,5 +1,6 @@
 import { connectPhone, type PhoneEnvironment } from '@/ledger/environment';
 import { connectPrinter } from '@/ledger/printer';
+import { receiptHtml } from '@/ledger/receiptHtml';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 import { LedgerProvider, useApp, type AppState } from '@/ledger/useLedger';
@@ -53,8 +54,10 @@ export function resetPhone() {
   connectPhone(env);
 
   const printer: Printer = {
-    async printToFile(html) {
-      mockPrinter.printed.push(html);
+    async print(nota) {
+      // The same paper the phone would write, rendered here so a test can read
+      // the PDF's figures instead of trusting the screen.
+      mockPrinter.printed.push(receiptHtml(nota));
       return { uri: `file:///cache/nota-${mockPrinter.printed.length}.pdf` };
     },
     async canShare() {
