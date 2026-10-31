@@ -20,7 +20,7 @@ describe('a sale survives the app closing', () => {
       harga: 13500,
     });
 
-    const saleId = await before.recordSale([{ varianId, qty: 3 }]);
+    const saleId = await before.recordSale([{ varianId, qty: 3 }], { discount: { kind: 'none' }, tendered: 40500 });
 
     const reopened = createLedger(disk, 'gawai-1');
     const shop = await reopened.shop();

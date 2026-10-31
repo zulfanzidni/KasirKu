@@ -101,7 +101,7 @@ export function computeTotals(input: {
   const subtotal = cartSubtotal(input.lines);
   const discount = discountAmount(subtotal, input.discount ?? { kind: 'none' });
   const net = subtotal - discount;
-  const rounding = input.applyRounding === false ? 0 : roundingAdjustment(net, input.cashStep ?? 500);
+  const rounding = input.applyRounding === false ? 0 : roundingAdjustment(net, input.cashStep ?? DEFAULT_CASH_STEP);
   const due = net + rounding;
   const tendered = Math.max(0, Math.round(input.tendered ?? 0));
 
@@ -114,6 +114,83 @@ export function computeTotals(input: {
     tendered,
     kembalian: Math.max(0, tendered - due),
     hutang: Math.max(0, due - tendered),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The payment: gross → discount → pembulatan → net → tunai → kembalian
+// ---------------------------------------------------------------------------
+
+/**
+ * How a sale was paid. Only cash exists in v1, but the shape names the method
+ * so a transfer or a QRIS code is a value, not a new payload (ticket 07 adds
+ * split payment and hutang on top of this same field).
+ */
+export type PaymentMethod = 'tunai';
+
+/** The cash steps the shop can choose between (spec §10e). */
+export const CASH_STEPS: readonly number[] = [100, 500, 1000];
+
+/** The step every sale is rounded to unless the owner's shop says otherwise. */
+export const DEFAULT_CASH_STEP = 500;
+
+export interface CashPaymentInput {
+  /** Sum of the rounded line totals — what the nota reads before anything else. */
+  gross: number;
+  discount?: Discount;
+  /** Cash the customer put down. */
+  tendered: number;
+  /** Pembulatan step in rupiah; 500 unless the owner chose otherwise. */
+  cashStep?: number;
+  /**
+   * False only for a sale that is not being paid in full cash today. v1 is
+   * cash-only, so every sale through the till rounds.
+   */
+  applyRounding?: boolean;
+}
+
+/**
+ * The payment, written down. `net` is the figure the receipt prints as its
+ * total: gross − discount + pembulatan, so the printed lines add up to it.
+ */
+export interface SalePayment {
+  method: PaymentMethod;
+  discount: number;
+  /** The cash step used, kept so a later reader never re-guesses it. */
+  cashStep: number;
+  /** Signed: +150 when rounded up, −150 when rounded down, 0 when exact. */
+  rounding: number;
+  net: number;
+  tendered: number;
+  /** Never negative. A shortfall is hutang, which ticket 07 builds. */
+  kembalian: number;
+  /** The part of `net` not yet paid. Always 0 in v1. */
+  unpaid: number;
+}
+
+/**
+ * The one place cash is worked out, so the payment step and the saved sale can
+ * never disagree by a rupiah. The order is fixed by the spec: the discount is
+ * taken from the gross, pembulatan is applied to what is left, and kembalian is
+ * *tendered minus that rounded net* — never the other way round.
+ */
+export function settleCash(input: CashPaymentInput): SalePayment {
+  const step = input.cashStep ?? DEFAULT_CASH_STEP;
+  const discount = discountAmount(input.gross, input.discount ?? { kind: 'none' });
+  const afterDiscount = input.gross - discount;
+  const rounding = input.applyRounding === false ? 0 : roundingAdjustment(afterDiscount, step);
+  const net = afterDiscount + rounding;
+  const tendered = Math.max(0, Math.round(input.tendered));
+
+  return {
+    method: 'tunai',
+    discount,
+    cashStep: step,
+    rounding,
+    net,
+    tendered,
+    kembalian: Math.max(0, tendered - net),
+    unpaid: Math.max(0, net - tendered),
   };
 }
 

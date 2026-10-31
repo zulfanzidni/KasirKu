@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/ledger/useLedger';
-import { Note, colors, space } from '@/design';
+import { AppText, Note, colors, space } from '@/design';
 import { TabBar, type TabItem } from '@/design/components/TabBar';
 import { KasirScreen } from '@/screens/Kasir';
+import { PengaturanScreen } from '@/screens/Pengaturan';
 import { StokScreen } from '@/screens/Stok';
 
 /**
@@ -40,8 +41,16 @@ export function Shell() {
           </View>
         ) : null}
         {!error && tab === 'lain' ? (
-          <View style={styles.center}>
-            <Note>Riwayat, laporan dan pengaturan menyusul.</Note>
+          <View style={styles.lainScreen}>
+            <View style={styles.lainHeader}>
+              <AppText typeRole="headlineSmall" tone="primary">
+                Lainnya
+              </AppText>
+              <AppText typeRole="labelSmall" tone="muted">
+                Riwayat dan laporan menyusul
+              </AppText>
+            </View>
+            <PengaturanScreen />
           </View>
         ) : null}
       </View>
@@ -54,4 +63,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   body: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: space.gutter },
+  lainScreen: { flex: 1 },
+  lainHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.gutter,
+    paddingTop: space.lg,
+    paddingBottom: space.sm,
+  },
 });

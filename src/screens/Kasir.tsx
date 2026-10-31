@@ -11,12 +11,15 @@ import {
   space,
   typography,
 } from '@/design';
-import { teks, type Varian } from '@/ledger';
+import { teks, type PaymentInput, type Sale, type Varian } from '@/ledger';
+import { shareReceipt } from '@/ledger/receipt';
+import { printer } from '@/ledger/printer';
 import { useApp, type TapOutcome } from '@/ledger/useLedger';
 import { searchVarian } from '@/ledger/queries';
 import { NotaSheet } from '@/screens/Nota';
 import { ChoiceSheet } from '@/screens/ChoiceSheet';
-import { ConfirmationScreen } from '@/screens/Confirmation';
+import { PaymentStep } from '@/screens/PaymentStep';
+import { ReceiptScreen } from '@/screens/Receipt';
 
 /**
  * Kasir — the sell screen.
@@ -30,8 +33,11 @@ export function KasirScreen() {
     useApp();
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState<Extract<TapOutcome, { kind: 'chooseVariant' | 'chooseWeight' }> | null>(null);
+  const [paying, setPaying] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
   const varian = useMemo(() => searchVarian(shop.varian.filter((entry) => !entry.archived), query), [shop.varian, query]);
@@ -41,13 +47,19 @@ export function KasirScreen() {
     if (outcome.kind === 'chooseVariant' || outcome.kind === 'chooseWeight') setChoice(outcome);
   }
 
-  function handleSave() {
+  /**
+   * The one save path. `setSaving` runs synchronously inside the press, so the
+   * button below is disabled on the very next render; `saving` also guards
+   * this closure, so a second press in the same tick cannot start a second save.
+   */
+  function handleSave(payment: PaymentInput) {
     if (saving) return;
-    setSaveError(null);
     setSaving(true);
-    saveSale()
+    setSaveError(null);
+    saveSale(payment)
       .then((saleId) => {
-        // Nothing to do on success: the confirmation replaces this screen.
+        // Success replaces this screen with the receipt; a refusal (an empty
+        // cart, or another save already running) hands the button back.
         if (!saleId) setSaving(false);
       })
       .catch((cause: unknown) => {
@@ -56,11 +68,46 @@ export function KasirScreen() {
       });
   }
 
+  /**
+   * Writes the nota to a PDF and opens the share sheet. The sale is already
+   * saved, so a failed share loses nothing but the paper: it says so and
+   * leaves the nota on screen to try again.
+   */
+  function handleShare(sale: Sale) {
+    if (sharing) return;
+    setSharing(true);
+    setShareError(null);
+    shareReceipt(printer.current, sale, shop.receipt)
+      .catch((cause: unknown) => setShareError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setSharing(false));
+  }
+
   if (lastSaleId) {
     const sale = shop.sales.find((entry) => entry.id === lastSaleId);
     if (sale) {
-      return <ConfirmationScreen sale={sale} onNewSale={forgetLastSale} />;
+      return (
+        <ReceiptScreen
+          sale={sale}
+          shop={shop.receipt}
+          onNewSale={forgetLastSale}
+          onShare={() => handleShare(sale)}
+          sharing={sharing}
+          shareError={shareError}
+        />
+      );
     }
+  }
+
+  if (paying) {
+    return (
+      <PaymentStep
+        cart={cart}
+        saving={saving}
+        error={saveError}
+        onBack={() => setPaying(false)}
+        onPay={handleSave}
+      />
+    );
   }
 
   return (
@@ -127,7 +174,7 @@ export function KasirScreen() {
         onSetQty={setLineQty}
         onRemove={removeLine}
         onCancel={cancelCart}
-        onSave={handleSave}
+        onSave={() => setPaying(true)}
         saving={saving}
       />
 

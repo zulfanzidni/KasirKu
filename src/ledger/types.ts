@@ -7,6 +7,24 @@
  * what lets the same fold run on two phones and agree.
  */
 
+import type { Discount, PaymentMethod, SalePayment } from '../design/money';
+import type { ReceiptData, ReceiptShop } from './receipt';
+
+export type { PaymentMethod, SalePayment };
+
+/**
+ * What the payment step hands the ledger. The discount is passed as it was
+ * typed (rupiah or percent) and settled against the lines' gross inside the
+ * draft, so the saved figure is the one the receipt prints.
+ */
+export interface PaymentInput {
+  discount: Discount;
+  /** Cash the customer put down. */
+  tendered: number;
+  /** Pembulatan step; omitted means the shop's default of Rp 500. */
+  cashStep?: number;
+}
+
 /** A unit a varian is counted in. Fixed at creation (GLOSSARY: Satuan). */
 export type Satuan = 'pcs' | 'bungkus' | 'kg' | 'liter' | 'sak';
 
@@ -86,13 +104,19 @@ export type VarianUpdated = Event<
 
 export type VarianArchived = Event<'varian.archived', { varianId: string; archived: boolean }>;
 
+/** The shop's own words on a nota. `at` comes from the envelope's `created_at`,
+ * so it resolves per field against edits from the other phone exactly like the
+ * master data above: last write wins, not last arrival. */
+export type SettingsUpdated = Event<'settings.updated', { receipt: ReceiptShop }>;
+
 export type MasterEvent =
   | KategoriCreated
   | ProdukCreated
   | ProdukUpdated
   | VarianCreated
   | VarianUpdated
-  | VarianArchived;
+  | VarianArchived
+  | SettingsUpdated;
 
 // ---------------------------------------------------------------------------
 // Sales
@@ -111,7 +135,24 @@ export interface SaleLine {
   jumlah: number;
 }
 
-export type SaleCompleted = Event<'sale.completed', { lines: SaleLine[]; total: number }>;
+export type SaleCompleted = Event<'sale.completed', SalePayload>;
+
+/**
+ * Everything a sale records besides its lines.
+ *
+ * `total` is the gross — the sum of the rounded line totals, rounded once at
+ * the line — and is what the shop sold, before any discount. What the customer
+ * actually handed over lives in `payment`, whose `net` is the printed receipt
+ * total (gross − discount + pembulatan). `number` is the human-facing sale
+ * number; the event `id` remains the only key.
+ */
+export interface SalePayload {
+  /** Human-facing `YYYYMMDD-<device>-<seq>`. Never a key. */
+  number?: string;
+  lines: SaleLine[];
+  total: number;
+  payment?: SalePayment;
+}
 
 export type LedgerEvent = MasterEvent | SaleCompleted;
 
@@ -149,6 +190,10 @@ export interface Sale {
   createdAt: string;
   lines: SaleLine[];
   total: number;
+  /** `YYYYMMDD-<device>-<seq>`, derived from the log for sales written before numbering existed. */
+  number: string;
+  /** Absent only on a sale written before payment was recorded. */
+  payment: SalePayment | null;
 }
 
 /** The shop as the events say it is. */
@@ -157,4 +202,30 @@ export interface Shop {
   produk: Produk[];
   varian: Varian[];
   sales: Sale[];
+  /** The nota's header and footer (settings.updated). */
+  receipt: ReceiptShop;
+  /** When `receipt` was last written; null while it is still the default. */
+  receiptAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Receipt printing
+// ---------------------------------------------------------------------------
+
+/**
+ * What the app can do with the phone that renders and shares paper. Both
+ * methods are set by the app entry, which is the one place that imports
+ * expo-print and expo-sharing; tests replace them to see what was printed.
+ */
+export interface Printer {
+  /**
+   * Renders the nota and returns a path to the file it wrote. It takes the
+   * `ReceiptData`, not markup: a thermal slip later is another `print`, not a
+   * change to the sale flow.
+   */
+  print(nota: ReceiptData): Promise<{ uri: string }>;
+  /** Hands the file to Android's own share sheet, so the owner can pick WhatsApp or a files app. */
+  share(uri: string, mimeType: string): Promise<void>;
+  /** Whether this phone can share at all; a phone that cannot still prints. */
+  canShare(): Promise<boolean>;
 }

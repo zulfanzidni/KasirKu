@@ -176,7 +176,7 @@ describe('Kasir', () => {
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
 
-    fireEvent.press(screen.getByTestId('simpan-penjualan'));
+    await pay();
     await act(async () => {});
 
     expect(screen.getByText('Tersimpan')).toBeTruthy();
@@ -185,14 +185,15 @@ describe('Kasir', () => {
     expect(shop.sales[0].total).toBe(7000);
   });
 
-  it('records exactly one sale when Bayar is tapped twice in one frame', async () => {
+  it('records exactly one sale when Simpan & nota is tapped twice quickly', async () => {
     const varianId = await seedIndomie();
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
 
-    const pay = screen.getByTestId('simpan-penjualan');
+    await offerPayment();
+    const simpan = screen.getByTestId('simpan-pembayaran');
     // Two taps before the first save resolves: the guard, not the render, must stop the second.
-    fireEvent.press(pay);
-    fireEvent.press(pay);
+    fireEvent.press(simpan);
+    fireEvent.press(simpan);
     await act(async () => {});
 
     expect((await phoneShop()).sales).toHaveLength(1);
@@ -203,7 +204,7 @@ describe('Kasir', () => {
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
 
-    fireEvent.press(screen.getByTestId('simpan-penjualan'));
+    await pay();
     await act(async () => {});
 
     const sale = (await phoneShop()).sales[0];
@@ -216,7 +217,7 @@ describe('Kasir', () => {
   it('still finds the sale after the app is closed and reopened', async () => {
     const varianId = await seedIndomie();
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
-    fireEvent.press(screen.getByTestId('simpan-penjualan'));
+    await pay();
     await act(async () => {});
     expect((await phoneShop()).sales).toHaveLength(1);
 
@@ -244,13 +245,36 @@ describe('Kasir', () => {
     const varianId = await seedIndomie();
     for (let i = 0; i < 3; i += 1) fireEvent.press(screen.getByTestId(`grid-${varianId}`));
 
-    fireEvent.press(screen.getByTestId('simpan-penjualan'));
+    await pay();
     await act(async () => {});
 
     expect(screen.getByText('Tersimpan')).toBeTruthy();
     expect((await phoneShop()).sales[0].lines[0].qty).toBe(3);
   });
 });
+
+/** Bayar opens the payment step; nothing is written until the money is in. */
+async function offerPayment() {
+  fireEvent.press(screen.getByTestId('simpan-penjualan'));
+  await act(async () => {});
+  fillTunai();
+}
+
+/**
+ * Money on the counter: the owner typing the cash in the payment step. The
+ * field defaults to nothing, so an empty field is an unpaid sale, which the
+ * step refuses to save.
+ */
+function fillTunai() {
+  fireEvent(screen.getByTestId('uang-diterima'), 'changeText', '1.000.000');
+}
+
+/** The whole way the owner saves a sale: Bayar, then Simpan & nota. */
+async function pay() {
+  await offerPayment();
+  fireEvent.press(screen.getByTestId('simpan-pembayaran'));
+  await act(async () => {});
+}
 
 /** The shop read from the phone's storage by a fresh reader, not by the screen. */
 async function phoneShop(): Promise<Shop> {

@@ -1,9 +1,13 @@
+import type { Discount } from '@/design';
+import { settleCash } from '@/design';
 import { newDeviceId } from './deviceId';
 import { foldEvents } from './events';
 import { createDbLedger, type SqlDatabase } from './dbLedger';
 import { roundLine } from './register';
+import { saleNumber } from './saleNumber';
 import type { LedgerStore, StoredEvent } from './store';
-import type { Shop } from './types';
+import type { PaymentInput, Shop } from './types';
+
 
 /**
  * The real ledger: expo-sqlite on the phone, whatever `SqlDatabase` is passed
@@ -12,8 +16,8 @@ import type { Shop } from './types';
 export interface Ledger {
   deviceId: string;
   shop(): Promise<Shop>;
-  /** Records one sale as one event. Returns the sale's id. */
-  recordSale(lines: SaleLineInput[]): Promise<string>;
+  /** Records one sale, with what was paid, as one event. Returns the sale's id. */
+  recordSale(lines: SaleLineInput[], payment: PaymentInput): Promise<string>;
   /** Escape hatch for tests and the next tickets; appends raw event types. */
   append(type: string, payload: unknown): Promise<string>;
 }
@@ -31,8 +35,12 @@ export interface SaleLineInput {
  * The sale as it will be written: names, units and prices frozen at the
  * moment of saving, so the receipt can never disagree with the total beside
  * it — and a later price change cannot rewrite it (spec §8).
+ *
+ * The payment is settled here, from the lines' own gross, so the stored
+ * discount, pembulatan, net and kembalian are the ones a reader can re-derive
+ * from the lines beside them.
  */
-export function saleDraft(lines: SaleLineInput[], shop: Shop) {
+export function saleDraft(lines: SaleLineInput[], shop: Shop, payment: PaymentInput) {
   const written = lines.map((line) => {
     const varian = shop.varian.find((entry) => entry.id === line.varianId);
     if (!varian) throw new Error(`Varian ${line.varianId} tidak ditemukan.`);
@@ -47,7 +55,14 @@ export function saleDraft(lines: SaleLineInput[], shop: Shop) {
       jumlah: roundLine(harga, line.qty),
     };
   });
-  return { lines: written, total: written.reduce((sum, line) => sum + line.jumlah, 0) };
+  const total = written.reduce((sum, line) => sum + line.jumlah, 0);
+  const settled = settleCash({
+    gross: total,
+    discount: payment.discount,
+    tendered: payment.tendered,
+    cashStep: payment.cashStep,
+  });
+  return { lines: written, total, payment: settled };
 }
 
 export function createLedger(store: LedgerStore, deviceId: string = newDeviceId()): Ledger {
@@ -64,8 +79,25 @@ export function createLedger(store: LedgerStore, deviceId: string = newDeviceId(
     async shop() {
       return foldEvents(await store.readAll());
     },
-    async recordSale(input: SaleLineInput[]) {
-      return append('sale.completed', saleDraft(input, foldEvents(await store.readAll())));
+    async recordSale(input: SaleLineInput[], payment: PaymentInput) {
+      const draft = saleDraft(input, foldEvents(await store.readAll()), payment);
+      // Identity, number and payment are written by one append: the number on
+      // the receipt and the figures beside it can never come from two saves.
+      // One clock read, so the number can never straddle midnight away from
+      // the time stamped on its own event.
+      const at = new Date();
+      const { id, seq } = await store.nextIdentity();
+      await store.append([
+        {
+          id,
+          seq,
+          deviceId,
+          createdAt: at.toISOString(),
+          type: 'sale.completed',
+          payload: { number: saleNumber(at.toISOString(), deviceId, seq), ...draft },
+        } as StoredEvent,
+      ]);
+      return id;
     },
     append,
   };

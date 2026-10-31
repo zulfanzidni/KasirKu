@@ -74,7 +74,7 @@ describe('the ledger on the phone', () => {
       jualBy: 'weight',
       harga: 13500,
     });
-    await before.recordSale([{ varianId, qty: 3 }]);
+    await before.recordSale([{ varianId, qty: 3 }], { discount: { kind: 'none' }, tendered: 40500 });
 
     const reopened = createLedger(await open(), 'gawai-1');
 

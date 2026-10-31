@@ -1,3 +1,6 @@
+import { DEFAULT_RECEIPT } from './receipt';
+import { saleNumberOf } from './saleNumber';
+import type { StoredEvent } from './store';
 import type {
   Kategori,
   LedgerEvent,
@@ -14,7 +17,7 @@ import type {
  */
 
 export function emptyShop(): Shop {
-  return { kategori: [], produk: [], varian: [], sales: [] };
+  return { kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT, receiptAt: null };
 }
 
 export function foldEvents(events: readonly LedgerEvent[]): Shop {
@@ -63,10 +66,21 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
           createdAt: event.createdAt,
           lines: event.payload.lines,
           total: event.payload.total,
+          number: saleNumberOf(event as StoredEvent),
+          payment: event.payload.payment ?? null,
         };
         shop.sales.push(sale);
         break;
       }
+
+      case 'settings.updated':
+        // Last write wins on the moment it was written: an older edit that
+        // syncs late must not undo a newer one the owner already sees.
+        if (shop.receiptAt === null || event.createdAt > shop.receiptAt) {
+          shop.receipt = event.payload.receipt;
+          shop.receiptAt = event.createdAt;
+        }
+        break;
     }
   }
 

@@ -1,7 +1,20 @@
 export { createCatalog, CatalogError, type Catalog, type VarianInput } from './catalog';
 export { clearCart, loadCart, saveCart, type KeyValue } from './cartStorage';
 export { emptyShop, foldEvents, sumSales } from './events';
-export { openLedger, createLedger, type Ledger, type SaleLineInput } from './ledger';
+export { openLedger, createLedger, saleDraft, type Ledger, type SaleLineInput } from './ledger';
+export { deviceCode, saleNumber, saleNumberOf, dayStamp } from './saleNumber';
+export {
+  DEFAULT_RECEIPT,
+  discountLine,
+  receiptOf,
+  roundingLine,
+  shareReceipt,
+  type ReceiptData,
+  type ReceiptHeader,
+  type ReceiptLine,
+  type ReceiptShop,
+} from './receipt';
+export { connectPrinter, printer } from './printer';
 export { MemoryStore } from './memoryStore';
 export { produkWithVarian, saleHistory, searchVarian } from './queries';
 export {
@@ -21,9 +34,13 @@ export type {
   JualBy,
   Kategori,
   LedgerEvent,
+  PaymentInput,
+  PaymentMethod,
+  Printer,
   Produk,
   Sale,
   SaleLine,
+  SalePayment,
   Satuan,
   Shop,
   Varian,
