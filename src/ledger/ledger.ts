@@ -5,8 +5,9 @@ import { foldEvents } from './events';
 import { createDbLedger, type SqlDatabase } from './dbLedger';
 import { roundLine } from './register';
 import { saleNumber } from './saleNumber';
+import { correctionDelta, stockOf } from './stock';
 import type { LedgerStore, StoredEvent } from './store';
-import type { PaymentInput, Shop } from './types';
+import type { LedgerEvent, PaymentInput, Shop } from './types';
 
 
 /**
@@ -16,10 +17,44 @@ import type { PaymentInput, Shop } from './types';
 export interface Ledger {
   deviceId: string;
   shop(): Promise<Shop>;
+  /** The raw log, oldest first. Stock, and anything else per-event, folds this. */
+  events(): Promise<LedgerEvent[]>;
   /** Records one sale, with what was paid, as one event. Returns the sale's id. */
   recordSale(lines: SaleLineInput[], payment: PaymentInput): Promise<string>;
+  /**
+   * Brings the app back to the shelf: the owner types what they counted, with
+   * a reason, and one `stock.adjusted` records the delta from what the app
+   * believed — never the absolute number. Returns the event's id.
+   */
+  adjustStock(input: StockCorrection): Promise<string>;
   /** Escape hatch for tests and the next tickets; appends raw event types. */
   append(type: string, payload: unknown): Promise<string>;
+}
+
+/** What the correction form hands the ledger: the counted number and why. */
+export interface StockCorrection {
+  varianId: string;
+  /** What is actually on the shelf, as the owner counted it. */
+  counted: number;
+  /** The owner's own words. Required: a correction with no reason is a silent guess. */
+  reason: string;
+}
+
+/** A quantity the log can carry: a finite number, not negative, in quarters of a unit. */
+function checkCounted(counted: number): void {
+  if (!Number.isFinite(counted) || counted < 0) {
+    throw new StockError('Jumlah stok harus angka 0 atau lebih.');
+  }
+  if (Math.abs(counted * 4 - Math.round(counted * 4)) > 1e-9) {
+    throw new StockError('Jumlah stok harus kelipatan 1/4.');
+  }
+}
+
+export class StockError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StockError';
+  }
 }
 
 export interface SaleLineInput {
@@ -78,6 +113,31 @@ export function createLedger(store: LedgerStore, deviceId: string = newDeviceId(
     deviceId,
     async shop() {
       return foldEvents(await store.readAll());
+    },
+    async events() {
+      return (await store.readAll()) as LedgerEvent[];
+    },
+    async adjustStock(input) {
+      const reason = input.reason.trim();
+      if (!reason) throw new StockError('Alasan hitung ulang wajib diisi.');
+      checkCounted(input.counted);
+      const events = (await store.readAll()) as LedgerEvent[];
+      if (!foldEvents(events).varian.some((varian) => varian.id === input.varianId)) {
+        throw new StockError('Varian tidak ditemukan.');
+      }
+      const delta = correctionDelta(stockOf(events, input.varianId).stock, input.counted);
+      const { id, seq } = await store.nextIdentity();
+      await store.append([
+        {
+          id,
+          seq,
+          deviceId,
+          createdAt: new Date().toISOString(),
+          type: 'stock.adjusted',
+          payload: { varianId: input.varianId, delta, reason },
+        } as StoredEvent,
+      ]);
+      return id;
     },
     async recordSale(input: SaleLineInput[], payment: PaymentInput) {
       const draft = saleDraft(input, foldEvents(await store.readAll()), payment);

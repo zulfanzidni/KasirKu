@@ -56,7 +56,9 @@ export function KasirScreen() {
     if (saving) return;
     setSaving(true);
     setSaveError(null);
-    saveSale(payment)
+    // A null (another save in flight) never reaches here — `saving` above
+    // refuses it — but the type says so, and a refusal must hand the button back.
+    Promise.resolve(saveSale(payment))
       .then((saleId) => {
         // Success replaces this screen with the receipt; a refusal (an empty
         // cart, or another save already running) hands the button back.

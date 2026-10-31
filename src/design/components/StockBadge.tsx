@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
 import { colors, space } from '../tokens';
+import { formatQty } from '../money';
 
 type Status = 'unknown' | 'out' | 'low' | 'ok' | 'negative';
 
@@ -45,7 +46,7 @@ export function StockBadge({ qty, minimum, testID }: StockBadgeProps) {
   return (
     <View testID={testID} style={styles.wrap} accessibilityLabel={describe(qty, status)}>
       <AppText typeRole="numericMedium" tone={config.tone} align="right">
-        {qty === null ? '—' : qty.toString().replace('.', ',')}
+        {qty === null ? '—' : formatQty(qty)}
       </AppText>
       {config.label ? (
         <AppText typeRole="labelSmall" tone={config.tone} style={styles.label}>

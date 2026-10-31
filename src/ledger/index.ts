@@ -16,7 +16,21 @@ export {
 } from './receipt';
 export { connectPrinter, printer } from './printer';
 export { MemoryStore } from './memoryStore';
-export { produkWithVarian, saleHistory, searchVarian } from './queries';
+export {
+  gridVarian,
+  isLow,
+  lowStock,
+  produkWithVarian,
+  saleHistory,
+  searchVarian,
+  sortStock,
+  stockByVariant,
+  stockHistory,
+  stockOnHand,
+  type StockSource,
+} from './queries';
+export { correctionDelta, normaliseQty, stockOf, stockRows, type StockMovement, type StockRow } from './stock';
+export { StockError, type StockCorrection } from './ledger';
 export {
   addToCart,
   cartTotal,
@@ -43,6 +57,8 @@ export type {
   SalePayment,
   Satuan,
   Shop,
+  StockAdjusted,
+  StockState,
   Varian,
 } from './types';
 export { useApp, LedgerProvider, type AppState } from './useLedger';
