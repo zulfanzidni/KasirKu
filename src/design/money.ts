@@ -217,7 +217,11 @@ export function parseQty(input: string): number | null {
   return Number(cleaned);
 }
 
-/** Format a quantity without trailing zeros: 2 → "2", 0.25 → "0,25". */
+/**
+ * Format a quantity without trailing zeros: 2 → "2", 0.25 → "0,25".
+ * A negative quantity uses the same minus sign as money (−), so a count of −1
+ * and a debt of −Rp 1.000 read with one ink and one glyph.
+ */
 export function formatQty(qty: number): string {
-  return qty.toString().replace('.', ',');
+  return (qty < 0 ? '−' : '') + Math.abs(qty).toString().replace('.', ',');
 }

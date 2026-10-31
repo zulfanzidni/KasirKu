@@ -190,11 +190,35 @@ describe('Kasir', () => {
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
 
     await offerPayment();
-    const simpan = screen.getByTestId('simpan-pembayaran');
-    // Two taps before the first save resolves: the guard, not the render, must stop the second.
-    fireEvent.press(simpan);
-    fireEvent.press(simpan);
+    const before = (await phoneShop()).sales.length;
+    fireEvent.press(screen.getByTestId('simpan-pembayaran'));
+    // Let the first press render. The button must be out of reach now — the
+    // render, not a fired event, is what stops the second tap here.
     await act(async () => {});
+    // Either the save is still running (button disabled and saying so) or it
+    // has finished — never a second sale either way.
+    const simpan = screen.queryByTestId('simpan-pembayaran');
+    if (simpan) {
+      expect(simpan.props.accessibilityState).toMatchObject({ disabled: true });
+      expect(screen.getByText('Menyimpan…')).toBeTruthy();
+      // A second tap that lands anyway must be refused by the in-flight guard.
+      fireEvent.press(simpan);
+    }
+    await settleSale();
+
+    expect((await phoneShop()).sales).toHaveLength(before + 1);
+    expect(app.shop.sales).toHaveLength(before + 1);
+  });
+
+  it('starts no second write while the first is still in flight', async () => {
+    const varianId = await seedIndomie();
+    fireEvent.press(screen.getByTestId(`grid-${varianId}`));
+    // Two entrances into the save in the same tick, before either can render:
+    // this is the race the button's disabled state cannot cover.
+    const first = app.saveSale({ discount: { kind: 'none' }, tendered: 1_000_000 });
+    const second = (): unknown => app.saveSale({ discount: { kind: 'none' }, tendered: 1_000_000 });
+    expect(second()).toBeNull();
+    expect(typeof (await first)).toBe('string');
 
     expect((await phoneShop()).sales).toHaveLength(1);
   });
@@ -267,6 +291,20 @@ async function offerPayment() {
  */
 function fillTunai() {
   fireEvent(screen.getByTestId('uang-diterima'), 'changeText', '1.000.000');
+}
+
+/**
+ * Waits, inside act, until a save has finished — the log holds a sale and the
+ * provider has folded it. Returns at once past the timeout so a test that
+ * expects no sale still ends.
+ */
+async function settleSale() {
+  for (let i = 0; i < 50; i += 1) {
+    if ((await phoneShop()).sales.length > 0 && app.shop.sales.length > 0) return;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
 }
 
 /** The whole way the owner saves a sale: Bayar, then Simpan & nota. */

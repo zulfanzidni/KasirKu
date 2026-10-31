@@ -32,6 +32,12 @@ export interface Catalog {
   createKategori(input: KategoriInput): Promise<string>;
   createProduk(input: ProdukInput): Promise<string>;
   createVarian(input: VarianInput): Promise<string>;
+  /**
+   * The owner's low-stock rule for one varian: "tell me below N" (user story
+   * 41). Writes one stamped field, so an edit on the other phone to a different
+   * field of the same varian survives. Returns the event's id.
+   */
+  setMinimum(varianId: string, minimum: number | null): Promise<string>;
 }
 
 /** An event ready to be appended. The ledger supplies the envelope. */
@@ -73,6 +79,19 @@ export function createCatalog(append: (type: string, payload: unknown) => Promis
         satuan: input.satuan,
         jualBy: input.jualBy,
         harga: input.harga,
+      });
+    },
+
+    async setMinimum(varianId, minimum) {
+      if (minimum !== null) {
+        if (!Number.isFinite(minimum) || minimum < 0) throw new CatalogError('Minimum stok harus angka 0 atau lebih.');
+        if (Math.abs(minimum * 4 - Math.round(minimum * 4)) > 1e-9) {
+          throw new CatalogError('Minimum stok harus kelipatan 1/4.');
+        }
+      }
+      return append('varian.updated', {
+        varianId,
+        minimum: { value: minimum, at: new Date().toISOString() },
       });
     },
   };

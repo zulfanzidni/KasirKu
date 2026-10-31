@@ -99,7 +99,7 @@ export type VarianCreated = Event<'varian.created', VarianFields>;
  */
 export type VarianUpdated = Event<
   'varian.updated',
-  { varianId: string } & Partial<Record<'nama' | 'kode' | 'jualBy' | 'harga', Stamped<unknown>>>
+  { varianId: string } & Partial<Record<'nama' | 'kode' | 'jualBy' | 'harga' | 'minimum', Stamped<unknown>>>
 >;
 
 export type VarianArchived = Event<'varian.archived', { varianId: string; archived: boolean }>;
@@ -154,7 +154,27 @@ export interface SalePayload {
   payment?: SalePayment;
 }
 
-export type LedgerEvent = MasterEvent | SaleCompleted;
+// ---------------------------------------------------------------------------
+// Stock
+// ---------------------------------------------------------------------------
+
+/**
+ * A correction to a varian's count, recorded as the **delta** from what the
+ * app believed, never as the absolute number the owner typed (ADR 0001). Two
+ * phones correcting the same shelf then add instead of overwriting, and the
+ * owner's own words for why are kept beside it.
+ */
+export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: number; reason: string }>;
+
+/**
+ * A varian's stock as the log answers it. A discriminated result rather than a
+ * number or null, so "nobody has counted this yet" cannot be read as "zero":
+ *  - `unknown` — nothing has ever moved the count; not out of stock.
+ *  - `counted` — a number, possibly 0 or negative (the shelf disagrees).
+ */
+export type StockState = { kind: 'unknown' } | { kind: 'counted'; qty: number };
+
+export type LedgerEvent = MasterEvent | SaleCompleted | StockAdjusted;
 
 // ---------------------------------------------------------------------------
 // Derived state — never stored, always folded
@@ -182,6 +202,11 @@ export interface Varian {
   satuan: Satuan;
   jualBy: JualBy;
   harga: number;
+  /**
+   * The owner's own rule: "tell me when this drops below N" (user story 41).
+   * Absent or null until they set one; ticket 05 falls back to selling speed.
+   */
+  minimum?: number | null;
   archived: boolean;
 }
 

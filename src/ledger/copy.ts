@@ -48,4 +48,11 @@ export const teks = {
   pilihKategori: 'Pilih kategori',
   pilihProduk: 'Pilih produk',
   satuanTetap: 'Satuan tidak bisa diubah setelah dibuat.',
+  hitungUlang: 'Hitung ulang',
+  alasan: 'Alasan',
+  hitungPenjelasan:
+    'Yang dicatat adalah selisihnya dari angka aplikasi, bukan angka mutlak — jadi koreksi dari dua HP akan dijumlahkan, bukan saling menimpa.',
+  minimumStok: 'Minimum stok',
+  minimumPenjelasan:
+    'Barang ini ditandai rendah jika jumlahnya di bawah minimum ini. Kosongkan untuk menghapus. Barang yang belum pernah dihitung tidak pernah ditandai rendah.',
 } as const;

@@ -34,6 +34,8 @@ describe('the ledger as the shop sees it', () => {
         satuan: 'kg',
         jualBy: 'weight',
         harga: 13500,
+        // Nobody has set a low-stock minimum yet; that is a rule, not a missing field.
+        minimum: null,
         archived: false,
       },
     ]);
