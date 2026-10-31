@@ -1,0 +1,18 @@
+# Normalize line endings: LF in the repo, LF on checkout.
+# Keeps markdown diffs clean and avoids spurious whole-file changes.
+* text=auto eol=lf
+
+*.md   text eol=lf
+*.json text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+
+# Binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ttf  binary
+*.otf  binary
+*.pdf  binary
