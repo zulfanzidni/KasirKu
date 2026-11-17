@@ -110,6 +110,18 @@ export type VarianUpdated = Event<
 
 export type VarianArchived = Event<'varian.archived', { varianId: string; archived: boolean }>;
 
+/**
+ * A supplier the shop buys from. Master data like the three levels above:
+ * created, edited per field, archived rather than deleted, because old
+ * delivery notes and old payables must still resolve the name.
+ */
+export type SupplierCreated = Event<'supplier.created', { nama: string; telepon: string | null }>;
+export type SupplierUpdated = Event<
+  'supplier.updated',
+  { supplierId: string } & Partial<Record<'nama' | 'telepon', Stamped<unknown>>>
+>;
+export type SupplierArchived = Event<'supplier.archived', { supplierId: string; archived: boolean }>;
+
 /** The shop's own words on a nota. `at` comes from the envelope's `created_at`,
  * so it resolves per field against edits from the other phone exactly like the
  * master data above: last write wins, not last arrival. */
@@ -125,6 +137,9 @@ export type MasterEvent =
   | VarianCreated
   | VarianUpdated
   | VarianArchived
+  | SupplierCreated
+  | SupplierUpdated
+  | SupplierArchived
   | SettingsUpdated;
 
 // ---------------------------------------------------------------------------
@@ -176,16 +191,50 @@ export interface SalePayload {
 export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: number; reason: string }>;
 
 /**
+ * How a delivery line is settled (GLOSSARY: Titip, Tempo, and cash).
+ *  - `tunai` — paid on the spot; the goods are the shop's and no debt exists.
+ *  - `tempo` — the goods are the shop's immediately and the shop owes them.
+ *  - `titip` — the supplier's goods on the shop's shelf; the shop owes only
+ *    for the units that actually sell.
+ */
+export type Settlement = 'tunai' | 'tempo' | 'titip';
+
+/**
  * Goods arriving from a supplier. `settlement` says whose goods they are:
  * tunai and tempo are the shop's own the moment they arrive; titip is the
  * supplier's until it sells (GLOSSARY: Titip), so it never counts as owned.
- * Ticket 08 builds the delivery-note flow on this event; the stock fold only
- * needs to know which bucket a line lands in.
+ *
+ * Ticket 08 records a delivery note as one event per line, all sharing
+ * `notaId`, so a visit that mixes settlement models is still one record.
+ * `hargaBeli` is the supplier's price per satuan: tempo uses it to create the
+ * debt on arrival, and titip uses it to create the debt when a unit sells.
+ * Older events (ticket 05) carry neither field; they move stock and create no
+ * payable.
  */
 export type StockReceived = Event<
   'stock.received',
-  { varianId: string; qty: number; settlement: 'tunai' | 'tempo' | 'titip' }
+  {
+    varianId: string;
+    qty: number;
+    settlement: Settlement;
+    supplierId?: string;
+    notaId?: string;
+    hargaBeli?: number;
+  }
 >;
+
+/**
+ * Unsold titip goods going back to the supplier. The goods leave consignment
+ * stock and no money moves: there was never a payable until a unit sold.
+ */
+export type StockConsignmentReturned = Event<
+  'stock.consignment_returned',
+  { supplierId: string; varianId: string; qty: number; notaId?: string }
+>;
+
+/** Money paid to a supplier, reducing what the shop owes. It carries no
+ * allocation: a payment settles the running total, and the remainder carries. */
+export type PayablePaid = Event<'payable.paid', { supplierId: string; amount: number }>;
 
 /**
  * A varian's stock as the log answers it. A discriminated result rather than a
@@ -195,7 +244,13 @@ export type StockReceived = Event<
  */
 export type StockState = { kind: 'unknown' } | { kind: 'counted'; qty: number };
 
-export type LedgerEvent = MasterEvent | SaleCompleted | StockAdjusted | StockReceived;
+export type LedgerEvent =
+  | MasterEvent
+  | SaleCompleted
+  | StockAdjusted
+  | StockReceived
+  | StockConsignmentReturned
+  | PayablePaid;
 
 // ---------------------------------------------------------------------------
 // Derived state — never stored, always folded
@@ -232,6 +287,14 @@ export interface Varian {
   archived: boolean;
 }
 
+/** A supplier the shop buys from. Archived, never deleted, so old notes read. */
+export interface Supplier {
+  id: string;
+  nama: string;
+  telepon: string | null;
+  archived: boolean;
+}
+
 export interface Sale {
   id: string;
   createdAt: string;
@@ -248,6 +311,7 @@ export interface Shop {
   kategori: Kategori[];
   produk: Produk[];
   varian: Varian[];
+  supplier: Supplier[];
   sales: Sale[];
   /** The nota's header and footer (settings.updated). */
   receipt: ReceiptShop;

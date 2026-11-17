@@ -17,7 +17,15 @@ import type {
  */
 
 export function emptyShop(): Shop {
-  return { kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT, receiptAt: null };
+  return {
+    kategori: [],
+    produk: [],
+    varian: [],
+    supplier: [],
+    sales: [],
+    receipt: DEFAULT_RECEIPT,
+    receiptAt: null,
+  };
 }
 
 export function foldEvents(events: readonly LedgerEvent[]): Shop {
@@ -102,6 +110,28 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
         break;
       }
 
+      case 'supplier.created': {
+        shop.supplier.push({
+          id: event.id,
+          nama: event.payload.nama,
+          telepon: event.payload.telepon,
+          archived: false,
+        });
+        break;
+      }
+
+      case 'supplier.updated': {
+        const supplier = shop.supplier.find((entry) => entry.id === event.payload.supplierId);
+        if (supplier) applyFieldEdits(supplier, event.payload, SUPPLIER_FIELDS, fieldAt);
+        break;
+      }
+
+      case 'supplier.archived': {
+        const supplier = shop.supplier.find((entry) => entry.id === event.payload.supplierId);
+        if (supplier) supplier.archived = event.payload.archived;
+        break;
+      }
+
       case 'sale.completed': {
         const sale: Sale = {
           id: event.id,
@@ -147,6 +177,7 @@ type VarianField = 'nama' | 'kode' | 'jualBy' | 'harga' | 'minimum';
 const VARIAN_FIELDS: readonly VarianField[] = ['nama', 'kode', 'jualBy', 'harga', 'minimum'];
 const KATEGORI_FIELDS = ['nama', 'parentId'] as const;
 const PRODUK_FIELDS = ['nama', 'kategoriId'] as const;
+const SUPPLIER_FIELDS = ['nama', 'telepon'] as const;
 
 /**
  * Master data resolves per field (ADR 0001): an update payload holds only the

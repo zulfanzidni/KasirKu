@@ -1,5 +1,12 @@
 import { checkLow, lowRows, type LowCheck, type LowRow } from './lowStock';
-import { ownedDelta, stockOf, stockRows as rowsOf, type StockMovement, type StockRow } from './stock';
+import { ownedDelta, stockOf, stockRows as rowsOf, titipStockOf, type StockMovement, type StockRow } from './stock';
+import {
+  supplierPayable as payableOf,
+  supplierPayables as payablesOf,
+  titipStock as titipOf,
+  type SupplierPayable,
+  type TitipStock,
+} from './suppliers';
 import type { LedgerEvent, Shop, StockState, Varian } from './types';
 
 /**
@@ -23,6 +30,27 @@ export interface StockSource {
 /** One varian's count. `unknown` when nobody has ever counted it. */
 export async function stockOnHand(source: StockSource, varianId: string): Promise<StockState> {
   return stockOf(await source.events(), varianId).stock;
+}
+
+/** Titip units on the shelf for one varian. Never added to owned stock. */
+export async function titipOnHand(source: StockSource, varianId: string): Promise<number> {
+  return titipStockOf(await source.events(), varianId);
+}
+
+/** What one supplier is owed, and the composition of that total. */
+export async function supplierPayable(source: StockSource, supplierId: string): Promise<Omit<SupplierPayable, 'supplier'>> {
+  return payableOf(await source.events(), supplierId);
+}
+
+/** Every live supplier with the running total owed and what it is made of. */
+export async function supplierPayables(source: StockSource): Promise<SupplierPayable[]> {
+  const [shop, events] = await Promise.all([source.shop(), source.events()]);
+  return payablesOf(events, shop.supplier);
+}
+
+/** Titip stock still on the shelf, per supplier and varian. */
+export async function titipStock(source: StockSource, supplierId?: string): Promise<TitipStock[]> {
+  return titipOf(await source.events(), supplierId);
 }
 
 /** Every live varian with its own count, sorted the way the Stok screen lists them. */
