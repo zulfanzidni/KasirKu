@@ -3,6 +3,7 @@ import { settleCash } from '@/design';
 import { BACKUP_FORMAT, BACKUP_VERSION, type BackupFile } from './backup';
 import { newDeviceId } from './deviceId';
 import { foldEvents } from './events';
+import { ImportError, type ImportCommit, type ImportPlan } from './import';
 import { createDbLedger, type SqlDatabase } from './dbLedger';
 import { roundLine } from './register';
 import { saleNumber } from './saleNumber';
@@ -29,6 +30,19 @@ export interface Ledger {
    * believed — never the absolute number. Returns the event's id.
    */
   adjustStock(input: StockCorrection): Promise<string>;
+  /**
+   * The count entered during setup, written as its own `stock.opening` event
+   * so it is auditable like any other movement. Only a varian nobody has
+   * counted yet can take one: a second opening would silently add stock.
+   * Returns the event's id.
+   */
+  recordOpeningStock(input: OpeningStock): Promise<string>;
+  /**
+   * Writes a previewed import as one batch: every kategori, produk, varian and
+   * opening count, or none of them. A plan with row errors is refused before
+   * anything is written, so a half-imported catalog cannot exist.
+   */
+  importCatalog(plan: ImportPlan): Promise<ImportCommit>;
   /** The whole log as a file, ready to be saved off the phone. */
   backup(): Promise<BackupFile>;
   /**
@@ -48,6 +62,13 @@ export interface StockCorrection {
   counted: number;
   /** The owner's own words. Required: a correction with no reason is a silent guess. */
   reason: string;
+}
+
+/** What the setup pass hands the ledger: the opening count for one varian. */
+export interface OpeningStock {
+  varianId: string;
+  /** What is on the shelf on day one. Zero is a real count, not "unknown". */
+  qty: number;
 }
 
 /** A quantity the log can carry: a finite number, not negative, in quarters of a unit. */
@@ -167,6 +188,103 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
         } as StoredEvent,
       ]);
       return id;
+    },
+    async recordOpeningStock(input) {
+      checkCounted(input.qty);
+      const events = (await store.readAll()) as LedgerEvent[];
+      if (!foldEvents(events).varian.some((varian) => varian.id === input.varianId)) {
+        throw new StockError('Varian tidak ditemukan.');
+      }
+      // Opening is the first count, not another movement on top of one. A
+      // second one would add stock the owner never counted, so it is refused
+      // and the correction form is the way to change a count that exists.
+      if (stockOf(events, input.varianId).stock.kind !== 'unknown') {
+        throw new StockError('Stok awal hanya bisa dicatat sekali. Gunakan Hitung ulang untuk mengoreksi.');
+      }
+      return append('stock.opening', { varianId: input.varianId, qty: input.qty });
+    },
+    async importCatalog(plan) {
+      if (plan.errors.length > 0) {
+        throw new ImportError('Perbaiki baris yang salah sebelum mengimpor.');
+      }
+      const shop = foldEvents(await store.readAll());
+      const at = new Date().toISOString();
+      const drafts: StoredEvent[] = [];
+
+      // Existing records are reused by name, so importing into a shop that
+      // already has "Sembako" does not create a second one.
+      const kategoriId = new Map<string, string>();
+      for (const entry of shop.kategori) {
+        if (!entry.archived) kategoriId.set(entry.nama.trim().toLowerCase(), entry.id);
+      }
+      for (const entry of plan.kategori) {
+        const { id, seq } = await store.nextIdentity();
+        kategoriId.set(entry.nama.trim().toLowerCase(), id);
+        drafts.push({
+          id,
+          seq,
+          deviceId,
+          createdAt: at,
+          type: 'kategori.created',
+          payload: { nama: entry.nama, parentId: null },
+        } as StoredEvent);
+      }
+
+      const produkId = new Map<string, string>();
+      for (const entry of shop.produk) {
+        if (!entry.archived) produkId.set(entry.nama.trim().toLowerCase(), entry.id);
+      }
+      for (const entry of plan.produk) {
+        const parent = kategoriId.get(entry.kategori.trim().toLowerCase());
+        if (!parent) throw new ImportError(`Kategori ${entry.kategori} tidak ditemukan.`);
+        const { id, seq } = await store.nextIdentity();
+        produkId.set(entry.nama.trim().toLowerCase(), id);
+        drafts.push({
+          id,
+          seq,
+          deviceId,
+          createdAt: at,
+          type: 'produk.created',
+          payload: { kategoriId: parent, nama: entry.nama },
+        } as StoredEvent);
+      }
+
+      for (const entry of plan.varian) {
+        const parent = produkId.get(entry.produk.trim().toLowerCase());
+        if (!parent) throw new ImportError(`Produk ${entry.produk} tidak ditemukan.`);
+        const { id, seq } = await store.nextIdentity();
+        drafts.push({
+          id,
+          seq,
+          deviceId,
+          createdAt: at,
+          type: 'varian.created',
+          payload: {
+            produkId: parent,
+            nama: entry.nama,
+            kode: entry.kode,
+            satuan: entry.satuan,
+            jualBy: entry.jualBy,
+            harga: entry.harga,
+          },
+        } as StoredEvent);
+        if (entry.stokAwal !== null) {
+          const opening = await store.nextIdentity();
+          drafts.push({
+            id: opening.id,
+            seq: opening.seq,
+            deviceId,
+            createdAt: at,
+            type: 'stock.opening',
+            payload: { varianId: id, qty: entry.stokAwal },
+          } as StoredEvent);
+        }
+      }
+
+      // One append for the whole catalog: the store writes the batch as a
+      // unit, so a failure leaves the shop exactly as it was.
+      await store.append(drafts);
+      return { kategori: plan.kategori.length, produk: plan.produk.length, varian: plan.varian.length };
     },
     async recordSale(input: SaleLineInput[], payment: PaymentInput) {
       const draft = saleDraft(input, foldEvents(await store.readAll()), payment);

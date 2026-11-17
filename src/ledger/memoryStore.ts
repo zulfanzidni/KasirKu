@@ -19,10 +19,14 @@ export class MemoryStore implements LedgerStore {
   }
 
   async append(events: readonly StoredEvent[]): Promise<void> {
+    // Check the whole batch before writing any of it: a duplicate in the last
+    // event must not leave the first ones behind. The import relies on this.
+    const seen = new Set(this.events.map((event) => event.id));
     for (const event of events) {
-      if (this.events.some((existing) => existing.id === event.id)) {
-        throw new DuplicateEventError(event.id);
-      }
+      if (seen.has(event.id)) throw new DuplicateEventError(event.id);
+      seen.add(event.id);
+    }
+    for (const event of events) {
       this.events.push(structuredClone(event) as LedgerEvent as StoredEvent);
     }
   }

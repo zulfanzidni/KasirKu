@@ -10,8 +10,8 @@ import type { LedgerEvent, SaleLine, StockState, Varian } from './types';
  * never be confused by a screen, a warning or a future sync.
  *
  * Earlier tickets could only sell and count, so only two events move stock
- * here. Receiving, repacking and consignment return arrive in later tickets
- * (05, 06, 08) and add their own cases to `movementsOf`.
+ * here. Receiving, opening counts, repacking and consignment return arrive in
+ * later tickets (05, 06, 08) and add their own cases to `movementsOf`.
  */
 
 /**
@@ -27,6 +27,12 @@ export function normaliseQty(qty: number): number {
 export type StockMovement =
   | { kind: 'sale'; at: string; delta: number; saleId: string }
   | { kind: 'adjusted'; at: string; delta: number; reason: string; eventId: string }
+  | {
+      kind: 'opening';
+      at: string;
+      delta: number;
+      eventId: string;
+    }
   | {
       kind: 'received';
       at: string;
@@ -72,6 +78,16 @@ export function movementsOf(events: readonly LedgerEvent[], varianId: string): S
           at: event.createdAt,
           delta: normaliseQty(event.payload.delta),
           reason: event.payload.reason,
+          eventId: event.id,
+        });
+        break;
+
+      case 'stock.opening':
+        if (event.payload.varianId !== varianId) break;
+        movements.push({
+          kind: 'opening',
+          at: event.createdAt,
+          delta: normaliseQty(event.payload.qty),
           eventId: event.id,
         });
         break;

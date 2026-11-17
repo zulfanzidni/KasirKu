@@ -1,5 +1,6 @@
 import { connectPhone, type PhoneEnvironment } from '@/ledger/environment';
 import { connectBackupFiles, type BackupFiles } from '@/ledger/backupFiles';
+import { connectImportFiles, type ImportFiles } from '@/ledger/importFiles';
 import { connectPrinter } from '@/ledger/printer';
 import { receiptHtml } from '@/ledger/receiptHtml';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -47,6 +48,11 @@ export const mockBackupFiles: {
   canShare: true,
 };
 
+/** The spreadsheet the import screen would pick, if any. */
+export const mockImportFiles: { picked: { name: string; text: string } | null } = {
+  picked: null,
+};
+
 export function resetPhone() {
   mockPhone.store = new MemoryStore();
   mockPhone.kv.clear();
@@ -57,6 +63,7 @@ export function resetPhone() {
   mockBackupFiles.shared = [];
   mockBackupFiles.picked = null;
   mockBackupFiles.canShare = true;
+  mockImportFiles.picked = null;
   const env: PhoneEnvironment = {
     // The phone's file is a real SQLite-shaped database over the in-memory
     // log, so the provider runs its actual open-fold-read path.
@@ -107,6 +114,13 @@ export function resetPhone() {
     },
   };
   connectBackupFiles(files);
+
+  const sheets: ImportFiles = {
+    async pick() {
+      return mockImportFiles.picked;
+    },
+  };
+  connectImportFiles(sheets);
 }
 
 /** The provider's own state, captured so a test can seed the log and read the cart. */

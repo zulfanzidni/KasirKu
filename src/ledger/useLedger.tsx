@@ -12,10 +12,11 @@ import { phoneEnvironment } from './environment';
 import { emptyShop } from './events';
 import { serializeBackup, type BackupFile } from './backup';
 import { createCatalog, type Catalog } from './catalog';
+import type { ImportCommit, ImportPlan } from './import';
 import { createSettings, type Settings } from './settings';
 import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
-import { openLedger, StockError, type Ledger, type StockCorrection } from './ledger';
+import { openLedger, StockError, type Ledger, type OpeningStock, type StockCorrection } from './ledger';
 import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf } from './queries';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
@@ -25,7 +26,7 @@ import type { LedgerEvent, PaymentInput, Shop, StockState, Varian } from './type
 /** One line of a varian's stock history, with the count after it. */
 export type StockHistoryEntry = ReturnType<typeof historyOf> extends Promise<(infer T)[]> ? T : never;
 
-export type { StockCorrection, StockRow, StockState };
+export type { OpeningStock, StockCorrection, StockRow, StockState };
 
 /**
  * The app's single connection to the record, plus the one piece of screen
@@ -77,6 +78,16 @@ export interface AppState {
    * delta from what the app believed, with their reason. Returns the event id.
    */
   adjustStock(input: StockCorrection): Promise<string>;
+  /**
+   * The count entered during setup, written as its own `stock.opening` event.
+   * A varian the owner skips is never touched, so it stays `unknown`.
+   */
+  recordOpeningStock(input: OpeningStock): Promise<string>;
+  /**
+   * Writes a previewed import as one batch. A plan with row errors is refused,
+   * so nothing is ever half-imported.
+   */
+  importCatalog(plan: ImportPlan): Promise<ImportCommit>;
   forgetLastSale(): void;
 
   /**
@@ -331,6 +342,30 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [showShop, showEvents],
   );
 
+  const recordOpeningStock = useCallback(
+    async (input: OpeningStock) => {
+      const current = ledgerRef.current;
+      if (!current) throw new StockError('Catatan belum siap.');
+      const id = await current.recordOpeningStock(input);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return id;
+    },
+    [showShop, showEvents],
+  );
+
+  const importCatalog = useCallback(
+    async (plan: ImportPlan): Promise<ImportCommit> => {
+      const current = ledgerRef.current;
+      if (!current) throw new StockError('Catatan belum siap.');
+      const hasil = await current.importCatalog(plan);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return hasil;
+    },
+    [showShop, showEvents],
+  );
+
   const backupText = useCallback(async () => {
     const current = ledgerRef.current;
     if (!current) throw new Error('Catatan belum siap.');
@@ -383,6 +418,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     stockRows,
     lowChecks,
     adjustStock,
+    recordOpeningStock,
+    importCatalog,
     backupText,
     hasHistory,
     restoreBackup,
