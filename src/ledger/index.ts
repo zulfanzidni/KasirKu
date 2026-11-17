@@ -1,5 +1,12 @@
 export { createCatalog, CatalogError, type Catalog, type VarianInput } from './catalog';
 export {
+  adoptDeviceIdentity,
+  AdoptionError,
+  knownIdentities,
+  type AdoptionResult,
+  type DeviceIdentity,
+} from './adoption';
+export {
   BACKUP_FORMAT,
   BACKUP_VERSION,
   BackupError,

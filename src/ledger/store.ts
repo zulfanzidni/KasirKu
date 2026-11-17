@@ -40,6 +40,13 @@ export interface LedgerStore {
    * append, because the log is being adopted wholesale.
    */
   replaceAll(events: readonly StoredEvent[], lastSeq: number): Promise<void>;
+  /**
+   * Continue another phone's stream: the next number this phone writes is
+   * `lastSeq + 1`. Only adoption calls this. Moving the counter down is safe
+   * here because the device that owns the numbers has changed, so the old
+   * numbers are no longer this phone's to reuse.
+   */
+  continueFrom(lastSeq: number): Promise<void>;
 }
 
 /** Thrown when an id is already in the log. Events are never rewritten. */
