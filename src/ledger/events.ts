@@ -9,7 +9,6 @@ import type {
   Shop,
   Stamped,
   Varian,
-  VarianUpdated,
 } from './types';
 
 /**
@@ -31,7 +30,7 @@ export function emptyShop(): Shop {
 
 export function foldEvents(events: readonly LedgerEvent[]): Shop {
   const shop = emptyShop();
-  const fieldAt = new WeakMap<Varian, Map<VarianField, string>>();
+  const fieldAt = new WeakMap<object, Map<string, string>>();
 
   for (const event of events) {
     switch (event.type) {
@@ -44,6 +43,18 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
         });
         break;
 
+      case 'kategori.updated': {
+        const kategori = shop.kategori.find((entry) => entry.id === event.payload.kategoriId);
+        if (kategori) applyFieldEdits(kategori, event.payload, KATEGORI_FIELDS, fieldAt);
+        break;
+      }
+
+      case 'kategori.archived': {
+        const kategori = shop.kategori.find((entry) => entry.id === event.payload.kategoriId);
+        if (kategori) kategori.archived = event.payload.archived;
+        break;
+      }
+
       case 'produk.created': {
         const produk: Produk = {
           id: event.id,
@@ -52,6 +63,18 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
           archived: false,
         };
         shop.produk.push(produk);
+        break;
+      }
+
+      case 'produk.updated': {
+        const produk = shop.produk.find((entry) => entry.id === event.payload.produkId);
+        if (produk) applyFieldEdits(produk, event.payload, PRODUK_FIELDS, fieldAt);
+        break;
+      }
+
+      case 'produk.archived': {
+        const produk = shop.produk.find((entry) => entry.id === event.payload.produkId);
+        if (produk) produk.archived = event.payload.archived;
         break;
       }
 
@@ -75,8 +98,17 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
         // Resolved per field: a payload carries only what changed, so two
         // phones editing different fields both survive. Within one field the
         // later stamped moment wins.
-        applyFieldEdits(shop, event, fieldAt);
+        {
+          const varian = shop.varian.find((entry) => entry.id === event.payload.varianId);
+          if (varian) applyFieldEdits(varian, event.payload, VARIAN_FIELDS, fieldAt);
+        }
         break;
+
+      case 'varian.archived': {
+        const varian = shop.varian.find((entry) => entry.id === event.payload.varianId);
+        if (varian) varian.archived = event.payload.archived;
+        break;
+      }
 
       case 'sale.completed': {
         const sale: Sale = {
@@ -132,10 +164,21 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
     }
   }
 
+  // A produk whose kategori is archived is not deleted: it stays in the list,
+  // uncategorised (ticket 13). Derived here, so the rule holds however the
+  // events arrived and whichever phone wrote them.
+  const archivedKategori = new Set(shop.kategori.filter((entry) => entry.archived).map((entry) => entry.id));
+  for (const produk of shop.produk) {
+    if (produk.kategoriId !== null && archivedKategori.has(produk.kategoriId)) produk.kategoriId = null;
+  }
+
   return shop;
 }
 
 type VarianField = 'nama' | 'kode' | 'jualBy' | 'harga' | 'minimum';
+const VARIAN_FIELDS: readonly VarianField[] = ['nama', 'kode', 'jualBy', 'harga', 'minimum'];
+const KATEGORI_FIELDS = ['nama', 'parentId'] as const;
+const PRODUK_FIELDS = ['nama', 'kategoriId'] as const;
 
 /**
  * Master data resolves per field (ADR 0001): an update payload holds only the
@@ -143,18 +186,21 @@ type VarianField = 'nama' | 'kode' | 'jualBy' | 'harga' | 'minimum';
  * moment wins" gives the same answer on both phones without keeping any extra
  * state: a stale edit that arrives after a newer one is ignored.
  */
-function applyFieldEdits(shop: Shop, event: VarianUpdated, fieldAt: WeakMap<Varian, Map<VarianField, string>>): void {
-  const varian = shop.varian.find((entry) => entry.id === event.payload.varianId);
-  if (!varian) return;
-  for (const field of ['nama', 'kode', 'jualBy', 'harga', 'minimum'] as VarianField[]) {
-    const change = event.payload[field] as Stamped<unknown> | undefined;
+function applyFieldEdits<T extends object>(
+  target: T,
+  payload: Record<string, unknown>,
+  fields: readonly string[],
+  fieldAt: WeakMap<object, Map<string, string>>,
+): void {
+  for (const field of fields) {
+    const change = payload[field] as Stamped<unknown> | undefined;
     if (!change) continue;
-    if (change.at < (fieldAt.get(varian)?.get(field) ?? '')) continue;
-    (varian as unknown as Record<VarianField, unknown>)[field] = change.value;
-    let stamped = fieldAt.get(varian);
+    if (change.at < (fieldAt.get(target)?.get(field) ?? '')) continue;
+    (target as Record<string, unknown>)[field] = change.value;
+    let stamped = fieldAt.get(target);
     if (!stamped) {
       stamped = new Map();
-      fieldAt.set(varian, stamped);
+      fieldAt.set(target, stamped);
     }
     stamped.set(field, change.at);
   }

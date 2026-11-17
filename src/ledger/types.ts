@@ -89,12 +89,18 @@ export interface Stamped<T> {
  *  - `archived` hides the record without erasing it
  */
 export type KategoriCreated = Event<'kategori.created', { nama: string; parentId: string | null }>;
+export type KategoriUpdated = Event<
+  'kategori.updated',
+  { kategoriId: string } & Partial<Record<'nama' | 'parentId', Stamped<unknown>>>
+>;
+export type KategoriArchived = Event<'kategori.archived', { kategoriId: string; archived: boolean }>;
 
 export type ProdukCreated = Event<'produk.created', ProdukFields>;
 export type ProdukUpdated = Event<
   'produk.updated',
   { produkId: string } & Partial<Record<keyof ProdukFields, Stamped<unknown>>>
 >;
+export type ProdukArchived = Event<'produk.archived', { produkId: string; archived: boolean }>;
 
 export type VarianCreated = Event<'varian.created', VarianFields>;
 /**
@@ -143,8 +149,11 @@ export type ReceivableWrittenOff = Event<
 
 export type MasterEvent =
   | KategoriCreated
+  | KategoriUpdated
+  | KategoriArchived
   | ProdukCreated
   | ProdukUpdated
+  | ProdukArchived
   | VarianCreated
   | VarianUpdated
   | VarianArchived
@@ -234,7 +243,8 @@ export interface Kategori {
 
 export interface Produk {
   id: string;
-  kategoriId: string;
+  /** Null once its kategori is archived: the produk stays, uncategorised. */
+  kategoriId: string | null;
   nama: string;
   archived: boolean;
 }

@@ -1,4 +1,13 @@
 export { createCatalog, CatalogError, type Catalog, type VarianInput } from './catalog';
+export {
+  BACKUP_FORMAT,
+  BACKUP_VERSION,
+  BackupError,
+  parseBackup,
+  serializeBackup,
+  type BackupFile,
+} from './backup';
+export { backupFiles, connectBackupFiles, type BackupFiles, type PickedFile, type SavedFile } from './backupFiles';
 export { clearCart, loadCart, saveCart, type KeyValue } from './cartStorage';
 export { emptyShop, foldEvents, sumSales } from './events';
 export { hutangOf, stateOf, type HutangEntry, type HutangLedger, type HutangState } from './hutang';
@@ -34,6 +43,7 @@ export {
   produkWithVarian,
   saleHistory,
   searchVarian,
+  sellableVarian,
   sortStock,
   stockByVariant,
   stockHistory,

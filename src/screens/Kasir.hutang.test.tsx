@@ -1,9 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { KasirScreen } from '@/screens/Kasir';
 import type { Catalog } from '@/ledger/catalog';
-import { createLedger } from '@/ledger/ledger';
-import type { Shop } from '@/ledger/types';
-import { app, mockPhone, resetPhone, waitReady, wrap } from './testPhone';
+import { app, phoneLedger, resetPhone, waitReady, wrap } from './testPhone';
 
 /**
  * Hutang at the counter, driven the way the owner drives it: ring up a basket,
@@ -122,7 +120,7 @@ describe('choosing the customer before paying', () => {
     expect(screen.getByTestId('nota-kembalian')).toHaveTextContent('0');
     expect(screen.getByTestId('nota-hutang')).toHaveTextContent('10.500');
 
-    const shop = await phoneShop();
+    const shop = await phoneLedger().shop();
     expect(shop.sales[0].pelangganNama).toBe('Bu Ani');
     expect(shop.sales[0].payment?.unpaid).toBe(10500);
   });
@@ -155,16 +153,3 @@ describe('choosing the customer before paying', () => {
     expect(screen.getByTestId('hari-ini-tunai')).toHaveTextContent('Tunai 20.000');
   });
 });
-
-/** The shop read from the phone's storage by a fresh reader, not by the screen. */
-async function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
-  return createLedger(
-    {
-      nextIdentity: () => store.nextIdentity(),
-      append: (events) => store.append(events),
-      readAll: () => store.readAll(),
-    },
-    'gawai-uji',
-  ).shop();
-}

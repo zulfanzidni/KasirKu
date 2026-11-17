@@ -63,6 +63,70 @@ describe('creating master data', () => {
   });
 });
 
+describe('editing master data', () => {
+  it('renames a kategori as a stamped field, leaving its produk alone', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).updateKategori('kat-1', { nama: '  Sembako ' });
+
+    expect(drafts).toEqual([
+      {
+        type: 'kategori.updated',
+        payload: { kategoriId: 'kat-1', nama: { value: 'Sembako', at: expect.any(String) } },
+      },
+    ]);
+  });
+
+  it('refuses to rename a kategori to nothing', async () => {
+    const { drafts, append } = writer();
+
+    await expect(createCatalog(append).updateKategori('kat-1', { nama: '  ' })).rejects.toBeInstanceOf(CatalogError);
+    expect(drafts).toEqual([]);
+  });
+
+  it('archives a kategori as a fact in the log, never a deletion', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).archiveKategori('kat-1');
+
+    expect(drafts).toEqual([{ type: 'kategori.archived', payload: { kategoriId: 'kat-1', archived: true } }]);
+  });
+
+  it('moves a produk to another kategori as one stamped field', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).updateProduk('prd-1', { kategoriId: 'kat-2' });
+
+    expect(drafts).toEqual([
+      {
+        type: 'produk.updated',
+        payload: { produkId: 'prd-1', kategoriId: { value: 'kat-2', at: expect.any(String) } },
+      },
+    ]);
+  });
+
+  it('renames a produk without moving it', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).updateProduk('prd-1', { nama: ' Tepung sagu ' });
+
+    expect(drafts).toEqual([
+      {
+        type: 'produk.updated',
+        payload: { produkId: 'prd-1', nama: { value: 'Tepung sagu', at: expect.any(String) } },
+      },
+    ]);
+  });
+
+  it('archives a produk as a fact in the log, never a deletion', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).archiveProduk('prd-1');
+
+    expect(drafts).toEqual([{ type: 'produk.archived', payload: { produkId: 'prd-1', archived: true } }]);
+  });
+});
+
 function writer() {
   const drafts: EventDraft[] = [];
   return {

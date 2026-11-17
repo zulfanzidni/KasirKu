@@ -84,6 +84,104 @@ describe('the ledger as the shop sees it', () => {
     expect(sumSales(shop.sales)).toBe(40500);
   });
 
+  it('renames a kategori without renaming the produk inside it', () => {
+    const shop = foldEvents([
+      kategori(),
+      produk(),
+      {
+        id: 'evt-kat-rename',
+        deviceId: 'gawai-1',
+        seq: 4,
+        createdAt: '2026-10-31T08:03:00.000Z',
+        type: 'kategori.updated',
+        payload: { kategoriId: ids.kategori, nama: { value: 'Sembako', at: '2026-10-31T08:03:00.000Z' } },
+      },
+    ]);
+
+    expect(shop.kategori[0].nama).toBe('Sembako');
+    // The produk keeps its own name: a kategori is a grouping, not a prefix.
+    expect(shop.produk[0].nama).toBe('Tepung terigu');
+  });
+
+  it('archives a kategori and leaves its produk in place, uncategorised', () => {
+    const shop = foldEvents([
+      kategori(),
+      produk(),
+      {
+        id: 'evt-kat-archive',
+        deviceId: 'gawai-1',
+        seq: 4,
+        createdAt: '2026-10-31T08:03:00.000Z',
+        type: 'kategori.archived',
+        payload: { kategoriId: ids.kategori, archived: true },
+      },
+    ]);
+
+    expect(shop.kategori[0].archived).toBe(true);
+    // The produk is not deleted and not renamed: it simply has no kategori now.
+    expect(shop.produk).toHaveLength(1);
+    expect(shop.produk[0]).toEqual(expect.objectContaining({ nama: 'Tepung terigu', kategoriId: null }));
+  });
+
+  it('moves a produk to another kategori without touching its name', () => {
+    const shop = foldEvents([
+      kategori(),
+      produk(),
+      {
+        id: 'evt-prd-move',
+        deviceId: 'gawai-1',
+        seq: 4,
+        createdAt: '2026-10-31T08:03:00.000Z',
+        type: 'produk.updated',
+        payload: { produkId: ids.produk, kategoriId: { value: 'evt-kat-lain', at: '2026-10-31T08:03:00.000Z' } },
+      },
+    ]);
+
+    expect(shop.produk[0]).toEqual(
+      expect.objectContaining({ nama: 'Tepung terigu', kategoriId: 'evt-kat-lain' }),
+    );
+  });
+
+  it('archives a produk without erasing it or its varian', () => {
+    const shop = foldEvents([
+      kategori(),
+      produk(),
+      varian(),
+      {
+        id: 'evt-prd-archive',
+        deviceId: 'gawai-1',
+        seq: 4,
+        createdAt: '2026-10-31T08:03:00.000Z',
+        type: 'produk.archived',
+        payload: { produkId: ids.produk, archived: true },
+      },
+    ]);
+
+    expect(shop.produk[0].archived).toBe(true);
+    // The varian is still in the log and still resolves by id: old receipts
+    // and old stock figures keep reading correctly.
+    expect(shop.varian).toHaveLength(1);
+    expect(shop.varian[0].archived).toBe(false);
+  });
+
+  it('archives a varian without erasing it', () => {
+    const shop = foldEvents([
+      kategori(),
+      produk(),
+      varian(),
+      {
+        id: 'evt-var-archive',
+        deviceId: 'gawai-1',
+        seq: 4,
+        createdAt: '2026-10-31T08:03:00.000Z',
+        type: 'varian.archived',
+        payload: { varianId: ids.varian, archived: true },
+      },
+    ]);
+
+    expect(shop.varian[0].archived).toBe(true);
+  });
+
   it('keeps the lines a sale was written with', () => {
     const sale: LedgerEvent = {
       id: 'sale-1',

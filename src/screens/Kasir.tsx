@@ -15,7 +15,7 @@ import { teks, type PaymentInput, type Sale, type Varian } from '@/ledger';
 import { shareReceipt } from '@/ledger/receipt';
 import { printer } from '@/ledger/printer';
 import { useApp, type TapOutcome } from '@/ledger/useLedger';
-import { searchVarian } from '@/ledger/queries';
+import { searchVarian, sellableVarian } from '@/ledger/queries';
 import { NotaSheet } from '@/screens/Nota';
 import { ChoiceSheet } from '@/screens/ChoiceSheet';
 import { CustomerStep } from '@/screens/CustomerStep';
@@ -42,7 +42,8 @@ export function KasirScreen() {
   const [shareError, setShareError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
-  const varian = useMemo(() => searchVarian(shop.varian.filter((entry) => !entry.archived), query), [shop.varian, query]);
+  const sellable = useMemo(() => sellableVarian(shop), [shop]);
+  const varian = useMemo(() => searchVarian(sellable, query), [sellable, query]);
   const pelanggan = pelangganId ? shop.pelanggan.find((entry) => entry.id === pelangganId) ?? null : null;
   const hari = todayTotals();
 
@@ -184,7 +185,7 @@ export function KasirScreen() {
         </AppText>
       ) : null}
 
-      {shop.varian.length === 0 ? (
+      {sellable.length === 0 ? (
         <View style={styles.empty}>
           <AppText typeRole="titleMedium" tone="primary" style={styles.emptyTitle}>
             {teks.belumDiatur}
