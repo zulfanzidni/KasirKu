@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { PengaturanScreen } from '@/screens/Pengaturan';
 import { createLedger } from '@/ledger/ledger';
 import type { Shop } from '@/ledger/types';
-import { mockPhone, resetPhone, waitReady, wrap } from './testPhone';
+import { resetPhone, waitReady, wrap , storeView } from './testPhone';
 
 /**
  * Pengaturan — the shop's name and closing line on every nota.
@@ -68,12 +68,13 @@ describe('Pengaturan — the nota in the owner words', () => {
 
 /** The shop read from the phone's storage by a fresh reader, not by the screen. */
 async function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
   return createLedger(
     {
       nextIdentity: () => store.nextIdentity(),
       append: (events) => store.append(events),
       readAll: () => store.readAll(),
+      lastSeq: () => store.lastSeq(),
+      replaceAll: (events, lastSeq) => store.replaceAll(events, lastSeq),
     },
     'gawai-uji',
   ).shop();

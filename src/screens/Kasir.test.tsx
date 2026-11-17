@@ -3,7 +3,7 @@ import { KasirScreen } from '@/screens/Kasir';
 import type { Catalog } from '@/ledger/catalog';
 import { createLedger } from '@/ledger/ledger';
 import type { Shop } from '@/ledger/types';
-import { app, mockPhone, resetPhone, waitReady, wrap } from './testPhone';
+import { app, resetPhone, waitReady, wrap , storeView } from './testPhone';
 
 /**
  * The till, driven the way the owner drives it: tapping rows, choosing a
@@ -316,12 +316,13 @@ async function pay() {
 
 /** The shop read from the phone's storage by a fresh reader, not by the screen. */
 async function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
   return createLedger(
     {
       nextIdentity: () => store.nextIdentity(),
       append: (events) => store.append(events),
       readAll: () => store.readAll(),
+      lastSeq: () => store.lastSeq(),
+      replaceAll: (events, lastSeq) => store.replaceAll(events, lastSeq),
     },
     'gawai-uji',
   ).shop();
