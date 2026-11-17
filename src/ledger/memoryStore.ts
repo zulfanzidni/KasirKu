@@ -72,8 +72,14 @@ export class MemoryStore implements LedgerStore {
     this.seq = events.reduce((high, event) => Math.max(high, event.seq), lastSeq);
   }
 
-  /** The counter the SQL layer wrote to its meta table, mirrored here. */
+  /** The counter the SQL layer wrote to its meta table, mirrored here exactly. */
   setLastSeq(value: number): void {
-    this.seq = Math.max(this.seq, value);
+    this.seq = value;
+  }
+
+  async continueFrom(lastSeq: number): Promise<void> {
+    // Adoption moves the counter to the adopted phone's tail, even when this
+    // phone had written further: the numbers now belong to the other stream.
+    this.seq = lastSeq;
   }
 }
