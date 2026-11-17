@@ -2,8 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { StokScreen } from '@/screens/Stok';
 import { KasirScreen } from '@/screens/Kasir';
 import { ReceiptScreen } from '@/screens/Receipt';
-import { app, mockPhone, resetPhone, wrap } from './testPhone';
-import { createLedger } from '@/ledger/ledger';
+import { app, phoneLedger, resetPhone, wrap } from './testPhone';
 import { sumSales } from '@/ledger/events';
 import type { Shop } from '@/ledger/types';
 
@@ -52,11 +51,7 @@ async function openKasir() {
 
 /** The shop as another reader sees it, straight off the phone's storage. */
 async function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
-  return createLedger(
-    { nextIdentity: () => store.nextIdentity(), append: (events) => store.append(events), readAll: () => store.readAll() },
-    'gawai-uji',
-  ).shop();
+  return phoneLedger().shop();
 }
 
 async function seedKategori(nama: string) {
