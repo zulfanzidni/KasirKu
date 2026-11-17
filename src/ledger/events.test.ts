@@ -11,7 +11,15 @@ const ids = { kategori: 'evt-kat', produk: 'evt-prd', varian: 'evt-var' } as con
 
 describe('the ledger as the shop sees it', () => {
   it('starts as an empty shop', () => {
-    expect(emptyShop()).toEqual({ kategori: [], produk: [], varian: [], sales: [], receipt: DEFAULT_RECEIPT, receiptAt: null });
+    expect(emptyShop()).toEqual({
+      kategori: [],
+      produk: [],
+      varian: [],
+      pelanggan: [],
+      sales: [],
+      receipt: DEFAULT_RECEIPT,
+      receiptAt: null,
+    });
   });
 
   it('records master data created on the device', () => {
@@ -66,6 +74,8 @@ describe('the ledger as the shop sees it', () => {
         // Written before sales carried a number; the envelope still earns it one.
         number: '20261031-GAWA-010',
         payment: null,
+        pelangganId: null,
+        pelangganNama: null,
         lines: [
           { varianId: ids.varian, nama: 'Tepung terigu 1 kg', satuan: 'kg', qty: 3, harga: 13500, jumlah: 40500 },
         ],

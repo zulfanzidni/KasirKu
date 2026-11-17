@@ -16,9 +16,19 @@ import type { ImportCommit, ImportPlan } from './import';
 import { createSettings, type Settings } from './settings';
 import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
-import { openLedger, StockError, type Ledger, type OpeningStock, type StockCorrection } from './ledger';
+import { hutangOf as hutangOfEvents, type HutangLedger } from './hutang';
+import {
+  openLedger,
+  StockError,
+  type HapusBukuInput,
+  type Ledger,
+  type OpeningStock,
+  type PelangganInput,
+  type PembayaranHutangInput,
+  type StockCorrection,
+} from './ledger';
 import { checkLow, type LowCheck } from './lowStock';
-import { sortStock, stockHistory as historyOf } from './queries';
+import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, type TodayTotals } from './queries';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
 import { ownedDelta, stockOf as stockOfEvents, type StockRow } from './stock';
 import type { LedgerEvent, PaymentInput, Shop, StockState, Varian } from './types';
@@ -26,7 +36,7 @@ import type { LedgerEvent, PaymentInput, Shop, StockState, Varian } from './type
 /** One line of a varian's stock history, with the count after it. */
 export type StockHistoryEntry = ReturnType<typeof historyOf> extends Promise<(infer T)[]> ? T : never;
 
-export type { OpeningStock, StockCorrection, StockRow, StockState };
+export type { HutangLedger, OpeningStock, StockCorrection, StockRow, StockState, TodayTotals };
 
 /**
  * The app's single connection to the record, plus the one piece of screen
@@ -88,6 +98,20 @@ export interface AppState {
    * so nothing is ever half-imported.
    */
   importCatalog(plan: ImportPlan): Promise<ImportCommit>;
+
+  /** One customer's hutang, folded from the log: hutang, lunas or kredit. */
+  hutangOf(pelangganId: string): HutangLedger;
+  /** Today's full value sold and the cash that actually came in. */
+  todayTotals(): TodayTotals;
+  /** Records a customer, so hutang has an owner. */
+  tambahPelanggan(input: PelangganInput): Promise<string>;
+  /** Hides a customer; refused while they still owe. */
+  arsipkanPelanggan(pelangganId: string): Promise<string>;
+  /** Records money handed over against hutang. */
+  catatPembayaranHutang(input: PembayaranHutangInput): Promise<string>;
+  /** Forgets the remaining hutang without collecting cash. */
+  hapusBukuHutang(input: HapusBukuInput): Promise<string>;
+
   forgetLastSale(): void;
 
   /**
@@ -354,6 +378,24 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [showShop, showEvents],
   );
 
+  /** Hutang is a fold of the events already in hand, so it is instant. */
+  const hutangOf = useCallback((pelangganId: string): HutangLedger => hutangOfEvents(events, pelangganId), [events]);
+
+  const todayTotals = useCallback((): TodayTotals => todayTotalsOf(events), [events]);
+
+  /** Every customer write goes through the ledger, then re-reads the log. */
+  const writePelanggan = useCallback(
+    async (write: (ledger: Ledger) => Promise<string>) => {
+      const current = ledgerRef.current;
+      if (!current) throw new StockError('Catatan belum siap.');
+      const id = await write(current);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return id;
+    },
+    [showShop, showEvents],
+  );
+
   const importCatalog = useCallback(
     async (plan: ImportPlan): Promise<ImportCommit> => {
       const current = ledgerRef.current;
@@ -364,6 +406,23 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       return hasil;
     },
     [showShop, showEvents],
+  );
+
+  const tambahPelanggan = useCallback(
+    (input: PelangganInput) => writePelanggan((ledger) => ledger.tambahPelanggan(input)),
+    [writePelanggan],
+  );
+  const arsipkanPelanggan = useCallback(
+    (pelangganId: string) => writePelanggan((ledger) => ledger.arsipkanPelanggan(pelangganId)),
+    [writePelanggan],
+  );
+  const catatPembayaranHutang = useCallback(
+    (input: PembayaranHutangInput) => writePelanggan((ledger) => ledger.catatPembayaranHutang(input)),
+    [writePelanggan],
+  );
+  const hapusBukuHutang = useCallback(
+    (input: HapusBukuInput) => writePelanggan((ledger) => ledger.hapusBukuHutang(input)),
+    [writePelanggan],
   );
 
   const backupText = useCallback(async () => {
@@ -420,6 +479,12 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     adjustStock,
     recordOpeningStock,
     importCatalog,
+    hutangOf,
+    todayTotals,
+    tambahPelanggan,
+    arsipkanPelanggan,
+    catatPembayaranHutang,
+    hapusBukuHutang,
     backupText,
     hasHistory,
     restoreBackup,
