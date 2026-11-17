@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { phoneEnvironment } from './environment';
 import { emptyShop } from './events';
+import { serializeBackup, type BackupFile } from './backup';
 import { createCatalog, type Catalog } from './catalog';
 import { createSettings, type Settings } from './settings';
 import { clearCart, loadCart, saveCart } from './cartStorage';
@@ -77,6 +78,20 @@ export interface AppState {
    */
   adjustStock(input: StockCorrection): Promise<string>;
   forgetLastSale(): void;
+
+  /**
+   * The whole log as backup text, ready to be saved off the phone. Asked when
+   * the owner exports; the file itself is written by the file seam.
+   */
+  backupText(): Promise<string>;
+  /** Whether this phone already holds history that a restore would replace. */
+  hasHistory(): boolean;
+  /**
+   * Replaces the log with the backup's, adopts its device identity, and throws
+   * away the draft cart: a cart from the old history must not be sold into the
+   * restored one. The owner's consent is the caller's job.
+   */
+  restoreBackup(backup: BackupFile): Promise<void>;
 }
 
 export type TapOutcome =
@@ -310,6 +325,37 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [showShop, showEvents],
   );
 
+  const backupText = useCallback(async () => {
+    const current = ledgerRef.current;
+    if (!current) throw new Error('Catatan belum siap.');
+    return serializeBackup(await current.backup());
+  }, []);
+
+  const hasHistory = useCallback(() => eventsRef.current.length > 0, []);
+
+  /**
+   * Restoring is a rewrite, not a merge: the phone becomes the other phone.
+   * The device identity moves with the log, and the draft cart is emptied,
+   * because its lines may name variants the restored shop has never heard of.
+   */
+  const restoreBackup = useCallback(
+    async (backup: BackupFile) => {
+      const current = ledgerRef.current;
+      if (!current) throw new Error('Catatan belum siap.');
+      await current.restore(backup);
+      // The identity is the ledger's, but the next launch reads it from here:
+      // losing this write would give the restored events a second author.
+      await kv.setItem(DEVICE_KEY, backup.deviceId);
+      updateCart(emptyCart());
+      await persistCart(emptyCart());
+      await clearCart(kv);
+      setLastSaleId(null);
+      showShop(await current.shop());
+      showEvents(await current.events());
+    },
+    [kv, persistCart, showShop, showEvents, updateCart],
+  );
+
   const value: AppState = {
     ready,
     error,
@@ -331,6 +377,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     stockRows,
     lowChecks,
     adjustStock,
+    backupText,
+    hasHistory,
+    restoreBackup,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

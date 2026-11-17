@@ -1,5 +1,6 @@
 import type { Discount } from '@/design';
 import { settleCash } from '@/design';
+import { BACKUP_FORMAT, BACKUP_VERSION, type BackupFile } from './backup';
 import { newDeviceId } from './deviceId';
 import { foldEvents } from './events';
 import { createDbLedger, type SqlDatabase } from './dbLedger';
@@ -15,7 +16,8 @@ import type { LedgerEvent, PaymentInput, Shop } from './types';
  * in tests.
  */
 export interface Ledger {
-  deviceId: string;
+  /** The phone that writes new events. Changes when a backup is restored. */
+  readonly deviceId: string;
   shop(): Promise<Shop>;
   /** The raw log, oldest first. Stock, and anything else per-event, folds this. */
   events(): Promise<LedgerEvent[]>;
@@ -27,6 +29,14 @@ export interface Ledger {
    * believed — never the absolute number. Returns the event's id.
    */
   adjustStock(input: StockCorrection): Promise<string>;
+  /** The whole log as a file, ready to be saved off the phone. */
+  backup(): Promise<BackupFile>;
+  /**
+   * Replaces this phone's log with a backup's, and adopts its device identity
+   * so unsent events can continue the original stream. The caller is
+   * responsible for the owner's consent; this is a rewrite, not a merge.
+   */
+  restore(backup: BackupFile): Promise<void>;
   /** Escape hatch for tests and the next tickets; appends raw event types. */
   append(type: string, payload: unknown): Promise<string>;
 }
@@ -100,7 +110,11 @@ export function saleDraft(lines: SaleLineInput[], shop: Shop, payment: PaymentIn
   return { lines: written, total, payment: settled };
 }
 
-export function createLedger(store: LedgerStore, deviceId: string = newDeviceId()): Ledger {
+export function createLedger(store: LedgerStore, initialDeviceId: string = newDeviceId()): Ledger {
+  // The identity is written onto every new event, so restoring a backup has to
+  // move this value, not just the rows: the restored shop keeps its name.
+  let deviceId = initialDeviceId;
+
   async function append(type: string, payload: unknown): Promise<string> {
     const { id, seq } = await store.nextIdentity();
     await store.append([
@@ -110,12 +124,27 @@ export function createLedger(store: LedgerStore, deviceId: string = newDeviceId(
   }
 
   return {
-    deviceId,
+    get deviceId() {
+      return deviceId;
+    },
     async shop() {
       return foldEvents(await store.readAll());
     },
     async events() {
       return (await store.readAll()) as LedgerEvent[];
+    },
+    async backup() {
+      return {
+        format: BACKUP_FORMAT,
+        version: BACKUP_VERSION,
+        deviceId,
+        lastSeq: await store.lastSeq(),
+        events: await store.readAll(),
+      };
+    },
+    async restore(backup) {
+      await store.replaceAll(backup.events, backup.lastSeq);
+      deviceId = backup.deviceId;
     },
     async adjustStock(input) {
       const reason = input.reason.trim();
