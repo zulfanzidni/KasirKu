@@ -22,6 +22,7 @@ export function emptyShop(): Shop {
     produk: [],
     varian: [],
     supplier: [],
+    pelanggan: [],
     sales: [],
     receipt: DEFAULT_RECEIPT,
     receiptAt: null,
@@ -140,10 +141,34 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
           total: event.payload.total,
           number: saleNumberOf(event as StoredEvent),
           payment: event.payload.payment ?? null,
+          pelangganId: event.payload.pelangganId ?? null,
+          pelangganNama: event.payload.pelangganNama ?? null,
         };
         shop.sales.push(sale);
         break;
       }
+
+      case 'pelanggan.created':
+        shop.pelanggan.push({
+          id: event.id,
+          nama: event.payload.nama,
+          telepon: event.payload.telepon,
+          archived: false,
+        });
+        break;
+
+      case 'pelanggan.archived': {
+        const pelanggan = shop.pelanggan.find((entry) => entry.id === event.payload.pelangganId);
+        if (pelanggan) pelanggan.archived = event.payload.archived;
+        break;
+      }
+
+      case 'receivable.paid':
+      case 'receivable.written_off':
+        // Hutang is not stored on the customer: hutang.ts folds these events
+        // with the sales that created the debt, so the balance is always the
+        // sum of what happened rather than a number someone remembered.
+        break;
 
       case 'stock.adjusted':
         // The count itself is not stored here; stock.ts folds it on demand.

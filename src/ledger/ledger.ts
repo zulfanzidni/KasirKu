@@ -4,6 +4,7 @@ import { BACKUP_FORMAT, BACKUP_VERSION, type BackupFile } from './backup';
 import { newDeviceId } from './deviceId';
 import { foldEvents } from './events';
 import { createDbLedger, type SqlDatabase } from './dbLedger';
+import { hutangOf } from './hutang';
 import { roundLine } from './register';
 import { saleNumber } from './saleNumber';
 import { correctionDelta, stockOf } from './stock';
@@ -29,6 +30,20 @@ export interface Ledger {
    * believed — never the absolute number. Returns the event's id.
    */
   adjustStock(input: StockCorrection): Promise<string>;
+  /** Records a customer, so hutang has an owner. Returns the customer's id. */
+  tambahPelanggan(input: PelangganInput): Promise<string>;
+  /**
+   * Hides a customer without erasing their history. Refused while they still
+   * owe: a debt that cannot be seen is a debt that will not be collected.
+   */
+  arsipkanPelanggan(pelangganId: string): Promise<string>;
+  /** Records money handed over against hutang. Returns the event's id. */
+  catatPembayaranHutang(input: PembayaranHutangInput): Promise<string>;
+  /**
+   * Forgets the remaining hutang without collecting cash. A separate event
+   * from a payment, so collections never count money that never arrived.
+   */
+  hapusBukuHutang(input: HapusBukuInput): Promise<string>;
   /** The whole log as a file, ready to be saved off the phone. */
   backup(): Promise<BackupFile>;
   /**
@@ -39,6 +54,24 @@ export interface Ledger {
   restore(backup: BackupFile): Promise<void>;
   /** Escape hatch for tests and the next tickets; appends raw event types. */
   append(type: string, payload: unknown): Promise<string>;
+}
+
+/** What the customer form hands the ledger. */
+export interface PelangganInput {
+  nama: string;
+  telepon?: string | null;
+}
+
+/** A payment against hutang, in whole rupiah. */
+export interface PembayaranHutangInput {
+  pelangganId: string;
+  jumlah: number;
+}
+
+/** A write-off: the owner's reason is required, as with a stock correction. */
+export interface HapusBukuInput {
+  pelangganId: string;
+  alasan: string;
 }
 
 /** What the correction form hands the ledger: the counted number and why. */
@@ -64,6 +97,14 @@ export class StockError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'StockError';
+  }
+}
+
+/** A refusal about hutang: no customer, no debt; no debt, no payment. */
+export class HutangError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'HutangError';
   }
 }
 
@@ -107,7 +148,18 @@ export function saleDraft(lines: SaleLineInput[], shop: Shop, payment: PaymentIn
     tendered: payment.tendered,
     cashStep: payment.cashStep,
   });
-  return { lines: written, total, payment: settled };
+  // The customer is resolved against the shop as it is now, and their name is
+  // frozen onto the sale so a later rename cannot rewrite the nota.
+  const pelanggan = payment.pelangganId
+    ? shop.pelanggan.find((entry) => entry.id === payment.pelangganId)
+    : undefined;
+  return {
+    lines: written,
+    total,
+    payment: settled,
+    pelangganId: pelanggan?.id,
+    pelangganNama: pelanggan?.nama,
+  };
 }
 
 export function createLedger(store: LedgerStore, initialDeviceId: string = newDeviceId()): Ledger {
@@ -169,7 +221,19 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
       return id;
     },
     async recordSale(input: SaleLineInput[], payment: PaymentInput) {
-      const draft = saleDraft(input, foldEvents(await store.readAll()), payment);
+      const shop = foldEvents(await store.readAll());
+      const draft = saleDraft(input, shop, payment);
+      // A shortfall is hutang, and hutang needs an owner. Refusing here means
+      // no sale can ever create money owed that nobody can pay (user story 20).
+      if (payment.pelangganId) {
+        const pelanggan = shop.pelanggan.find((entry) => entry.id === payment.pelangganId);
+        if (!pelanggan) throw new HutangError('Pelanggan tidak ditemukan.');
+        if (pelanggan.archived) throw new HutangError('Pelanggan ini sudah diarsipkan.');
+      } else if (draft.payment.unpaid > 0) {
+        throw new HutangError(
+          `Sisa Rp ${draft.payment.unpaid.toLocaleString('id-ID')} menjadi hutang, jadi pilih pelanggan dulu.`,
+        );
+      }
       // Identity, number and payment are written by one append: the number on
       // the receipt and the figures beside it can never come from two saves.
       // One clock read, so the number can never straddle midnight away from
@@ -184,6 +248,95 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
           createdAt: at.toISOString(),
           type: 'sale.completed',
           payload: { number: saleNumber(at.toISOString(), deviceId, seq), ...draft },
+        } as StoredEvent,
+      ]);
+      return id;
+    },
+    async tambahPelanggan(input) {
+      const nama = input.nama.trim();
+      if (!nama) throw new HutangError('Nama pelanggan wajib diisi.');
+      const { id, seq } = await store.nextIdentity();
+      await store.append([
+        {
+          id,
+          seq,
+          deviceId,
+          createdAt: new Date().toISOString(),
+          type: 'pelanggan.created',
+          payload: { nama, telepon: input.telepon?.trim() || null },
+        } as StoredEvent,
+      ]);
+      return id;
+    },
+    async catatPembayaranHutang(input) {
+      const events = (await store.readAll()) as LedgerEvent[];
+      const shop = foldEvents(events);
+      const pelanggan = shop.pelanggan.find((entry) => entry.id === input.pelangganId);
+      if (!pelanggan) throw new HutangError('Pelanggan tidak ditemukan.');
+      if (pelanggan.archived) throw new HutangError('Pelanggan ini sudah diarsipkan.');
+      if (!Number.isInteger(input.jumlah) || input.jumlah <= 0) {
+        throw new HutangError('Jumlah pembayaran harus rupiah bulat lebih dari 0.');
+      }
+      const { state } = hutangOf(events, input.pelangganId);
+      if (state.kind !== 'hutang') {
+        throw new HutangError('Pelanggan ini tidak punya hutang.');
+      }
+      const { id, seq } = await store.nextIdentity();
+      await store.append([
+        {
+          id,
+          seq,
+          deviceId,
+          createdAt: new Date().toISOString(),
+          type: 'receivable.paid',
+          payload: { pelangganId: input.pelangganId, jumlah: input.jumlah },
+        } as StoredEvent,
+      ]);
+      return id;
+    },
+    async arsipkanPelanggan(pelangganId) {
+      const events = (await store.readAll()) as LedgerEvent[];
+      const shop = foldEvents(events);
+      const pelanggan = shop.pelanggan.find((entry) => entry.id === pelangganId);
+      if (!pelanggan) throw new HutangError('Pelanggan tidak ditemukan.');
+      const { state } = hutangOf(events, pelangganId);
+      if (state.kind === 'hutang') {
+        throw new HutangError(
+          `Pelanggan masih punya hutang Rp ${state.jumlah.toLocaleString('id-ID')}. Lunasi atau hapus buku dulu.`,
+        );
+      }
+      const { id, seq } = await store.nextIdentity();
+      await store.append([
+        {
+          id,
+          seq,
+          deviceId,
+          createdAt: new Date().toISOString(),
+          type: 'pelanggan.archived',
+          payload: { pelangganId, archived: true },
+        } as StoredEvent,
+      ]);
+      return id;
+    },
+    async hapusBukuHutang(input) {
+      const alasan = input.alasan.trim();
+      if (!alasan) throw new HutangError('Alasan hapus buku wajib diisi.');
+      const events = (await store.readAll()) as LedgerEvent[];
+      const shop = foldEvents(events);
+      const pelanggan = shop.pelanggan.find((entry) => entry.id === input.pelangganId);
+      if (!pelanggan) throw new HutangError('Pelanggan tidak ditemukan.');
+      if (pelanggan.archived) throw new HutangError('Pelanggan ini sudah diarsipkan.');
+      const { state } = hutangOf(events, input.pelangganId);
+      if (state.kind !== 'hutang') throw new HutangError('Tidak ada hutang yang bisa dihapus.');
+      const { id, seq } = await store.nextIdentity();
+      await store.append([
+        {
+          id,
+          seq,
+          deviceId,
+          createdAt: new Date().toISOString(),
+          type: 'receivable.written_off',
+          payload: { pelangganId: input.pelangganId, jumlah: state.jumlah, alasan },
         } as StoredEvent,
       ]);
       return id;

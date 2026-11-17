@@ -53,6 +53,11 @@ export function receiptHtml(nota: ReceiptData): string {
   <table class="jumlah">
     <tr><td>Tunai</td><td class="uang">${formatRupiah(nota.tendered)}</td></tr>
     <tr><td>Kembalian</td><td class="uang">${formatRupiah(nota.kembalian)}</td></tr>
+    ${
+      nota.hutang > 0
+        ? `<tr class="hutang"><td>Hutang${nota.pelanggan ? ` ${escapeHtml(nota.pelanggan)}` : ''}</td><td class="uang">${formatRupiah(nota.hutang)}</td></tr>`
+        : ''
+    }
   </table>
 
   <footer class="kaki">${escapeHtml(nota.footer)}</footer>
@@ -112,6 +117,7 @@ const STYLE = `
   .uang { text-align: right; white-space: nowrap; }
   .jumlah td { padding: 1.2mm 0; }
   .jumlah { margin-top: 3mm; }
+  .hutang td { color: #A8231F; font-weight: 600; }
   .total {
     display: flex;
     justify-content: space-between;

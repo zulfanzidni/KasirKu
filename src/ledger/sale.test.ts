@@ -86,8 +86,10 @@ describe('two saves handed to the ledger', () => {
     });
     const lines: SaleLineInput[] = [{ varianId, qty: 2, harga: 13500 }];
 
-    await ledger.recordSale(lines, tunai);
-    await ledger.recordSale(lines, tunai);
+    // 2 × 13.500 = 27.000, paid in full: a shortfall would need a customer.
+    const lunas: PaymentInput = { discount: { kind: 'none' }, tendered: 27000 };
+    await ledger.recordSale(lines, lunas);
+    await ledger.recordSale(lines, lunas);
 
     const sales = (await ledger.shop()).sales;
     expect(sales).toHaveLength(2);

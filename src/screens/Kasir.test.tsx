@@ -276,9 +276,11 @@ describe('Kasir', () => {
   });
 });
 
-/** Bayar opens the payment step; nothing is written until the money is in. */
+/** Bayar opens the customer step, then the payment step; nothing is written until the money is in. */
 async function offerPayment() {
   fireEvent.press(screen.getByTestId('simpan-penjualan'));
+  await act(async () => {});
+  fireEvent.press(screen.getByTestId('pelanggan-umum'));
   await act(async () => {});
   fillTunai();
 }

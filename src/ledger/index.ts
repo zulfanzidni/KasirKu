@@ -10,7 +10,18 @@ export {
 export { backupFiles, connectBackupFiles, type BackupFiles, type PickedFile, type SavedFile } from './backupFiles';
 export { clearCart, loadCart, saveCart, type KeyValue } from './cartStorage';
 export { emptyShop, foldEvents, sumSales } from './events';
-export { openLedger, createLedger, saleDraft, type Ledger, type SaleLineInput } from './ledger';
+export { hutangOf, stateOf, type HutangEntry, type HutangLedger, type HutangState } from './hutang';
+export {
+  openLedger,
+  createLedger,
+  saleDraft,
+  HutangError,
+  type HapusBukuInput,
+  type Ledger,
+  type PelangganInput,
+  type PembayaranHutangInput,
+  type SaleLineInput,
+} from './ledger';
 export { deviceCode, saleNumber, saleNumberOf, dayStamp } from './saleNumber';
 export {
   DEFAULT_RECEIPT,
@@ -41,7 +52,9 @@ export {
   supplierPayables,
   titipOnHand,
   titipStock,
+  todayTotals,
   type StockSource,
+  type TodayTotals,
 } from './queries';
 export {
   correctionDelta,
@@ -97,6 +110,7 @@ export type {
   LedgerEvent,
   PaymentInput,
   PaymentMethod,
+  Pelanggan,
   Printer,
   Produk,
   Sale,

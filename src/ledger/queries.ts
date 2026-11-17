@@ -1,4 +1,5 @@
 import { checkLow, lowRows, type LowCheck, type LowRow } from './lowStock';
+import { dayStamp } from './saleNumber';
 import { ownedDelta, stockOf, stockRows as rowsOf, titipStockOf, type StockMovement, type StockRow } from './stock';
 import {
   supplierPayable as payableOf,
@@ -163,6 +164,56 @@ export function produkWithVarian(shop: Shop) {
 /** Every event as stored, oldest first: the history the owner can look back on. */
 export function saleHistory(shop: Shop) {
   return [...shop.sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+// ---------------------------------------------------------------------------
+// Today — the two numbers that differ on purpose
+// ---------------------------------------------------------------------------
+
+/**
+ * What today did, in the two figures the owner must never conflate:
+ *  - `penjualan` — the full value sold, hutang included. A sale is a sale
+ *    whether or not the money has arrived.
+ *  - `tunai` — cash that actually came in: what was handed over at the till
+ *    plus hutang payments. A write-off adds nothing, because no money moved.
+ *  - `hutang` — the part of today's sales that became debt.
+ *
+ * `penjualan` is the receipt total (after discount and pembulatan), not the
+ * gross: it is what the customer was charged. The two figures are not meant to
+ * reconcile, and no screen may imply they should.
+ */
+export interface TodayTotals {
+  penjualan: number;
+  tunai: number;
+  hutang: number;
+}
+
+export function todayTotals(events: readonly LedgerEvent[], now: Date = new Date()): TodayTotals {
+  const today = dayStamp(now.toISOString());
+  const totals: TodayTotals = { penjualan: 0, tunai: 0, hutang: 0 };
+
+  for (const event of events) {
+    if (dayStamp(event.createdAt) !== today) continue;
+    switch (event.type) {
+      case 'sale.completed': {
+        const payment = event.payload.payment;
+        const net = payment?.net ?? event.payload.total;
+        const unpaid = payment?.unpaid ?? 0;
+        totals.penjualan += net;
+        totals.tunai += net - unpaid;
+        totals.hutang += unpaid;
+        break;
+      }
+      case 'receivable.paid':
+        totals.tunai += event.payload.jumlah;
+        break;
+      case 'receivable.written_off':
+        // No cash moved, so nothing is added to `tunai`.
+        break;
+    }
+  }
+
+  return totals;
 }
 
 export type { LedgerEvent, Shop, Varian };

@@ -45,7 +45,7 @@ function settlementLabel(settlement: Settlement): string {
   return SETTLEMENTS.find((entry) => entry.value === settlement)?.label ?? settlement;
 }
 
-export function PemasokScreen() {
+export function PemasokScreen({ onBack }: { onBack?: () => void } = {}) {
   const { shop, supplierPayables, titipStock } = useApp();
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const payables = supplierPayables();
@@ -60,12 +60,17 @@ export function PemasokScreen() {
       title="Pemasok"
       overline="Orang"
       actions={
-        <IconButton
-          name="add"
-          label="Tambah pemasok"
-          onPress={() => setSheet({ kind: 'pemasok' })}
-          testID="tambah-pemasok"
-        />
+        <View style={styles.headerActions}>
+          {onBack ? (
+            <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-ke-orang" />
+          ) : null}
+          <IconButton
+            name="add"
+            label="Tambah pemasok"
+            onPress={() => setSheet({ kind: 'pemasok' })}
+            testID="tambah-pemasok"
+          />
+        </View>
       }
     >
       <ScrollView contentContainerStyle={styles.content}>
@@ -465,6 +470,7 @@ function ReturnForm({ supplierId, onDone }: { supplierId: string; onDone: () => 
 
 const styles = StyleSheet.create({
   content: { paddingBottom: space.lg },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
   supplier: {
     paddingHorizontal: space.gutter,
     paddingVertical: space.md,
