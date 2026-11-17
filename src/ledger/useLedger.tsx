@@ -12,6 +12,7 @@ import { phoneEnvironment } from './environment';
 import { emptyShop } from './events';
 import { serializeBackup, type BackupFile } from './backup';
 import { createCatalog, type Catalog } from './catalog';
+import type { ImportCommit, ImportPlan } from './import';
 import { createSettings, type Settings } from './settings';
 import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
@@ -21,6 +22,7 @@ import {
   StockError,
   type HapusBukuInput,
   type Ledger,
+  type OpeningStock,
   type PelangganInput,
   type PembayaranHutangInput,
   type StockCorrection,
@@ -34,7 +36,7 @@ import type { LedgerEvent, PaymentInput, Shop, StockState, Varian } from './type
 /** One line of a varian's stock history, with the count after it. */
 export type StockHistoryEntry = ReturnType<typeof historyOf> extends Promise<(infer T)[]> ? T : never;
 
-export type { HutangLedger, StockCorrection, StockRow, StockState, TodayTotals };
+export type { HutangLedger, OpeningStock, StockCorrection, StockRow, StockState, TodayTotals };
 
 /**
  * The app's single connection to the record, plus the one piece of screen
@@ -86,6 +88,16 @@ export interface AppState {
    * delta from what the app believed, with their reason. Returns the event id.
    */
   adjustStock(input: StockCorrection): Promise<string>;
+  /**
+   * The count entered during setup, written as its own `stock.opening` event.
+   * A varian the owner skips is never touched, so it stays `unknown`.
+   */
+  recordOpeningStock(input: OpeningStock): Promise<string>;
+  /**
+   * Writes a previewed import as one batch. A plan with row errors is refused,
+   * so nothing is ever half-imported.
+   */
+  importCatalog(plan: ImportPlan): Promise<ImportCommit>;
 
   /** One customer's hutang, folded from the log: hutang, lunas or kredit. */
   hutangOf(pelangganId: string): HutangLedger;
@@ -354,6 +366,18 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [showShop, showEvents],
   );
 
+  const recordOpeningStock = useCallback(
+    async (input: OpeningStock) => {
+      const current = ledgerRef.current;
+      if (!current) throw new StockError('Catatan belum siap.');
+      const id = await current.recordOpeningStock(input);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return id;
+    },
+    [showShop, showEvents],
+  );
+
   /** Hutang is a fold of the events already in hand, so it is instant. */
   const hutangOf = useCallback((pelangganId: string): HutangLedger => hutangOfEvents(events, pelangganId), [events]);
 
@@ -368,6 +392,18 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       showShop(await current.shop());
       showEvents(await current.events());
       return id;
+    },
+    [showShop, showEvents],
+  );
+
+  const importCatalog = useCallback(
+    async (plan: ImportPlan): Promise<ImportCommit> => {
+      const current = ledgerRef.current;
+      if (!current) throw new StockError('Catatan belum siap.');
+      const hasil = await current.importCatalog(plan);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return hasil;
     },
     [showShop, showEvents],
   );
@@ -441,6 +477,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     stockRows,
     lowChecks,
     adjustStock,
+    recordOpeningStock,
+    importCatalog,
     hutangOf,
     todayTotals,
     tambahPelanggan,

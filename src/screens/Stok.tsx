@@ -33,6 +33,7 @@ import {
   type Varian,
 } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
+import { ImporScreen } from '@/screens/Impor';
 
 const SATUAN: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
 /** The group a produk falls into when its kategori is archived or absent. */
@@ -57,6 +58,10 @@ export function StokScreen() {
   const [produkId, setProdukId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ kind: 'hitung' | 'minimum' | 'riwayat'; varianId: string } | null>(null);
   const [edit, setEdit] = useState<{ kind: 'kategori' | 'produk'; id: string } | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [mode, setMode] = useState<'daftar' | 'impor'>('daftar');
+
+  if (mode === 'impor') return <ImporScreen onBack={() => setMode('daftar')} />;
 
   /**
    * Every varian in the order the list reads in (negative first, then low,
@@ -78,6 +83,8 @@ export function StokScreen() {
   const sheetVarian = sheet ? shop.varian.find((entry) => entry.id === sheet.varianId) ?? null : null;
   const editKategori = edit?.kind === 'kategori' ? shop.kategori.find((entry) => entry.id === edit.id) ?? null : null;
   const editProduk = edit?.kind === 'produk' ? shop.produk.find((entry) => entry.id === edit.id) ?? null : null;
+  /** The variants the setup pass still has a question about: nobody has counted them. */
+  const belumDihitung = ranked.filter((row) => row.stock.kind === 'unknown').map((row) => row.varian);
 
   /**
    * The list is grouped by kategori, and a produk whose kategori is archived
@@ -105,7 +112,23 @@ export function StokScreen() {
     <Screen
       title="Barang"
       overline="Stok"
-      actions={<IconButton name="add" label="Tambah barang" onPress={() => setForm('kategori')} testID="tambah-barang" />}
+      actions={
+        <>
+          <IconButton
+            name="inventory-2"
+            label="Stok awal"
+            onPress={() => setOpening(true)}
+            testID="stok-awal"
+          />
+          <IconButton
+            name="upload-file"
+            label="Impor barang"
+            onPress={() => setMode('impor')}
+            testID="impor-barang"
+          />
+          <IconButton name="add" label="Tambah barang" onPress={() => setForm('kategori')} testID="tambah-barang" />
+        </>
+      }
     >
       <ScrollView contentContainerStyle={styles.content}>
         {shop.kategori.length === 0 ? <Note>{teks.belumAdaKategori}</Note> : null}
@@ -260,6 +283,15 @@ export function StokScreen() {
       >
         {sheetVarian ? <HistoryList varian={sheetVarian} /> : null}
       </BottomSheet>
+
+      <BottomSheet
+        visible={opening}
+        onClose={() => setOpening(false)}
+        title="Stok awal"
+        testID="form-stok-awal"
+      >
+        <OpeningForm varian={belumDihitung} onDone={() => setOpening(false)} />
+      </BottomSheet>
     </Screen>
   );
 }
@@ -374,6 +406,85 @@ function VarianLine({
     </Pressable>
   );
 }
+/**
+ * The guided setup pass: one field per varian nobody has counted yet. An empty
+ * field is a skip, and a skip writes nothing — the varian stays "belum
+ * dihitung", which is not the same as zero. Saving writes one `stock.opening`
+ * per filled field, so each count is auditable on its own.
+ */
+function OpeningForm({ varian, onDone }: { varian: Varian[]; onDone: () => void }) {
+  const { recordOpeningStock } = useApp();
+  const [jumlah, setJumlah] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (saving) return;
+    // Every field is read before anything is written: a typo in the last row
+    // must not leave the first rows half-recorded.
+    const entries: { varianId: string; qty: number }[] = [];
+    for (const entry of varian) {
+      const raw = (jumlah[entry.id] ?? '').trim();
+      if (raw === '') continue;
+      const qty = parseQty(raw);
+      if (qty === null) {
+        setError(`Jumlah ${entry.nama} harus angka. Contoh: 12 atau 12,5`);
+        return;
+      }
+      entries.push({ varianId: entry.id, qty });
+    }
+    if (entries.length === 0) {
+      onDone();
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      for (const entry of entries) await recordOpeningStock(entry);
+      onDone();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (varian.length === 0) {
+    return (
+      <>
+        <Note>Semua barang sudah dihitung. Stok bisa dikoreksi lewat Hitung ulang kapan saja.</Note>
+        <Button label={teks.kembali} variant="outlined" onPress={onDone} testID="lewati-stok-awal" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Note>
+        Tulis jumlah yang ada di rak sekarang. Yang dikosongkan tetap “belum dihitung” dan bisa dihitung nanti.
+      </Note>
+      {varian.map((entry) => (
+        <Field
+          key={entry.id}
+          label={`${entry.nama} (${entry.satuan})`}
+          value={jumlah[entry.id] ?? ''}
+          onChangeText={(value) => setJumlah((prev) => ({ ...prev, [entry.id]: value }))}
+          keyboardType="decimal-pad"
+          placeholder="0"
+          testID={`stok-awal-${entry.id}`}
+        />
+      ))}
+      {error ? (
+        <AppText typeRole="bodyMedium" tone="owed" testID="stok-awal-galat">
+          {error}
+        </AppText>
+      ) : null}
+      <Button label={teks.simpan} onPress={submit} disabled={saving} testID="simpan-stok-awal" />
+      <Button label="Lewati" variant="outlined" onPress={onDone} testID="lewati-stok-awal" />
+    </>
+  );
+}
+
 /**
  * The correction, in the owner's terms: the number actually on the shelf. The
  * seam turns it into a delta from what the app believed and keeps their reason
@@ -495,7 +606,9 @@ function HistoryList({ varian }: { varian: Varian }) {
                   ? entry.settlement === 'titip'
                     ? 'Titip dari supplier'
                     : 'Barang masuk'
-                  : 'Penjualan'}
+                  : entry.kind === 'opening'
+                    ? 'Stok awal'
+                    : 'Penjualan'}
             </AppText>
             <AppText typeRole="labelSmall" tone="muted">
               {`${tanggal(entry.at)} · sisa ${formatQty(entry.after)} ${varian.satuan}`}

@@ -1,6 +1,8 @@
 import { connectPhone } from '@/ledger/environment';
 import { connectBackupFiles } from '@/ledger/backupFiles';
+import { connectImportFiles } from '@/ledger/importFiles';
 import { phoneBackupFiles } from '@/ledger/phoneBackupFiles';
+import { phoneImportFiles } from '@/ledger/phoneImportFiles';
 import { phonePrinter } from '@/ledger/phonePrinter';
 import { connectPrinter } from '@/ledger/printer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,3 +27,4 @@ connectPhone({
 
 connectPrinter(phonePrinter);
 connectBackupFiles(phoneBackupFiles);
+connectImportFiles(phoneImportFiles);

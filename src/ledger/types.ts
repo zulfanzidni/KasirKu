@@ -216,6 +216,14 @@ export interface SalePayload {
 export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: number; reason: string }>;
 
 /**
+ * The count the owner entered when the shop was set up. It is an event like
+ * any other movement — auditable, and folded with the rest — never a silent
+ * initial value and never a stored column (ADR 0001). A varian with no opening
+ * event and no other movement stays `unknown`, which is not zero.
+ */
+export type StockOpening = Event<'stock.opening', { varianId: string; qty: number }>;
+
+/**
  * Goods arriving from a supplier. `settlement` says whose goods they are:
  * tunai and tempo are the shop's own the moment they arrive; titip is the
  * supplier's until it sells (GLOSSARY: Titip), so it never counts as owned.
@@ -240,6 +248,7 @@ export type LedgerEvent =
   | SaleCompleted
   | StockAdjusted
   | StockReceived
+  | StockOpening
   | ReceivablePaid
   | ReceivableWrittenOff;
 

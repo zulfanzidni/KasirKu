@@ -68,20 +68,24 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
     },
 
     async append(events: readonly StoredEvent[]): Promise<void> {
-      for (const event of events) {
-        const exists = await db.getFirstAsync<{ one: number }>('SELECT 1 AS one FROM events WHERE id = ?', [
-          event.id,
-        ]);
-        if (exists) throw new DuplicateEventError(event.id);
-        await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
-          event.id,
-          event.deviceId,
-          event.seq,
-          event.createdAt,
-          event.type,
-          JSON.stringify(event.payload),
-        ]);
-      }
+      // One transaction for the whole batch: an import writes a catalog as a
+      // unit, and a kill halfway through must not leave half of it behind.
+      await db.withTransactionAsync(async () => {
+        for (const event of events) {
+          const exists = await db.getFirstAsync<{ one: number }>('SELECT 1 AS one FROM events WHERE id = ?', [
+            event.id,
+          ]);
+          if (exists) throw new DuplicateEventError(event.id);
+          await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
+            event.id,
+            event.deviceId,
+            event.seq,
+            event.createdAt,
+            event.type,
+            JSON.stringify(event.payload),
+          ]);
+        }
+      });
     },
 
     async readAll(): Promise<StoredEvent[]> {
