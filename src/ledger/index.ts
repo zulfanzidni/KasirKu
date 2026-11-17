@@ -45,11 +45,13 @@ export {
   createLedger,
   saleDraft,
   HutangError,
+  VoidError,
   type HapusBukuInput,
   type Ledger,
   type PelangganInput,
   type PembayaranHutangInput,
   type SaleLineInput,
+  type VoidSaleInput,
 } from './ledger';
 export { deviceCode, saleNumber, saleNumberOf, dayStamp } from './saleNumber';
 export {
@@ -82,6 +84,7 @@ export { createHttpExchange, type HttpSyncOptions } from './syncHttp';
 export {
   gridVarian,
   isLow,
+  liveSales,
   lowStock,
   produkWithVarian,
   saleHistory,
@@ -165,6 +168,7 @@ export type {
   Sale,
   SaleLine,
   SalePayment,
+  SaleVoided,
   Satuan,
   Settlement,
   Shop,

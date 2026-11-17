@@ -88,6 +88,19 @@ export function ReceiptPaper({ nota }: { nota: ReceiptData }) {
         </AppText>
       </View>
 
+      {nota.voided ? (
+        <View style={styles.void} testID="nota-batal">
+          <AppText typeRole="titleMedium" tone="owed" align="center">
+            NOTA DIBATALKAN
+          </AppText>
+          {nota.voidReason ? (
+            <AppText typeRole="bodyMedium" tone="muted" align="center">
+              {nota.voidReason}
+            </AppText>
+          ) : null}
+        </View>
+      ) : null}
+
       {nota.lines.map((line, index) => (
         <RuledRow key={`${line.label}-${index}`} title={line.label} qtyMark={line.qty} value={formatRupiah(line.amount)} />
       ))}
@@ -168,6 +181,14 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     borderBottomWidth: 1.5,
     borderBottomColor: colors.primary,
+  },
+  void: {
+    marginHorizontal: space.gutter,
+    marginTop: space.sm,
+    paddingVertical: space.sm,
+    borderWidth: 2,
+    borderColor: colors.error,
+    gap: space.xs,
   },
   sums: { paddingHorizontal: space.gutter, paddingTop: space.sm, gap: space.xs },
   sumRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },

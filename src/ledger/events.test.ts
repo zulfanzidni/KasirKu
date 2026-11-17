@@ -77,6 +77,9 @@ describe('the ledger as the shop sees it', () => {
         payment: null,
         pelangganId: null,
         pelangganNama: null,
+        voided: false,
+        voidedAt: null,
+        voidReason: null,
         lines: [
           { varianId: ids.varian, nama: 'Tepung terigu 1 kg', satuan: 'kg', qty: 3, harga: 13500, jumlah: 40500 },
         ],

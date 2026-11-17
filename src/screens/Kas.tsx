@@ -61,6 +61,7 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
 
         <View style={styles.rows}>
           <CashRow title="Penjualan tunai" amount={drawer.penjualan} testID="kas-penjualan" />
+          <CashRow title="Penjualan dibatalkan" amount={-drawer.pembatalan} testID="kas-pembatalan" />
           <CashRow title="Pembayaran hutang" amount={drawer.hutang} testID="kas-hutang" />
           <CashRow title="Setor uang" amount={drawer.setor} testID="kas-setor" />
           <CashRow title="Bayar pemasok" amount={-drawer.pemasok} testID="kas-pemasok" />

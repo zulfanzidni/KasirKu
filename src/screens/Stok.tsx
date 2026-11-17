@@ -620,7 +620,9 @@ function HistoryList({ varian }: { varian: Varian }) {
                     ? 'Stok awal'
                     : entry.kind === 'returned'
                       ? 'Titip dikembalikan'
-                      : 'Penjualan'}
+                      : entry.kind === 'void'
+                        ? 'Penjualan dibatalkan'
+                        : 'Penjualan'}
             </AppText>
             <AppText typeRole="labelSmall" tone="muted">
               {`${tanggal(entry.at)} · sisa ${formatQty(entry.after)} ${varian.satuan}`}

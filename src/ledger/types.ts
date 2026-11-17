@@ -196,6 +196,17 @@ export interface SaleLine {
 export type SaleCompleted = Event<'sale.completed', SalePayload>;
 
 /**
+ * Cancels a sale that should not exist, without deleting it (ADR 0001).
+ *
+ * The original `sale.completed` stays in the log and in Riwayat; this event
+ * names it and carries the owner's reason. Every derived figure — revenue,
+ * stock, customer debt, the cash drawer — cancels the original by folding this
+ * event beside it, so the two phones agree and a correction never inflates the
+ * day.
+ */
+export type SaleVoided = Event<'sale.voided', { saleId: string; alasan: string }>;
+
+/**
  * Everything a sale records besides its lines.
  *
  * `total` is the gross — the sum of the rounded line totals, rounded once at
@@ -350,6 +361,7 @@ export type StockState = { kind: 'unknown' } | { kind: 'counted'; qty: number };
 export type LedgerEvent =
   | MasterEvent
   | SaleCompleted
+  | SaleVoided
   | StockAdjusted
   | StockReceived
   | StockOpening
@@ -419,6 +431,16 @@ export interface Sale {
   pelangganId: string | null;
   /** The customer's name as it read when the sale was written. */
   pelangganNama: string | null;
+  /**
+   * True when a `sale.voided` cancels this sale. The sale stays here — a void
+   * is appended, never a deletion — so Riwayat can still trace the number on a
+   * receipt the customer holds.
+   */
+  voided: boolean;
+  /** When the void was written; null while the sale stands. */
+  voidedAt: string | null;
+  /** The owner's reason for the void; null while the sale stands. */
+  voidReason: string | null;
 }
 
 /** A customer, as the log resolves them. */

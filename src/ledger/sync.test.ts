@@ -1,5 +1,7 @@
+import { sumSales } from './events';
 import { createLedger, type Ledger } from './ledger';
 import { hutangOf } from './hutang';
+import { liveSales } from './queries';
 import { MemoryExchange } from './memoryExchange';
 import { MemoryStore } from './memoryStore';
 import { STARTING_CHECKPOINT, parseCheckpoint, syncLedger, unsentEvents, type SyncCheckpoint } from './sync';
@@ -151,6 +153,41 @@ describe('dua ponsel bertukar catatan', () => {
     expect(stockOf(eventsSatu, varianId).stock).toEqual({ kind: 'counted', qty: 6 });
     // 14.000 dijual, 5.000 dibayar: sisa hutangnya 9.000.
     expect(hutangOf(eventsSatu, pelangganId).state).toEqual({ kind: 'hutang', jumlah: 9_000 });
+  });
+
+  it('pembatalan di satu ponsel sampai ke ponsel lain, dan keduanya setuju soal pendapatan', async () => {
+    const shared = new MemoryExchange();
+    const ibu = phone('gawai-ibu');
+    const anak = phone('gawai-anak');
+    const varianId = await seedSepuluh(ibu);
+
+    // Kedua ponsel mulai dari rak yang sama.
+    let checkpointIbu = await tukar(ibu, shared, STARTING_CHECKPOINT);
+    let checkpointAnak = await tukar(anak, shared, STARTING_CHECKPOINT);
+
+    // Ibu menjual dua, dan anak menerima penjualannya.
+    const saleId = await ibu.recordSale([{ varianId, qty: 2 }], paid(7_000));
+    checkpointIbu = await tukar(ibu, shared, checkpointIbu);
+    checkpointAnak = await tukar(anak, shared, checkpointAnak);
+    expect((await anak.shop()).sales).toHaveLength(1);
+
+    // Ibu membatalkan penjualan itu; pembatalannya ikut menyeberang.
+    await ibu.voidSale({ saleId, alasan: 'Salah input' });
+    checkpointIbu = await tukar(ibu, shared, checkpointIbu);
+    checkpointAnak = await tukar(anak, shared, checkpointAnak);
+
+    const shopIbu = await ibu.shop();
+    const shopAnak = await anak.shop();
+
+    // Kedua ponsel melihat penjualan yang sama, ditandai dibatalkan.
+    expect(shopIbu.sales.find((sale) => sale.id === saleId)?.voided).toBe(true);
+    expect(shopAnak.sales.find((sale) => sale.id === saleId)?.voided).toBe(true);
+
+    // Pendapatan dan stok yang sama: tidak ada yang dihitung dua kali.
+    expect(sumSales(liveSales(shopIbu))).toBe(0);
+    expect(sumSales(liveSales(shopAnak))).toBe(0);
+    expect(stockOf(await ibu.events(), varianId).stock).toEqual({ kind: 'counted', qty: 10 });
+    expect(stockOf(await anak.events(), varianId).stock).toEqual({ kind: 'counted', qty: 10 });
   });
 
   it('tipe catatan yang belum dikenal pun ikut tersalin, tanpa merge mengenalnya', async () => {

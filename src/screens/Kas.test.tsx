@@ -210,6 +210,23 @@ describe('Kas — pembayaran pemasok dan hutang', () => {
   });
 });
 
+describe('Kas — penjualan dibatalkan', () => {
+  it('a voided sale takes its cash back out of the drawer, and the screen says why', async () => {
+    const varianId = await seedVarian();
+    const saleId = await seedSale(varianId, 3, 30_000);
+    await openKas();
+
+    expect(screen.getByTestId('kas-expected')).toHaveTextContent(/30\.000/);
+
+    await act(async () => app.voidSale({ saleId, alasan: 'Salah input' }));
+
+    // The sale is still shown, and the refund cancels it: the drawer is empty.
+    expect(screen.getByTestId('kas-penjualan')).toHaveTextContent(/Rp 30\.000/);
+    expect(screen.getByTestId('kas-pembatalan')).toHaveTextContent(/−Rp 30\.000/);
+    expect(screen.getByTestId('kas-expected')).toHaveTextContent(/Kas yang seharusnya0/);
+  });
+});
+
 describe('Kas — hitung kas', () => {
   it('shows the difference against expected and names the baseline used', async () => {
     const varianId = await seedVarian();

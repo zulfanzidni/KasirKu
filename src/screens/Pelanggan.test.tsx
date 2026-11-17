@@ -104,6 +104,26 @@ describe('Pelanggan — hutang, payments and write-offs', () => {
     expect(screen.getByTestId('pelanggan-status')).toHaveTextContent('Kredit 5.000');
   });
 
+  it('voiding a sale that created hutang leaves the repayment as a credit', async () => {
+    const { pelangganId } = await seedDebt();
+    await openCustomer(pelangganId);
+
+    // Bu Ani pays 4.000 of the 10.000 she owes.
+    fireEvent.press(screen.getByTestId('catat-pembayaran'));
+    await act(async () => {});
+    fireEvent(screen.getByTestId('bayar-hutang-jumlah'), 'changeText', '4.000');
+    fireEvent.press(screen.getByTestId('simpan-pembayaran-hutang'));
+    await act(async () => {});
+    expect(screen.getByTestId('pelanggan-status')).toHaveTextContent('Hutang 6.000');
+
+    // The sale itself was wrong, so it is voided. The money she handed over
+    // stays where it is: she now holds a credit, not a vanished payment.
+    const sale = app.shop.sales[0];
+    await act(async () => app.voidSale({ saleId: sale.id, alasan: 'Salah input' }));
+
+    expect(screen.getByTestId('pelanggan-status')).toHaveTextContent('Kredit 4.000');
+  });
+
   it('refuses to archive a customer who still owes, and allows it once settled', async () => {
     const { pelangganId } = await seedDebt();
     await openCustomer(pelangganId);
