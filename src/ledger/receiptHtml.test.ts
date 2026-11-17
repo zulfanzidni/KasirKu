@@ -37,6 +37,34 @@ describe('the PDF document', () => {
     expect(paper).toContain('&lt;Jl. Melati&gt;');
     expect(paper).not.toContain('<Jl. Melati>');
   });
+
+  it('prints what was added to hutang, beside the cash and the change', async () => {
+    const ledger = createLedger(new MemoryStore(), 'gawai-uji');
+    const produkId = await ledger.append('produk.created', { kategoriId: 'kat', nama: 'Sembako' });
+    const varianId = await ledger.append('varian.created', {
+      produkId,
+      nama: 'Beras sania 1 kg',
+      kode: null,
+      satuan: 'kg',
+      jualBy: 'weight',
+      harga: 15000,
+    });
+    const pelangganId = await ledger.tambahPelanggan({ nama: 'Bu Ani' });
+    const id = await ledger.recordSale([{ varianId, qty: 2 }], {
+      discount: { kind: 'none' },
+      tendered: 20000,
+      pelangganId,
+    });
+    const sale = (await ledger.shop()).sales.find((entry) => entry.id === id)!;
+
+    const paper = receiptHtml(receiptOf(sale));
+
+    expect(paper).toContain('Tunai');
+    expect(paper).toContain('20.000');
+    expect(paper).toContain('Kembalian');
+    expect(paper).toContain('Hutang Bu Ani');
+    expect(paper).toContain('10.000');
+  });
 });
 
 async function sellIndomie(): Promise<Sale> {

@@ -68,20 +68,49 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
     },
 
     async append(events: readonly StoredEvent[]): Promise<void> {
-      for (const event of events) {
-        const exists = await db.getFirstAsync<{ one: number }>('SELECT 1 AS one FROM events WHERE id = ?', [
-          event.id,
-        ]);
-        if (exists) throw new DuplicateEventError(event.id);
-        await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
-          event.id,
-          event.deviceId,
-          event.seq,
-          event.createdAt,
-          event.type,
-          JSON.stringify(event.payload),
-        ]);
-      }
+      // One transaction for the whole batch: an import writes a catalog as a
+      // unit, and a kill halfway through must not leave half of it behind.
+      await db.withTransactionAsync(async () => {
+        for (const event of events) {
+          const exists = await db.getFirstAsync<{ one: number }>('SELECT 1 AS one FROM events WHERE id = ?', [
+            event.id,
+          ]);
+          if (exists) throw new DuplicateEventError(event.id);
+          await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
+            event.id,
+            event.deviceId,
+            event.seq,
+            event.createdAt,
+            event.type,
+            JSON.stringify(event.payload),
+          ]);
+        }
+      });
+    },
+
+    async appendAbsent(events: readonly StoredEvent[]): Promise<number> {
+      // The union of two logs, one transaction for the whole batch: sync
+      // either applies what it pulled or none of it. A repeated id is the same
+      // happening already told, so it is skipped rather than refused.
+      let added = 0;
+      await db.withTransactionAsync(async () => {
+        for (const event of events) {
+          const exists = await db.getFirstAsync<{ one: number }>('SELECT 1 AS one FROM events WHERE id = ?', [
+            event.id,
+          ]);
+          if (exists) continue;
+          await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
+            event.id,
+            event.deviceId,
+            event.seq,
+            event.createdAt,
+            event.type,
+            JSON.stringify(event.payload),
+          ]);
+          added += 1;
+        }
+      });
+      return added;
     },
 
     async readAll(): Promise<StoredEvent[]> {
@@ -100,6 +129,45 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
             type: row.type,
             payload: JSON.parse(row.payload),
           }) as LedgerEvent as StoredEvent,
+      );
+    },
+
+    async lastSeq(): Promise<number> {
+      const row = await db.getFirstAsync<MetaRow>('SELECT value FROM ledger_meta WHERE key = ?', [SEQ_KEY]);
+      return Number(row?.value ?? 0);
+    },
+
+    async replaceAll(events: readonly StoredEvent[], lastSeq: number): Promise<void> {
+      // One transaction: a kill halfway through must not leave a phone with
+      // half of one shop's history and half of another's.
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('DELETE FROM events');
+        for (const event of events) {
+          await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
+            event.id,
+            event.deviceId,
+            event.seq,
+            event.createdAt,
+            event.type,
+            JSON.stringify(event.payload),
+          ]);
+        }
+        // The tail is written last, as it was for the events themselves: the
+        // next number must follow the restored history, never precede it.
+        const tail = events.reduce((high, event) => Math.max(high, event.seq), lastSeq);
+        await db.runAsync(
+          'INSERT INTO ledger_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          [SEQ_KEY, tail],
+        );
+      });
+    },
+
+    async continueFrom(lastSeq: number): Promise<void> {
+      // Adoption continues another phone's stream, so the counter moves to its
+      // tail even when this phone had written further. The log is untouched.
+      await db.runAsync(
+        'INSERT INTO ledger_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [SEQ_KEY, lastSeq],
       );
     },
   };

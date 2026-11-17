@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/ledger/useLedger';
-import { AppText, Note, colors, space } from '@/design';
+import { AppText, Note, RuledRow, colors, space } from '@/design';
 import { TabBar, type TabItem } from '@/design/components/TabBar';
+import { KasScreen } from '@/screens/Kas';
 import { KasirScreen } from '@/screens/Kasir';
+import { LaporanScreen } from '@/screens/Laporan';
+import { OrangScreen } from '@/screens/Orang';
 import { PengaturanScreen } from '@/screens/Pengaturan';
+import { RiwayatScreen } from '@/screens/Riwayat';
 import { StokScreen } from '@/screens/Stok';
 
 /**
@@ -22,6 +26,7 @@ const TABS: readonly TabItem[] = [
 
 export function Shell() {
   const [tab, setTab] = useState('kasir');
+  const [lainView, setLainView] = useState<'menu' | 'kas' | 'riwayat' | 'laporan'>('menu');
   const { error } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -35,23 +40,45 @@ export function Shell() {
         ) : null}
         {!error && tab === 'kasir' ? <KasirScreen /> : null}
         {!error && tab === 'stok' ? <StokScreen /> : null}
-        {!error && tab === 'orang' ? (
-          <View style={styles.center}>
-            <Note>Supplier dan pelanggan menyusul.</Note>
-          </View>
-        ) : null}
+        {!error && tab === 'orang' ? <OrangScreen /> : null}
         {!error && tab === 'lain' ? (
-          <View style={styles.lainScreen}>
-            <View style={styles.lainHeader}>
-              <AppText typeRole="headlineSmall" tone="primary">
-                Lainnya
-              </AppText>
-              <AppText typeRole="labelSmall" tone="muted">
-                Riwayat dan laporan menyusul
-              </AppText>
+          lainView === 'kas' ? (
+            <KasScreen onBack={() => setLainView('menu')} />
+          ) : lainView === 'riwayat' ? (
+            <RiwayatScreen onBack={() => setLainView('menu')} />
+          ) : lainView === 'laporan' ? (
+            <LaporanScreen onBack={() => setLainView('menu')} />
+          ) : (
+            <View style={styles.lainScreen}>
+              <View style={styles.lainHeader}>
+                <AppText typeRole="headlineSmall" tone="primary">
+                  Lainnya
+                </AppText>
+                <AppText typeRole="labelSmall" tone="muted">
+                  Kas, nota, dan cadangan
+                </AppText>
+              </View>
+              <RuledRow
+                title="Kas"
+                value="Kas & Tutup Toko"
+                onPress={() => setLainView('kas')}
+                testID="buka-kas"
+              />
+              <RuledRow
+                title="Riwayat"
+                value="Nota & pembatalan"
+                onPress={() => setLainView('riwayat')}
+                testID="buka-riwayat"
+              />
+              <RuledRow
+                title="Laporan"
+                value="Penjualan & peringkat"
+                onPress={() => setLainView('laporan')}
+                testID="buka-laporan"
+              />
+              <PengaturanScreen />
             </View>
-            <PengaturanScreen />
-          </View>
+          )
         ) : null}
       </View>
       <TabBar tabs={TABS} active={tab} onChange={setTab} />

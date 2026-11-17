@@ -1,7 +1,76 @@
 export { createCatalog, CatalogError, type Catalog, type VarianInput } from './catalog';
+export {
+  adoptDeviceIdentity,
+  AdoptionError,
+  knownIdentities,
+  type AdoptionResult,
+  type DeviceIdentity,
+} from './adoption';
+export {
+  BACKUP_FORMAT,
+  BACKUP_VERSION,
+  BackupError,
+  parseBackup,
+  serializeBackup,
+  type BackupFile,
+} from './backup';
+export { backupFiles, connectBackupFiles, type BackupFiles, type PickedFile, type SavedFile } from './backupFiles';
 export { clearCart, loadCart, saveCart, type KeyValue } from './cartStorage';
+export {
+  ImportError,
+  planImport,
+  type ImportCommit,
+  type ImportKategori,
+  type ImportPlan,
+  type ImportProduk,
+  type ImportRowError,
+  type ImportVarian,
+} from './import';
+export { connectImportFiles, importFiles, type ImportFile, type ImportFiles } from './importFiles';
 export { emptyShop, foldEvents, sumSales } from './events';
-export { openLedger, createLedger, saleDraft, type Ledger, type SaleLineInput } from './ledger';
+export {
+  buildLaporan,
+  defaultFilter,
+  geserHari,
+  rentangDari,
+  tanggalLokal,
+  type Laporan,
+  type LaporanFilter,
+  type LaporanPreset,
+  type LaporanRentang,
+  type LaporanSync,
+} from './laporan';
+export { hutangOf, stateOf, type HutangEntry, type HutangLedger, type HutangState } from './hutang';
+export {
+  baselineKindLabel,
+  baselineLabel,
+  CashError,
+  cashCounts,
+  cashDrawer,
+  cashMovement,
+  countPayload,
+  openingFloat,
+  selisihLabel,
+  type CashBaseline,
+  type CashCount,
+  type CashDrawer,
+  type CashMovementEntry,
+  type CashMovementInput,
+  type CashMovementKind,
+} from './kas';
+export {
+  openLedger,
+  createLedger,
+  saleDraft,
+  HutangError,
+  VoidError,
+  type HapusBukuInput,
+  type Ledger,
+  type PelangganInput,
+  type PembayaranHutangInput,
+  type SaleLineInput,
+  type VoidSaleInput,
+} from './ledger';
 export { deviceCode, saleNumber, saleNumberOf, dayStamp } from './saleNumber';
 export {
   DEFAULT_RECEIPT,
@@ -16,21 +85,78 @@ export {
 } from './receipt';
 export { connectPrinter, printer } from './printer';
 export { MemoryStore } from './memoryStore';
+export { MemoryExchange } from './memoryExchange';
+export {
+  connectSync,
+  parseCheckpoint,
+  STARTING_CHECKPOINT,
+  syncExchange,
+  syncLedger,
+  unsentEvents,
+  SyncError,
+  type SharedLog,
+  type SyncCheckpoint,
+  type SyncReport,
+} from './sync';
+export { createHttpExchange, type HttpSyncOptions } from './syncHttp';
 export {
   gridVarian,
   isLow,
+  liveSales,
   lowStock,
   produkWithVarian,
   saleHistory,
   searchVarian,
+  sellableVarian,
   sortStock,
   stockByVariant,
   stockHistory,
   stockOnHand,
+  supplierPayable,
+  supplierPayables,
+  titipOnHand,
+  titipStock,
+  todayTotals,
   type StockSource,
+  type TodayTotals,
 } from './queries';
-export { correctionDelta, normaliseQty, stockOf, stockRows, type StockMovement, type StockRow } from './stock';
-export { StockError, type StockCorrection } from './ledger';
+export {
+  correctionDelta,
+  foldStock,
+  normaliseQty,
+  stockOf,
+  stockRows,
+  stockState,
+  titipStockOf,
+  type StockFold,
+  type StockMovement,
+  type StockRow,
+  type TitipLot,
+  type VarianStock,
+} from './stock';
+export { SATUAN } from './types';
+export {
+  createSupplierBook,
+  SupplierError,
+  type DeliveryInput,
+  type DeliveryLineInput,
+  type SupplierBook,
+  type SupplierInput,
+  type SupplierPayable,
+  type TitipStock,
+} from './suppliers';
+export {
+  bulkOf,
+  checkLow,
+  lowRows,
+  LOW_WINDOW_DAYS,
+  MIN_HISTORY_DAYS,
+  type BulkContext,
+  type LowCheck,
+  type LowRow,
+  type LowRule,
+} from './lowStock';
+export { StockError, type OpeningStock, type StockCorrection } from './ledger';
 export {
   addToCart,
   cartTotal,
@@ -45,20 +171,35 @@ export {
 export { teks } from './copy';
 
 export type {
+  CashBaselineKind,
+  CashCounted,
+  CashDeposited,
+  CashExpense,
+  CashOpeningFloat,
+  CashWithdrawn,
   JualBy,
   Kategori,
   LedgerEvent,
   PaymentInput,
   PaymentMethod,
+  Pelanggan,
   Printer,
   Produk,
   Sale,
   SaleLine,
   SalePayment,
+  SaleVoided,
   Satuan,
+  Settlement,
   Shop,
   StockAdjusted,
+  StockConsignmentReturned,
+  StockReceived,
   StockState,
+  Supplier,
+  SupplierCreated,
+  SupplierUpdated,
+  SupplierArchived,
   Varian,
 } from './types';
 export { useApp, LedgerProvider, type AppState } from './useLedger';

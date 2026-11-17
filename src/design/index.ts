@@ -37,10 +37,13 @@ export {
   parseRupiah,
   parseQty,
   formatQty,
+  checkRupiah,
   type Discount,
   type OrderTotals,
   type CartLineLike,
   type CashPaymentInput,
   type PaymentMethod,
+  type RupiahErrorClass,
   type SalePayment,
 } from './money';
+export { formatMoment } from './dates';

@@ -16,6 +16,11 @@ describe('stockStatus', () => {
     expect(stockStatus(3, null)).toBe('ok');
     expect(stockStatus(5, 5)).toBe('ok');
   });
+
+  it('flags low when selling speed, not a minimum, is what judged it', () => {
+    expect(stockStatus(3, null, true)).toBe('low');
+    expect(stockStatus(3, null, false)).toBe('ok');
+  });
 });
 
 describe('StockBadge', () => {

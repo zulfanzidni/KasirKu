@@ -1,9 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { KasirScreen } from '@/screens/Kasir';
 import type { Catalog } from '@/ledger/catalog';
-import { createLedger } from '@/ledger/ledger';
 import type { Shop } from '@/ledger/types';
-import { app, mockPhone, resetPhone, waitReady, wrap } from './testPhone';
+import { app, phoneLedger, resetPhone, waitReady, wrap } from './testPhone';
 
 /**
  * The till, driven the way the owner drives it: tapping rows, choosing a
@@ -277,9 +276,11 @@ describe('Kasir', () => {
   });
 });
 
-/** Bayar opens the payment step; nothing is written until the money is in. */
+/** Bayar opens the customer step, then the payment step; nothing is written until the money is in. */
 async function offerPayment() {
   fireEvent.press(screen.getByTestId('simpan-penjualan'));
+  await act(async () => {});
+  fireEvent.press(screen.getByTestId('pelanggan-umum'));
   await act(async () => {});
   fillTunai();
 }
@@ -316,13 +317,5 @@ async function pay() {
 
 /** The shop read from the phone's storage by a fresh reader, not by the screen. */
 async function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
-  return createLedger(
-    {
-      nextIdentity: () => store.nextIdentity(),
-      append: (events) => store.append(events),
-      readAll: () => store.readAll(),
-    },
-    'gawai-uji',
-  ).shop();
+  return phoneLedger().shop();
 }

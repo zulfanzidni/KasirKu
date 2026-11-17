@@ -20,8 +20,33 @@ export interface LedgerStore {
   nextIdentity(): Promise<{ id: string; seq: number }>;
   /** Append events in the order given. Refuses to overwrite an existing id. */
   append(events: readonly StoredEvent[]): Promise<void>;
+  /**
+   * Append a batch that may repeat events already held, skipping those it
+   * does. This is the only write that may see a known id without refusing,
+   * because sync is the union of two logs keyed by id (ADR 0001). Answers how
+   * many events were new, so the screen can say what actually arrived.
+   */
+  appendAbsent(events: readonly StoredEvent[]): Promise<number>;
   /** The whole log, oldest first. */
   readAll(): Promise<StoredEvent[]>;
+  /**
+   * The last number this phone has used. A backup carries it so a restored
+   * phone continues the same stream instead of reusing a number.
+   */
+  lastSeq(): Promise<number>;
+  /**
+   * Replaces the entire log with another phone's, and sets the counter to its
+   * tail. Only restore calls this: it is the one operation that is not an
+   * append, because the log is being adopted wholesale.
+   */
+  replaceAll(events: readonly StoredEvent[], lastSeq: number): Promise<void>;
+  /**
+   * Continue another phone's stream: the next number this phone writes is
+   * `lastSeq + 1`. Only adoption calls this. Moving the counter down is safe
+   * here because the device that owns the numbers has changed, so the old
+   * numbers are no longer this phone's to reuse.
+   */
+  continueFrom(lastSeq: number): Promise<void>;
 }
 
 /** Thrown when an id is already in the log. Events are never rewritten. */

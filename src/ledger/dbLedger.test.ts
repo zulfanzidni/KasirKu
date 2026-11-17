@@ -58,6 +58,40 @@ describe('the SQLite ledger', () => {
     expect(log.map((event) => event.id)).toEqual(['a', 'b']);
     expect(log[1].payload).toEqual({ kategoriId: 'k', nama: 'Tepung terigu' });
   });
+
+  it("replaces the whole log on a restore and continues after the backup's tail", async () => {
+    const db = new FakeDb();
+    const phone = await createDbLedger(db, 'gawai-1');
+    await phone.append([
+      {
+        id: 'lama',
+        seq: 1,
+        deviceId: 'gawai-1',
+        createdAt: '2026-10-31T09:00:00.000Z',
+        type: 'kategori.created',
+        payload: { nama: 'Toko lama', parentId: null },
+      },
+    ]);
+
+    await phone.replaceAll(
+      [
+        {
+          id: 'pulih',
+          seq: 4,
+          deviceId: 'gawai-ibu',
+          createdAt: '2026-11-01T09:00:00.000Z',
+          type: 'kategori.created',
+          payload: { nama: 'Sembako', parentId: null },
+        },
+      ],
+      // The tail can sit above the last kept event: a burned number is not reused.
+      9,
+    );
+
+    expect((await phone.readAll()).map((event) => event.id)).toEqual(['pulih']);
+    expect(await phone.lastSeq()).toBe(9);
+    expect((await phone.nextIdentity()).seq).toBe(10);
+  });
 });
 
 /**
@@ -77,7 +111,9 @@ class FakeDb {
   }
 
   async runAsync(sql: string, params: unknown[] = []) {
-    if (/INTO\s+ledger_meta/i.test(sql)) {
+    if (/DELETE\s+FROM\s+events/i.test(sql)) {
+      this.events = [];
+    } else if (/INTO\s+ledger_meta/i.test(sql)) {
       this.meta.set(String(params[0]), Number(params[1]));
     } else if (/INTO\s+events/i.test(sql)) {
       const [id, deviceId, seq, createdAt, type, payload] = params;

@@ -20,15 +20,17 @@ export interface StockBadgeProps {
   qty: number | null;
   /** The owner's minimum for this variant, if one is set. */
   minimum?: number | null;
+  /** True when a rule other than the minimum — selling speed — judged it low. */
+  low?: boolean;
   testID?: string;
 }
 
 /** Which state a stock figure is in, applying DESIGN.md's rules in order. */
-export function stockStatus(qty: number | null, minimum?: number | null): Status {
+export function stockStatus(qty: number | null, minimum?: number | null, low = false): Status {
   if (qty === null) return 'unknown';
   if (qty < 0) return 'negative';
   if (qty === 0) return 'out';
-  if (minimum != null && qty < minimum) return 'low';
+  if (low || (minimum != null && qty < minimum)) return 'low';
   return 'ok';
 }
 
@@ -39,8 +41,8 @@ export function stockStatus(qty: number | null, minimum?: number | null): Status
  * it is a reading the owner acts on. Negative brings the red and moves the row
  * to the top of the list by the screen's ordering, not by this component.
  */
-export function StockBadge({ qty, minimum, testID }: StockBadgeProps) {
-  const status = stockStatus(qty, minimum);
+export function StockBadge({ qty, minimum, low = false, testID }: StockBadgeProps) {
+  const status = stockStatus(qty, minimum, low);
   const config = statusConfig[status];
 
   return (

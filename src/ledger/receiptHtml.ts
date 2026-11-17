@@ -37,6 +37,15 @@ export function receiptHtml(nota: ReceiptData): string {
 
   <p class="meta"><span>No. ${escapeHtml(nota.number)}</span><span>${escapeHtml(nota.tanggal)} · ${escapeHtml(nota.jam)}</span></p>
 
+  ${
+    nota.voided
+      ? `<div class="batal">
+    <span class="batal-judul">NOTA DIBATALKAN</span>
+    ${nota.voidReason ? `<span class="batal-alasan">${escapeHtml(nota.voidReason)}</span>` : ''}
+  </div>`
+      : ''
+  }
+
   <table class="items">${lines}</table>
 
   <table class="jumlah">
@@ -53,6 +62,11 @@ export function receiptHtml(nota: ReceiptData): string {
   <table class="jumlah">
     <tr><td>Tunai</td><td class="uang">${formatRupiah(nota.tendered)}</td></tr>
     <tr><td>Kembalian</td><td class="uang">${formatRupiah(nota.kembalian)}</td></tr>
+    ${
+      nota.hutang > 0
+        ? `<tr class="hutang"><td>Hutang${nota.pelanggan ? ` ${escapeHtml(nota.pelanggan)}` : ''}</td><td class="uang">${formatRupiah(nota.hutang)}</td></tr>`
+        : ''
+    }
   </table>
 
   <footer class="kaki">${escapeHtml(nota.footer)}</footer>
@@ -105,6 +119,18 @@ const STYLE = `
     padding: 2mm 0;
     margin: 4mm 0 0;
   }
+  .batal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1mm;
+    margin: 4mm 0 0;
+    padding: 2.5mm;
+    border: 2pt solid #A8231F;
+    color: #A8231F;
+  }
+  .batal-judul { font-weight: 700; letter-spacing: 0.16em; font-size: 13pt; }
+  .batal-alasan { font-size: 10pt; }
   table { width: 100%; border-collapse: collapse; }
   .line td { padding: 1.6mm 0; border-bottom: 0.5pt solid #DED5C4; }
   .nama { color: #2F2A24; }
@@ -112,6 +138,7 @@ const STYLE = `
   .uang { text-align: right; white-space: nowrap; }
   .jumlah td { padding: 1.2mm 0; }
   .jumlah { margin-top: 3mm; }
+  .hutang td { color: #A8231F; font-weight: 600; }
   .total {
     display: flex;
     justify-content: space-between;

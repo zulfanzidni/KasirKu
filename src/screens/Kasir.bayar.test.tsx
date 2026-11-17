@@ -1,9 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { KasirScreen } from '@/screens/Kasir';
 import type { Catalog } from '@/ledger/catalog';
-import { createLedger } from '@/ledger/ledger';
 import type { Shop } from '@/ledger/types';
-import { app, mockPhone, mockPrinter, resetPhone, waitReady, wrap } from './testPhone';
+import { app, mockPrinter, phoneLedger, resetPhone, waitReady, wrap } from './testPhone';
 
 /**
  * The payment step and the nota after it, driven the way the owner drives
@@ -70,6 +69,9 @@ async function seedBasket() {
 
 async function openPayment() {
   fireEvent.press(screen.getByTestId('simpan-penjualan'));
+  await act(async () => {});
+  // The customer is chosen before the payment step; a walk-in is an explicit choice.
+  fireEvent.press(screen.getByTestId('pelanggan-umum'));
   await act(async () => {});
 }
 
@@ -206,13 +208,5 @@ describe('after paying — the nota', () => {
 
 /** The shop read from the phone's storage by a fresh reader, not by the screen. */
 async function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
-  return createLedger(
-    {
-      nextIdentity: () => store.nextIdentity(),
-      append: (events) => store.append(events),
-      readAll: () => store.readAll(),
-    },
-    'gawai-uji',
-  ).shop();
+  return phoneLedger().shop();
 }

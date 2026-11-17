@@ -23,10 +23,22 @@ export interface PaymentInput {
   tendered: number;
   /** Pembulatan step; omitted means the shop's default of Rp 500. */
   cashStep?: number;
+  /**
+   * Who owes the rest when the cash falls short. Required for any sale with
+   * an unpaid remainder: money owed must have an owner (user story 20).
+   */
+  pelangganId?: string;
 }
 
 /** A unit a varian is counted in. Fixed at creation (GLOSSARY: Satuan). */
 export type Satuan = 'pcs' | 'bungkus' | 'kg' | 'liter' | 'sak';
+
+/**
+ * The units a varian may be counted in, in the order the app offers them.
+ * One list, so the varian form and the spreadsheet import can never disagree
+ * about what a satuan is.
+ */
+export const SATUAN: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
 
 /**
  * How a varian is tapped.
@@ -84,12 +96,18 @@ export interface Stamped<T> {
  *  - `archived` hides the record without erasing it
  */
 export type KategoriCreated = Event<'kategori.created', { nama: string; parentId: string | null }>;
+export type KategoriUpdated = Event<
+  'kategori.updated',
+  { kategoriId: string } & Partial<Record<'nama' | 'parentId', Stamped<unknown>>>
+>;
+export type KategoriArchived = Event<'kategori.archived', { kategoriId: string; archived: boolean }>;
 
 export type ProdukCreated = Event<'produk.created', ProdukFields>;
 export type ProdukUpdated = Event<
   'produk.updated',
   { produkId: string } & Partial<Record<keyof ProdukFields, Stamped<unknown>>>
 >;
+export type ProdukArchived = Event<'produk.archived', { produkId: string; archived: boolean }>;
 
 export type VarianCreated = Event<'varian.created', VarianFields>;
 /**
@@ -104,18 +122,65 @@ export type VarianUpdated = Event<
 
 export type VarianArchived = Event<'varian.archived', { varianId: string; archived: boolean }>;
 
+/**
+ * A supplier the shop buys from. Master data like the three levels above:
+ * created, edited per field, archived rather than deleted, because old
+ * delivery notes and old payables must still resolve the name.
+ */
+export type SupplierCreated = Event<'supplier.created', { nama: string; telepon: string | null }>;
+export type SupplierUpdated = Event<
+  'supplier.updated',
+  { supplierId: string } & Partial<Record<'nama' | 'telepon', Stamped<unknown>>>
+>;
+export type SupplierArchived = Event<'supplier.archived', { supplierId: string; archived: boolean }>;
+
 /** The shop's own words on a nota. `at` comes from the envelope's `created_at`,
  * so it resolves per field against edits from the other phone exactly like the
  * master data above: last write wins, not last arrival. */
 export type SettingsUpdated = Event<'settings.updated', { receipt: ReceiptShop }>;
 
+// ---------------------------------------------------------------------------
+// Pelanggan and hutang
+// ---------------------------------------------------------------------------
+
+/**
+ * A customer is master data with one job: giving hutang an owner (GLOSSARY).
+ * Archiving hides them; the ledger refuses it while they still owe.
+ */
+export type PelangganCreated = Event<'pelanggan.created', { nama: string; telepon: string | null }>;
+export type PelangganArchived = Event<'pelanggan.archived', { pelangganId: string; archived: boolean }>;
+
+/**
+ * Money handed over against hutang. A payment is its own event, never a
+ * write-off: it moves cash, and the collections total must see it.
+ */
+export type ReceivablePaid = Event<'receivable.paid', { pelangganId: string; jumlah: number }>;
+
+/**
+ * A debt forgiven. It clears the balance and collects no cash, so it is a
+ * different event from a payment — the two can never be added together by a
+ * reader who was not told which is which.
+ */
+export type ReceivableWrittenOff = Event<
+  'receivable.written_off',
+  { pelangganId: string; jumlah: number; alasan: string }
+>;
+
 export type MasterEvent =
   | KategoriCreated
+  | KategoriUpdated
+  | KategoriArchived
   | ProdukCreated
   | ProdukUpdated
+  | ProdukArchived
   | VarianCreated
   | VarianUpdated
   | VarianArchived
+  | SupplierCreated
+  | SupplierUpdated
+  | SupplierArchived
+  | PelangganCreated
+  | PelangganArchived
   | SettingsUpdated;
 
 // ---------------------------------------------------------------------------
@@ -138,6 +203,17 @@ export interface SaleLine {
 export type SaleCompleted = Event<'sale.completed', SalePayload>;
 
 /**
+ * Cancels a sale that should not exist, without deleting it (ADR 0001).
+ *
+ * The original `sale.completed` stays in the log and in Riwayat; this event
+ * names it and carries the owner's reason. Every derived figure — revenue,
+ * stock, customer debt, the cash drawer — cancels the original by folding this
+ * event beside it, so the two phones agree and a correction never inflates the
+ * day.
+ */
+export type SaleVoided = Event<'sale.voided', { saleId: string; alasan: string }>;
+
+/**
  * Everything a sale records besides its lines.
  *
  * `total` is the gross — the sum of the rounded line totals, rounded once at
@@ -152,6 +228,12 @@ export interface SalePayload {
   lines: SaleLine[];
   total: number;
   payment?: SalePayment;
+  /**
+   * The customer who owns any unpaid remainder. The name is snapshotted here
+   * so the nota and the hutang history read the same even after a rename.
+   */
+  pelangganId?: string;
+  pelangganNama?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +249,115 @@ export interface SalePayload {
 export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: number; reason: string }>;
 
 /**
+ * The count the owner entered when the shop was set up. It is an event like
+ * any other movement — auditable, and folded with the rest — never a silent
+ * initial value and never a stored column (ADR 0001). A varian with no opening
+ * event and no other movement stays `unknown`, which is not zero.
+ */
+export type StockOpening = Event<'stock.opening', { varianId: string; qty: number }>;
+
+/**
+ * How a delivery line is settled (GLOSSARY: Titip, Tempo, and cash).
+ *  - `tunai` — paid on the spot; the goods are the shop's and no debt exists.
+ *  - `tempo` — the goods are the shop's immediately and the shop owes them.
+ *  - `titip` — the supplier's goods on the shop's shelf; the shop owes only
+ *    for the units that actually sell.
+ */
+export type Settlement = 'tunai' | 'tempo' | 'titip';
+
+/**
+ * Goods arriving from a supplier. `settlement` says whose goods they are:
+ * tunai and tempo are the shop's own the moment they arrive; titip is the
+ * supplier's until it sells (GLOSSARY: Titip), so it never counts as owned.
+ *
+ * Ticket 08 records a delivery note as one event per line, all sharing
+ * `notaId`, so a visit that mixes settlement models is still one record.
+ * `hargaBeli` is the supplier's price per satuan: tempo uses it to create the
+ * debt on arrival, and titip uses it to create the debt when a unit sells.
+ * Older events (ticket 05) carry neither field; they move stock and create no
+ * payable.
+ */
+export type StockReceived = Event<
+  'stock.received',
+  {
+    varianId: string;
+    qty: number;
+    settlement: Settlement;
+    supplierId?: string;
+    notaId?: string;
+    hargaBeli?: number;
+  }
+>;
+
+/**
+ * Unsold titip goods going back to the supplier. The goods leave consignment
+ * stock and no money moves: there was never a payable until a unit sold.
+ */
+export type StockConsignmentReturned = Event<
+  'stock.consignment_returned',
+  { supplierId: string; varianId: string; qty: number; notaId?: string }
+>;
+
+/** Money paid to a supplier, reducing what the shop owes. It carries no
+ * allocation: a payment settles the running total, and the remainder carries. */
+export type PayablePaid = Event<'payable.paid', { supplierId: string; amount: number }>;
+
+// ---------------------------------------------------------------------------
+// Cash drawer (spec §Cash)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a count compared against (spec §Cash, "Baseline when no float is
+ * declared"):
+ *  - `float` — an explicitly declared opening amount
+ *  - `count` — the previous physical count, when no float has been declared
+ *    since it
+ *  - `nol`   — neither exists; the drawer is followed from zero
+ *
+ * It is stored on the count so the owner can read, months later, which number a
+ * difference was measured from.
+ */
+export type CashBaselineKind = 'float' | 'count' | 'nol';
+
+/** The amount declared to be in the drawer at the start of a period. */
+export type CashOpeningFloat = Event<'cash.opening_float', { jumlah: number }>;
+
+/**
+ * Money paid out of the drawer that is not a supplier payment: listrik,
+ * transport, a personal purchase. The reason is required — an unexplained
+ * outflow is what makes an owner stop trusting the count.
+ */
+export type CashExpense = Event<'cash.expense', { jumlah: number; keterangan: string }>;
+
+/** Money taken out, including banking the takings. */
+export type CashWithdrawn = Event<'cash.withdrawn', { jumlah: number; keterangan: string | null }>;
+
+/** Money put into the drawer from outside. */
+export type CashDeposited = Event<'cash.deposited', { jumlah: number; keterangan: string | null }>;
+
+/**
+ * A physical count: what the owner saw, what the log expected at that moment,
+ * and the difference. The baseline is recorded with the count so the figure is
+ * never an orphan. A count is a measurement, not a movement: it changes no
+ * money, it only says what the drawer held.
+ */
+export type CashCounted = Event<
+  'cash.counted',
+  {
+    counted: number;
+    expected: number;
+    /** `counted − expected`: positive means the drawer held more than expected. */
+    difference: number;
+    baseline: CashBaselineKind;
+    /** What the drawer held at the baseline; 0 for `nol`. */
+    baselineJumlah: number;
+    /** When the baseline event happened; null for `nol`. */
+    baselineAt: string | null;
+    catatan: string | null;
+  }
+>;
+
+/**
  * A varian's stock as the log answers it. A discriminated result rather than a
  * number or null, so "nobody has counted this yet" cannot be read as "zero":
  *  - `unknown` — nothing has ever moved the count; not out of stock.
@@ -174,7 +365,22 @@ export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: n
  */
 export type StockState = { kind: 'unknown' } | { kind: 'counted'; qty: number };
 
-export type LedgerEvent = MasterEvent | SaleCompleted | StockAdjusted;
+export type LedgerEvent =
+  | MasterEvent
+  | SaleCompleted
+  | SaleVoided
+  | StockAdjusted
+  | StockReceived
+  | StockOpening
+  | StockConsignmentReturned
+  | PayablePaid
+  | ReceivablePaid
+  | ReceivableWrittenOff
+  | CashOpeningFloat
+  | CashExpense
+  | CashWithdrawn
+  | CashDeposited
+  | CashCounted;
 
 // ---------------------------------------------------------------------------
 // Derived state — never stored, always folded
@@ -189,7 +395,8 @@ export interface Kategori {
 
 export interface Produk {
   id: string;
-  kategoriId: string;
+  /** Null once its kategori is archived: the produk stays, uncategorised. */
+  kategoriId: string | null;
   nama: string;
   archived: boolean;
 }
@@ -210,6 +417,14 @@ export interface Varian {
   archived: boolean;
 }
 
+/** A supplier the shop buys from. Archived, never deleted, so old notes read. */
+export interface Supplier {
+  id: string;
+  nama: string;
+  telepon: string | null;
+  archived: boolean;
+}
+
 export interface Sale {
   id: string;
   createdAt: string;
@@ -219,6 +434,28 @@ export interface Sale {
   number: string;
   /** Absent only on a sale written before payment was recorded. */
   payment: SalePayment | null;
+  /** The customer who owns the unpaid remainder, if one was chosen. */
+  pelangganId: string | null;
+  /** The customer's name as it read when the sale was written. */
+  pelangganNama: string | null;
+  /**
+   * True when a `sale.voided` cancels this sale. The sale stays here — a void
+   * is appended, never a deletion — so Riwayat can still trace the number on a
+   * receipt the customer holds.
+   */
+  voided: boolean;
+  /** When the void was written; null while the sale stands. */
+  voidedAt: string | null;
+  /** The owner's reason for the void; null while the sale stands. */
+  voidReason: string | null;
+}
+
+/** A customer, as the log resolves them. */
+export interface Pelanggan {
+  id: string;
+  nama: string;
+  telepon: string | null;
+  archived: boolean;
 }
 
 /** The shop as the events say it is. */
@@ -226,6 +463,8 @@ export interface Shop {
   kategori: Kategori[];
   produk: Produk[];
   varian: Varian[];
+  supplier: Supplier[];
+  pelanggan: Pelanggan[];
   sales: Sale[];
   /** The nota's header and footer (settings.updated). */
   receipt: ReceiptShop;

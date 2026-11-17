@@ -16,13 +16,17 @@ import {
   fontFamily,
   type Discount,
 } from '@/design';
-import type { Cart, PaymentInput } from '@/ledger';
+import type { Cart, PaymentInput, Pelanggan } from '@/ledger';
 
 /** Which way the discount was typed. The number field holds both. */
 export type DiskonCara = 'rupiah' | 'persen';
 
 export interface PaymentStepProps {
   cart: Cart;
+  /** The customer chosen in the step before this one; null for a walk-in. */
+  pelanggan: Pelanggan | null;
+  /** Reopens the customer step, so a shortfall can still get an owner. */
+  onPickCustomer: () => void;
   onBack: () => void;
   /** Called once with the settled payment. The screen owns the save guard. */
   onPay: (payment: PaymentInput) => void;
@@ -43,7 +47,7 @@ export interface PaymentStepProps {
  * is missing and refuses to save: a partly paid sale is a hutang, and hutang
  * needs a customer (ticket 07).
  */
-export function PaymentStep({ cart, onBack, onPay, saving, error }: PaymentStepProps) {
+export function PaymentStep({ cart, pelanggan, onPickCustomer, onBack, onPay, saving, error }: PaymentStepProps) {
   const insets = useSafeAreaInsets();
   const [diskonCara, setDiskonCara] = useState<DiskonCara>('rupiah');
   const [diskonTeks, setDiskonTeks] = useState('');
@@ -72,6 +76,25 @@ export function PaymentStep({ cart, onBack, onPay, saving, error }: PaymentStepP
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <View style={styles.customer}>
+          <View style={styles.customerMain}>
+            <AppText typeRole="labelSmall" tone="muted">
+              Pelanggan
+            </AppText>
+            <AppText typeRole="bodyLarge" testID="bayar-pelanggan">
+              {pelanggan ? pelanggan.nama : 'Tanpa pelanggan (umum)'}
+            </AppText>
+          </View>
+          <Button
+            label="Ganti"
+            variant="text"
+            fullWidth={false}
+            onPress={onPickCustomer}
+            disabled={saving}
+            testID="ganti-pelanggan"
+          />
+        </View>
+
         {cart.map((line) => (
           <View key={line.varianId} style={styles.item}>
             <AppText typeRole="bodyLarge" numberOfLines={1} style={styles.itemName}>
@@ -166,9 +189,16 @@ export function PaymentStep({ cart, onBack, onPay, saving, error }: PaymentStepP
             </AppText>
           </View>
           {totals.hutang > 0 ? (
-            <AppText typeRole="bodyMedium" tone="owed" testID="bayar-kurang" style={styles.kurang}>
-              {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Penjualan dengan hutang membutuhkan pelanggan — belum bisa disimpan di sini.`}
-            </AppText>          ) : null}
+            pelanggan ? (
+              <AppText typeRole="bodyMedium" tone="owed" testID="bayar-hutang" style={styles.kurang}>
+                {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Sisanya dicatat sebagai hutang ${pelanggan.nama}.`}
+              </AppText>
+            ) : (
+              <AppText typeRole="bodyMedium" tone="owed" testID="bayar-kurang" style={styles.kurang}>
+                {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Penjualan dengan hutang membutuhkan pelanggan — pilih pelanggan dulu.`}
+              </AppText>
+            )
+          ) : null}
         </View>
 
         {error ? (
@@ -182,8 +212,8 @@ export function PaymentStep({ cart, onBack, onPay, saving, error }: PaymentStepP
         <Button label="Kembali" variant="outlined" onPress={onBack} disabled={saving} style={styles.back} />
         <Button
           label={saving ? 'Menyimpan…' : 'Simpan & nota'}
-          onPress={() => onPay({ discount, tendered })}
-          disabled={saving || totals.hutang > 0 || totals.due <= 0}
+          onPress={() => onPay({ discount, tendered, pelangganId: pelanggan?.id })}
+          disabled={saving || (totals.hutang > 0 && !pelanggan) || totals.due <= 0}
           testID="simpan-pembayaran"
           style={styles.grow}
         />
@@ -225,6 +255,17 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   body: { paddingBottom: space.lg },
+  customer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.gutter,
+    paddingTop: space.sm,
+    paddingBottom: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outline,
+  },
+  customerMain: { flex: 1 },
   item: {
     flexDirection: 'row',
     alignItems: 'center',

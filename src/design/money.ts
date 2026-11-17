@@ -194,6 +194,21 @@ export function settleCash(input: CashPaymentInput): SalePayment {
   };
 }
 
+/** A refusal class, so a shared check can throw each module's own error. */
+export type RupiahErrorClass = new (message: string) => Error;
+
+/**
+ * Throw unless an amount is whole, non-negative rupiah. The error class is the
+ * caller's, so a cash refusal stays a `CashError` and a supplier refusal a
+ * `SupplierError` while the rule itself is written once.
+ */
+export function checkRupiah(amount: number, label: string, ErrorClass: RupiahErrorClass): number {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new ErrorClass(`${label} harus angka rupiah bulat.`);
+  }
+  return amount;
+}
+
 /**
  * Parse a rupiah string a human typed. Accepts "13.500", "13500", "Rp 13.500",
  * and ignores spaces. Returns null when it is not a number, so the field can
