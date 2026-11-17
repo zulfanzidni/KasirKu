@@ -210,6 +210,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       const current = shopRef.current;
       const varian = current.varian.find((entry) => entry.id === varianId);
       if (!varian) return { kind: 'ignored' };
+      // An archived produk is off the grid; a stale tap must not sell it.
+      if (varian.archived || current.produk.find((entry) => entry.id === varian.produkId)?.archived) {
+        return { kind: 'ignored' };
+      }
 
       const siblings = current.varian.filter((entry) => entry.produkId === varian.produkId && !entry.archived);
       if (siblings.length > 1) return { kind: 'chooseVariant', varian: siblings };
@@ -223,7 +227,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const addVarian = useCallback(
     (varianId: string, qty: number) => {
       const varian = shopRef.current.varian.find((entry) => entry.id === varianId);
-      if (varian) updateCart(addToCart(cartRef.current, varian, qty));
+      if (!varian || varian.archived) return;
+      if (shopRef.current.produk.find((entry) => entry.id === varian.produkId)?.archived) return;
+      updateCart(addToCart(cartRef.current, varian, qty));
     },
     [updateCart],
   );
