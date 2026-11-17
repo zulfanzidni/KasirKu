@@ -30,7 +30,15 @@ import {
 import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, type TodayTotals } from './queries';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
-import { ownedDelta, stockOf as stockOfEvents, type StockRow } from './stock';
+import { foldStock, normaliseQty, ownedDelta, type StockRow } from './stock';
+import {
+  createSupplierBook,
+  supplierPayables as payablesOf,
+  titipStock as titipStockOfSupplier,
+  type SupplierBook,
+  type SupplierPayable,
+  type TitipStock,
+} from './suppliers';
 import type { LedgerEvent, PaymentInput, Shop, StockState, Varian } from './types';
 
 /** One line of a varian's stock history, with the count after it. */
@@ -57,6 +65,8 @@ export interface AppState {
   catalog: Catalog | null;
   /** The shop's own words for the nota. Null until the log is open. */
   settings: Settings | null;
+  /** Supplier commands: record a supplier, a delivery note, a payment, a return. */
+  supplierBook: SupplierBook | null;
 
   /** Adds one, or says a choice is needed before anything is added. */
   tapItem(varianId: string): TapOutcome;
@@ -81,6 +91,12 @@ export interface AppState {
   stockHistory(varianId: string): StockHistoryEntry[];
   /** Every live varian with its own count, in the Stok screen's order. */
   stockRows(): StockRow[];
+  /** Titip units still on the shelf for one varian. Never added to owned stock. */
+  titipOf(varianId: string): number;
+  /** Every live supplier with the running total owed and what it is made of. */
+  supplierPayables(): SupplierPayable[];
+  /** Titip stock still on the shelf, per supplier and varian. */
+  titipStock(supplierId?: string): TitipStock[];
   /** Why each varian is or is not low: the rule that judged it, or that it cannot. */
   lowChecks(): Map<string, LowCheck>;
   /**
@@ -240,6 +256,13 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
 
   const catalog = useMemo(() => (ready ? createCatalog(append) : null), [append, ready]);
   const settings = useMemo(() => (ready ? createSettings(append) : null), [append, ready]);
+  const supplierBook = useMemo(
+    () =>
+      ready
+        ? createSupplierBook(append, () => ({ shop: shopRef.current, events: eventsRef.current }))
+        : null,
+    [append, ready],
+  );
 
   const tapItem = useCallback(
     (varianId: string): TapOutcome => {
@@ -327,32 +350,66 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   );
 
   /** Stock, read off the log. Pure and instant: the events are already in hand. */
-  const stockOf = useCallback((varianId: string): StockState => stockOfEvents(events, varianId).stock, [events]);
+  const stockFold = useMemo(() => foldStock(events), [events]);
+
+  const stockOf = useCallback(
+    (varianId: string): StockState => {
+      const owned = stockFold.varian.get(varianId)?.owned;
+      return owned == null ? { kind: 'unknown' } : { kind: 'counted', qty: normaliseQty(owned) };
+    },
+    [stockFold],
+  );
 
   const stockHistory = useCallback((varianId: string): StockHistoryEntry[] => {
-    const { movements } = stockOfEvents(events, varianId);
+    const movements = stockFold.varian.get(varianId)?.movements ?? [];
     let after = 0;
     return movements.map((movement) => {
       after += ownedDelta(movement);
       return { ...movement, after };
     });
-  }, [events]);
+  }, [stockFold]);
 
   const stockRows = useCallback((): StockRow[] => {
     // Same order the Stok list draws, judged by the same low rule the screen
     // shows: the owner's minimum, or selling speed when they set none.
-    const rows = shop.varian.map((varian) => ({ varian, stock: stockOfEvents(events, varian.id).stock }));
+    const rows = shop.varian
+      .filter((varian) => !varian.archived)
+      .map((varian) => {
+        const owned = stockFold.varian.get(varian.id)?.owned;
+        return {
+          varian,
+          stock: owned == null ? { kind: 'unknown' as const } : { kind: 'counted' as const, qty: normaliseQty(owned) },
+        };
+      });
     const checks = new Map(rows.map((row) => [row.varian.id, checkLow(row.varian, row.stock, events)]));
-    return sortStock(rows.filter((row) => !row.varian.archived), checks);
-  }, [events, shop.varian]);
+    return sortStock(rows, checks);
+  }, [events, shop.varian, stockFold]);
+
+  const titipOf = useCallback(
+    (varianId: string): number => normaliseQty(stockFold.varian.get(varianId)?.titip ?? 0),
+    [stockFold],
+  );
+
+  const supplierPayables = useCallback(
+    (): SupplierPayable[] => payablesOf(events, shop.supplier),
+    [events, shop.supplier],
+  );
+
+  const titipStock = useCallback(
+    (supplierId?: string): TitipStock[] => titipStockOfSupplier(events, supplierId),
+    [events],
+  );
 
   const lowChecks = useCallback((): Map<string, LowCheck> => {
     const checks = new Map<string, LowCheck>();
     for (const varian of shop.varian) {
-      checks.set(varian.id, checkLow(varian, stockOfEvents(events, varian.id).stock, events));
+      const owned = stockFold.varian.get(varian.id)?.owned;
+      const stock: StockState =
+        owned == null ? { kind: 'unknown' } : { kind: 'counted', qty: normaliseQty(owned) };
+      checks.set(varian.id, checkLow(varian, stock, events));
     }
     return checks;
-  }, [events, shop.varian]);
+  }, [events, shop.varian, stockFold]);
 
   const adjustStock = useCallback(
     async (input: StockCorrection) => {
@@ -465,6 +522,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     lastSaleId,
     catalog,
     settings,
+    supplierBook,
     tapItem,
     addVarian,
     setLineQty: (varianId, qty) => updateCart(setQty(cartRef.current, { varianId }, qty)),
@@ -475,6 +533,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     stockOf,
     stockHistory,
     stockRows,
+    titipOf,
+    supplierPayables,
+    titipStock,
     lowChecks,
     adjustStock,
     recordOpeningStock,

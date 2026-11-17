@@ -15,6 +15,7 @@ describe('the ledger as the shop sees it', () => {
       kategori: [],
       produk: [],
       varian: [],
+      supplier: [],
       pelanggan: [],
       sales: [],
       receipt: DEFAULT_RECEIPT,

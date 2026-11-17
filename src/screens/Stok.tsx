@@ -52,7 +52,7 @@ const JUAL: readonly { value: JualBy; label: string }[] = [
  * the list (DESIGN.md: red is a promise, and this is the promise being broken).
  */
 export function StokScreen() {
-  const { shop, stockRows, lowChecks } = useApp();
+  const { shop, stockRows, lowChecks, titipOf } = useApp();
   const [form, setForm] = useState<'kategori' | 'produk' | 'varian' | null>(null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [produkId, setProdukId] = useState<string | null>(null);
@@ -202,6 +202,7 @@ export function StokScreen() {
                         key={item.id}
                         varian={item}
                         stock={stock.get(item.id) ?? { kind: 'unknown' }}
+                        titip={titipOf(item.id)}
                         check={checks.get(item.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
                         bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
                         onCount={() => setSheet({ kind: 'hitung', varianId: item.id })}
@@ -339,6 +340,7 @@ function bulkCopy(bulk: BulkContext): string {
 function VarianLine({
   varian,
   stock,
+  titip,
   check,
   bulk,
   onCount,
@@ -347,6 +349,7 @@ function VarianLine({
 }: {
   varian: Varian;
   stock: StockState;
+  titip: number;
   check: LowCheck;
   bulk: BulkContext | null;
   onCount: () => void;
@@ -389,6 +392,13 @@ function VarianLine({
         {check.kind === 'tidakTahu' && check.sebab === 'riwayat-terlalu-sedikit' ? (
           <AppText typeRole="labelSmall" tone="muted" testID={`alasan-tidak-tahu-${varian.id}`}>
             Riwayat penjualan belum cukup untuk menilai. Atur minimum untuk peringatan.
+          </AppText>
+        ) : null}
+        {/* Titip is the supplier's, so it is a separate line and never part of
+            the owned number in the badge. */}
+        {titip > 0 ? (
+          <AppText typeRole="labelSmall" tone="muted" testID={`titip-${varian.id}`}>
+            {`Titip ${formatQty(titip)} ${varian.satuan} · bukan milik toko`}
           </AppText>
         ) : null}
       </View>
@@ -608,7 +618,9 @@ function HistoryList({ varian }: { varian: Varian }) {
                     : 'Barang masuk'
                   : entry.kind === 'opening'
                     ? 'Stok awal'
-                    : 'Penjualan'}
+                    : entry.kind === 'returned'
+                      ? 'Titip dikembalikan'
+                      : 'Penjualan'}
             </AppText>
             <AppText typeRole="labelSmall" tone="muted">
               {`${tanggal(entry.at)} · sisa ${formatQty(entry.after)} ${varian.satuan}`}

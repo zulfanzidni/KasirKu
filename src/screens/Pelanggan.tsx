@@ -25,7 +25,7 @@ import { hutangLabel } from '@/screens/hutangLabel';
  * money unpaid, the payments made, and the write-offs. A payment and a
  * write-off are listed apart, because only one of them brought cash in.
  */
-export function PelangganScreen() {
+export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
   const { shop, hutangOf } = useApp();
   const [adding, setAdding] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -39,7 +39,19 @@ export function PelangganScreen() {
     <Screen
       title="Pelanggan"
       overline="Orang"
-      actions={<IconButton name="add" label="Tambah pelanggan" onPress={() => setAdding(true)} testID="tambah-pelanggan" />}
+      actions={
+        <View style={styles.headerActions}>
+          {onBack ? (
+            <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-ke-orang" />
+          ) : null}
+          <IconButton
+            name="add"
+            label="Tambah pelanggan"
+            onPress={() => setAdding(true)}
+            testID="tambah-pelanggan"
+          />
+        </View>
+      }
     >
       <ScrollView contentContainerStyle={styles.content}>
         <Note>Hutang pelanggan dihitung dari penjualan yang belum dibayar, pembayaran, dan hapus buku.</Note>
@@ -321,6 +333,7 @@ function tanggal(at: string): string {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: space.lg },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
   empty: { paddingHorizontal: space.gutter, paddingVertical: space.md },
   status: {
     flexDirection: 'row',
