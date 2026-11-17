@@ -37,6 +37,7 @@ import {
   type StockCorrection,
   type VoidSaleInput,
 } from './ledger';
+import { buildLaporan, type Laporan, type LaporanFilter } from './laporan';
 import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, type TodayTotals } from './queries';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
@@ -141,6 +142,12 @@ export interface AppState {
   hutangOf(pelangganId: string): HutangLedger;
   /** Today's full value sold and the cash that actually came in. */
   todayTotals(): TodayTotals;
+  /**
+   * What the shop sold over the owner's chosen window, folded from the log.
+   * The report carries its own basis: the local day boundary, the last sync and
+   * the count of local events still unsent.
+   */
+  laporan(filter: LaporanFilter): Laporan;
   /** Records a customer, so hutang has an owner. */
   tambahPelanggan(input: PelangganInput): Promise<string>;
   /** Hides a customer; refused while they still owe. */
@@ -613,6 +620,22 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const adoptableIdentities = useMemo(() => knownIdentities(events, deviceId), [events, deviceId]);
 
   /**
+   * The report is a fold of the sales already in hand, so it is instant. The
+   * sync facts come from the checkpoint, not from the log: they are about what
+   * this phone has sent, not about what happened in the shop.
+   */
+  const laporan = useCallback(
+    (filter: LaporanFilter): Laporan =>
+      buildLaporan({
+        shop,
+        filter,
+        sync: { lastSyncAt: checkpoint.lastSyncAt, unsentCount },
+        now: new Date(),
+      }),
+    [shop, checkpoint.lastSyncAt, unsentCount],
+  );
+
+  /**
    * One exchange, now. The checkpoint moves only when the whole exchange
    * finished, so a failure leaves every unsent event where it is — and saying
    * so is the screen's job, which is why this throws rather than swallowing.
@@ -725,6 +748,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     importCatalog,
     hutangOf,
     todayTotals,
+    laporan,
     tambahPelanggan,
     arsipkanPelanggan,
     catatPembayaranHutang,
