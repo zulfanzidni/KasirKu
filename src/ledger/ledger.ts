@@ -4,6 +4,7 @@ import { BACKUP_FORMAT, BACKUP_VERSION, type BackupFile } from './backup';
 import { newDeviceId } from './deviceId';
 import { foldEvents } from './events';
 import { ImportError, type ImportCommit, type ImportPlan } from './import';
+import { cashMovement, countPayload, openingFloat, type CashMovementInput } from './kas';
 import { createDbLedger, type SqlDatabase } from './dbLedger';
 import { hutangOf } from './hutang';
 import { roundLine } from './register';
@@ -58,6 +59,19 @@ export interface Ledger {
    * from a payment, so collections never count money that never arrived.
    */
   hapusBukuHutang(input: HapusBukuInput): Promise<string>;
+  /**
+   * Money leaving the drawer for something other than a supplier (listrik,
+   * transport, banking the takings), or money put in. Every movement is its own
+   * event, so expected cash is a fold rather than a remembered balance.
+   */
+  recordCashMovement(input: CashMovementInput): Promise<string>;
+  /** Declares what the drawer holds now: the baseline expected cash folds from. */
+  setOpeningFloat(input: { jumlah: number }): Promise<string>;
+  /**
+   * Records a physical count beside what the log expected and the difference,
+   * with the baseline named. A count moves no money and locks nothing.
+   */
+  countCash(input: { counted: number; catatan?: string | null }): Promise<string>;
   /** The whole log as a file, ready to be saved off the phone. */
   backup(): Promise<BackupFile>;
   /**
@@ -458,6 +472,18 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
         } as StoredEvent,
       ]);
       return id;
+    },
+    async recordCashMovement(input) {
+      const { type, payload } = cashMovement(input);
+      return append(type, payload);
+    },
+    async setOpeningFloat(input) {
+      const { type, payload } = openingFloat(input);
+      return append(type, payload);
+    },
+    async countCash(input) {
+      const { type, payload } = countPayload((await store.readAll()) as LedgerEvent[], input);
+      return append(type, payload);
     },
     append,
   };
