@@ -1,5 +1,6 @@
 import { createLedger, type Ledger } from './ledger';
 import { MemoryStore } from './memoryStore';
+import { dayStamp } from './saleNumber';
 
 /**
  * Two phones selling on the same day, offline, never talking to each other.
@@ -23,11 +24,13 @@ describe('two phones selling on the same day', () => {
     expect(new Set([leftOne.id, rightOne.id, leftTwo.id]).size).toBe(3);
 
     // Readable: the day it happened, the phone that rang it, and the event's
-    // place in that phone's log.
+    // place in that phone's log. The day is read from the clock, not written
+    // into the test: a hardcoded date passes on exactly one day of the year.
+    const today = dayStamp(new Date().toISOString());
     expect(numbers).toEqual([
-      expect.stringMatching(/^20261031-3F2A-\d{3}$/),
-      expect.stringMatching(/^20261031-B81E-\d{3}$/),
-      expect.stringMatching(/^20261031-3F2A-\d{3}$/),
+      expect.stringMatching(new RegExp(`^${today}-3F2A-\\d{3}$`)),
+      expect.stringMatching(new RegExp(`^${today}-B81E-\\d{3}$`)),
+      expect.stringMatching(new RegExp(`^${today}-3F2A-\\d{3}$`)),
     ]);
     // The two phones are told apart by their own segment, not by a sequence;
     // the same phone's two sales sort in the order they were rung.
