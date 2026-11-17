@@ -5,6 +5,8 @@ import { phoneBackupFiles } from '@/ledger/phoneBackupFiles';
 import { phoneImportFiles } from '@/ledger/phoneImportFiles';
 import { phonePrinter } from '@/ledger/phonePrinter';
 import { connectPrinter } from '@/ledger/printer';
+import { connectSync } from '@/ledger/sync';
+import { createHttpExchange } from '@/ledger/syncHttp';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { openDatabaseAsync } from 'expo-sqlite';
 
@@ -28,3 +30,12 @@ connectPhone({
 connectPrinter(phonePrinter);
 connectBackupFiles(phoneBackupFiles);
 connectImportFiles(phoneImportFiles);
+
+// The shared place two phones meet. It is configured at build time and points
+// at whatever endpoint satisfies the contract in `src/ledger/syncHttp.ts`.
+// Without an address, the app says sync is not connected rather than quietly
+// pretending the other phone heard; selling is unaffected either way.
+const syncUrl = process.env.EXPO_PUBLIC_SYNC_URL;
+if (syncUrl) {
+  connectSync(createHttpExchange({ baseUrl: syncUrl, token: process.env.EXPO_PUBLIC_SYNC_TOKEN }));
+}

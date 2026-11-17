@@ -65,7 +65,7 @@ export function parseBackup(text: string): BackupFile {
   const { deviceId, lastSeq, events } = raw;
   if (typeof deviceId !== 'string' || deviceId.trim() === '') throw new BackupError(NOT_OURS);
   if (typeof lastSeq !== 'number' || !Number.isFinite(lastSeq) || lastSeq < 0) throw new BackupError(NOT_OURS);
-  if (!Array.isArray(events) || !events.every(isEvent)) throw new BackupError(NOT_OURS);
+  if (!Array.isArray(events) || !events.every(isStoredEvent)) throw new BackupError(NOT_OURS);
 
   // Two events with one id would make the restored log lie about what happened.
   const ids = new Set(events.map((event) => event.id));
@@ -78,7 +78,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isEvent(value: unknown): boolean {
+/**
+ * Whether a value carries a whole event envelope. Backups and the sync answer
+ * both refuse anything less: an event with no id or no payload would poison the
+ * fold, and a half-read history is worse than none.
+ */
+export function isStoredEvent(value: unknown): value is StoredEvent {
   if (!isRecord(value)) return false;
   return (
     typeof value.id === 'string' &&

@@ -88,6 +88,31 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
       });
     },
 
+    async appendAbsent(events: readonly StoredEvent[]): Promise<number> {
+      // The union of two logs, one transaction for the whole batch: sync
+      // either applies what it pulled or none of it. A repeated id is the same
+      // happening already told, so it is skipped rather than refused.
+      let added = 0;
+      await db.withTransactionAsync(async () => {
+        for (const event of events) {
+          const exists = await db.getFirstAsync<{ one: number }>('SELECT 1 AS one FROM events WHERE id = ?', [
+            event.id,
+          ]);
+          if (exists) continue;
+          await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
+            event.id,
+            event.deviceId,
+            event.seq,
+            event.createdAt,
+            event.type,
+            JSON.stringify(event.payload),
+          ]);
+          added += 1;
+        }
+      });
+      return added;
+    },
+
     async readAll(): Promise<StoredEvent[]> {
       // `seq` is per device, so a merged log needs a total order: device time
       // first, then device and sequence, so two phones fold identically.

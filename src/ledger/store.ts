@@ -20,6 +20,13 @@ export interface LedgerStore {
   nextIdentity(): Promise<{ id: string; seq: number }>;
   /** Append events in the order given. Refuses to overwrite an existing id. */
   append(events: readonly StoredEvent[]): Promise<void>;
+  /**
+   * Append a batch that may repeat events already held, skipping those it
+   * does. This is the only write that may see a known id without refusing,
+   * because sync is the union of two logs keyed by id (ADR 0001). Answers how
+   * many events were new, so the screen can say what actually arrived.
+   */
+  appendAbsent(events: readonly StoredEvent[]): Promise<number>;
   /** The whole log, oldest first. */
   readAll(): Promise<StoredEvent[]>;
   /**
