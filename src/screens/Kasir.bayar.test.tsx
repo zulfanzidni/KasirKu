@@ -71,6 +71,9 @@ async function seedBasket() {
 async function openPayment() {
   fireEvent.press(screen.getByTestId('simpan-penjualan'));
   await act(async () => {});
+  // The customer is chosen before the payment step; a walk-in is an explicit choice.
+  fireEvent.press(screen.getByTestId('pelanggan-umum'));
+  await act(async () => {});
 }
 
 async function typeTendered(value: string) {

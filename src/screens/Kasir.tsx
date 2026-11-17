@@ -18,6 +18,7 @@ import { useApp, type TapOutcome } from '@/ledger/useLedger';
 import { searchVarian } from '@/ledger/queries';
 import { NotaSheet } from '@/screens/Nota';
 import { ChoiceSheet } from '@/screens/ChoiceSheet';
+import { CustomerStep } from '@/screens/CustomerStep';
 import { PaymentStep } from '@/screens/PaymentStep';
 import { ReceiptScreen } from '@/screens/Receipt';
 
@@ -29,11 +30,12 @@ import { ReceiptScreen } from '@/screens/Receipt';
  * below it so the running total is on screen at all times.
  */
 export function KasirScreen() {
-  const { shop, cart, cartRestored, tapItem, addVarian, setLineQty, removeLine, cancelCart, saveSale, lastSaleId, forgetLastSale } =
+  const { shop, cart, cartRestored, tapItem, addVarian, setLineQty, removeLine, cancelCart, saveSale, lastSaleId, forgetLastSale, todayTotals, hutangOf } =
     useApp();
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState<Extract<TapOutcome, { kind: 'chooseVariant' | 'chooseWeight' }> | null>(null);
-  const [paying, setPaying] = useState(false);
+  const [step, setStep] = useState<'nota' | 'pelanggan' | 'bayar'>('nota');
+  const [pelangganId, setPelangganId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -41,6 +43,8 @@ export function KasirScreen() {
   const insets = useSafeAreaInsets();
 
   const varian = useMemo(() => searchVarian(shop.varian.filter((entry) => !entry.archived), query), [shop.varian, query]);
+  const pelanggan = pelangganId ? shop.pelanggan.find((entry) => entry.id === pelangganId) ?? null : null;
+  const hari = todayTotals();
 
   function handleTap(item: Varian) {
     const outcome = tapItem(item.id);
@@ -91,7 +95,11 @@ export function KasirScreen() {
         <ReceiptScreen
           sale={sale}
           shop={shop.receipt}
-          onNewSale={forgetLastSale}
+          onNewSale={() => {
+            forgetLastSale();
+            setStep('nota');
+            setPelangganId(null);
+          }}
           onShare={() => handleShare(sale)}
           sharing={sharing}
           shareError={shareError}
@@ -100,13 +108,29 @@ export function KasirScreen() {
     }
   }
 
-  if (paying) {
+  if (step === 'pelanggan') {
+    return (
+      <CustomerStep
+        pelanggan={shop.pelanggan.filter((entry) => !entry.archived)}
+        hutangOf={hutangOf}
+        onPick={(id) => {
+          setPelangganId(id);
+          setStep('bayar');
+        }}
+        onBack={() => setStep('nota')}
+      />
+    );
+  }
+
+  if (step === 'bayar') {
     return (
       <PaymentStep
         cart={cart}
+        pelanggan={pelanggan}
+        onPickCustomer={() => setStep('pelanggan')}
         saving={saving}
         error={saveError}
-        onBack={() => setPaying(false)}
+        onBack={() => setStep('nota')}
         onPay={handleSave}
       />
     );
@@ -135,6 +159,23 @@ export function KasirScreen() {
           autoCorrect={false}
           style={styles.search}
         />
+      </View>
+
+      <View style={styles.today} testID="hari-ini">
+        <View style={styles.todayRow}>
+          <AppText typeRole="labelSmall" tone="muted">
+            Hari ini
+          </AppText>
+          <AppText typeRole="bodyMedium" testID="hari-ini-jualan">
+            {`Jualan ${formatRupiah(hari.penjualan)}`}
+          </AppText>
+          <AppText typeRole="bodyMedium" testID="hari-ini-tunai">
+            {`Tunai ${formatRupiah(hari.tunai)}`}
+          </AppText>
+        </View>
+        <AppText typeRole="labelSmall" tone="muted">
+          Jualan dihitung penuh; tunai hanya yang dibayar. Selisihnya hutang pelanggan.
+        </AppText>
       </View>
 
       {cartRestored ? (
@@ -176,7 +217,7 @@ export function KasirScreen() {
         onSetQty={setLineQty}
         onRemove={removeLine}
         onCancel={cancelCart}
-        onSave={() => setPaying(true)}
+        onSave={() => setStep('pelanggan')}
         saving={saving}
       />
 
@@ -258,6 +299,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.print,
   },
   restored: { paddingHorizontal: space.gutter, paddingTop: space.sm },
+  today: { paddingHorizontal: space.gutter, paddingTop: space.sm, gap: 2 },
+  todayRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.md },
   empty: { flex: 1 },
   emptyTitle: { paddingHorizontal: space.gutter, paddingTop: space.xl },
   noMatch: { paddingHorizontal: space.gutter, paddingVertical: space.lg },

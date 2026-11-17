@@ -55,6 +55,8 @@ describe('the shop name the owner set appears on the nota', () => {
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
     fireEvent.press(screen.getByTestId('simpan-penjualan'));
     await act(async () => {});
+    fireEvent.press(screen.getByTestId('pelanggan-umum'));
+    await act(async () => {});
     fireEvent(screen.getByTestId('uang-diterima'), 'changeText', '5.000');
     fireEvent.press(screen.getByTestId('simpan-pembayaran'));
     await act(async () => {});

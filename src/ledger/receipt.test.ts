@@ -60,6 +60,27 @@ describe('the receipt for a sale', () => {
     expect(nota.kembalian).toBe(500);
     expect(sumPrinted(nota)).toBe(nota.total);
   });
+
+  it('prints the split of a partly paid sale: total, paid, kembalian and hutang', async () => {
+    const till = await newTill();
+    const beras = await till.add({ nama: 'Beras sania 1 kg', harga: 15000 });
+    const ani = await till.ledger.tambahPelanggan({ nama: 'Bu Ani' });
+
+    // 30.000 sold; 20.000 handed over; 10.000 added to Bu Ani's hutang.
+    const sale = await till.sell([{ varianId: beras, qty: 2 }], {
+      discount: { kind: 'none' },
+      tendered: 20000,
+      pelangganId: ani,
+    });
+
+    const nota = receiptOf(sale);
+
+    expect(nota.total).toBe(30000);
+    expect(nota.tendered).toBe(20000);
+    expect(nota.kembalian).toBe(0);
+    expect(nota.hutang).toBe(10000);
+    expect(nota.pelanggan).toBe('Bu Ani');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -81,7 +102,7 @@ interface Till {
   }): Promise<string>;
   sell(
     lines: { varianId: string; qty: number }[],
-    payment: { discount: { kind: 'none' } | { kind: 'rupiah'; value: number }; tendered: number },
+    payment: { discount: { kind: 'none' } | { kind: 'rupiah'; value: number }; tendered: number; pelangganId?: string },
   ): Promise<Shop['sales'][number]>;
 }
 

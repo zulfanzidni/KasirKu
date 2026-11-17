@@ -23,6 +23,11 @@ export interface PaymentInput {
   tendered: number;
   /** Pembulatan step; omitted means the shop's default of Rp 500. */
   cashStep?: number;
+  /**
+   * Who owes the rest when the cash falls short. Required for any sale with
+   * an unpaid remainder: money owed must have an owner (user story 20).
+   */
+  pelangganId?: string;
 }
 
 /** A unit a varian is counted in. Fixed at creation (GLOSSARY: Satuan). */
@@ -109,6 +114,33 @@ export type VarianArchived = Event<'varian.archived', { varianId: string; archiv
  * master data above: last write wins, not last arrival. */
 export type SettingsUpdated = Event<'settings.updated', { receipt: ReceiptShop }>;
 
+// ---------------------------------------------------------------------------
+// Pelanggan and hutang
+// ---------------------------------------------------------------------------
+
+/**
+ * A customer is master data with one job: giving hutang an owner (GLOSSARY).
+ * Archiving hides them; the ledger refuses it while they still owe.
+ */
+export type PelangganCreated = Event<'pelanggan.created', { nama: string; telepon: string | null }>;
+export type PelangganArchived = Event<'pelanggan.archived', { pelangganId: string; archived: boolean }>;
+
+/**
+ * Money handed over against hutang. A payment is its own event, never a
+ * write-off: it moves cash, and the collections total must see it.
+ */
+export type ReceivablePaid = Event<'receivable.paid', { pelangganId: string; jumlah: number }>;
+
+/**
+ * A debt forgiven. It clears the balance and collects no cash, so it is a
+ * different event from a payment — the two can never be added together by a
+ * reader who was not told which is which.
+ */
+export type ReceivableWrittenOff = Event<
+  'receivable.written_off',
+  { pelangganId: string; jumlah: number; alasan: string }
+>;
+
 export type MasterEvent =
   | KategoriCreated
   | ProdukCreated
@@ -116,6 +148,8 @@ export type MasterEvent =
   | VarianCreated
   | VarianUpdated
   | VarianArchived
+  | PelangganCreated
+  | PelangganArchived
   | SettingsUpdated;
 
 // ---------------------------------------------------------------------------
@@ -152,6 +186,12 @@ export interface SalePayload {
   lines: SaleLine[];
   total: number;
   payment?: SalePayment;
+  /**
+   * The customer who owns any unpaid remainder. The name is snapshotted here
+   * so the nota and the hutang history read the same even after a rename.
+   */
+  pelangganId?: string;
+  pelangganNama?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +214,12 @@ export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: n
  */
 export type StockState = { kind: 'unknown' } | { kind: 'counted'; qty: number };
 
-export type LedgerEvent = MasterEvent | SaleCompleted | StockAdjusted;
+export type LedgerEvent =
+  | MasterEvent
+  | SaleCompleted
+  | StockAdjusted
+  | ReceivablePaid
+  | ReceivableWrittenOff;
 
 // ---------------------------------------------------------------------------
 // Derived state — never stored, always folded
@@ -219,6 +264,18 @@ export interface Sale {
   number: string;
   /** Absent only on a sale written before payment was recorded. */
   payment: SalePayment | null;
+  /** The customer who owns the unpaid remainder, if one was chosen. */
+  pelangganId: string | null;
+  /** The customer's name as it read when the sale was written. */
+  pelangganNama: string | null;
+}
+
+/** A customer, as the log resolves them. */
+export interface Pelanggan {
+  id: string;
+  nama: string;
+  telepon: string | null;
+  archived: boolean;
 }
 
 /** The shop as the events say it is. */
@@ -226,6 +283,7 @@ export interface Shop {
   kategori: Kategori[];
   produk: Produk[];
   varian: Varian[];
+  pelanggan: Pelanggan[];
   sales: Sale[];
   /** The nota's header and footer (settings.updated). */
   receipt: ReceiptShop;

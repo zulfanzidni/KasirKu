@@ -5,6 +5,7 @@ import { useApp } from '@/ledger/useLedger';
 import { AppText, Note, colors, space } from '@/design';
 import { TabBar, type TabItem } from '@/design/components/TabBar';
 import { KasirScreen } from '@/screens/Kasir';
+import { PelangganScreen } from '@/screens/Pelanggan';
 import { PengaturanScreen } from '@/screens/Pengaturan';
 import { StokScreen } from '@/screens/Stok';
 
@@ -35,11 +36,7 @@ export function Shell() {
         ) : null}
         {!error && tab === 'kasir' ? <KasirScreen /> : null}
         {!error && tab === 'stok' ? <StokScreen /> : null}
-        {!error && tab === 'orang' ? (
-          <View style={styles.center}>
-            <Note>Supplier dan pelanggan menyusul.</Note>
-          </View>
-        ) : null}
+        {!error && tab === 'orang' ? <PelangganScreen /> : null}
         {!error && tab === 'lain' ? (
           <View style={styles.lainScreen}>
             <View style={styles.lainHeader}>
