@@ -107,6 +107,14 @@ export function ReceiptPaper({ nota }: { nota: ReceiptData }) {
       <View style={styles.sums}>
         <SumRow label="Tunai" value={formatRupiah(nota.tendered)} testID="nota-tunai" />
         <SumRow label="Kembalian" value={formatRupiah(nota.kembalian)} testID="nota-kembalian" emphasis />
+        {nota.hutang > 0 ? (
+          <SumRow
+            label={nota.pelanggan ? `Hutang ${nota.pelanggan}` : 'Hutang'}
+            value={formatRupiah(nota.hutang)}
+            testID="nota-hutang"
+            emphasis
+          />
+        ) : null}
       </View>
 
       <View style={styles.foot}>

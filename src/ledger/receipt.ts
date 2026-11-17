@@ -69,6 +69,10 @@ export interface ReceiptData {
   total: number;
   tendered: number;
   kembalian: number;
+  /** The part of the total that became the customer's hutang. 0 when paid in full. */
+  hutang: number;
+  /** The customer who owns the hutang, as the sale recorded them. Null for a walk-in. */
+  pelanggan: string | null;
 }
 
 /**
@@ -102,6 +106,8 @@ export function receiptOf(sale: Sale, shop: ReceiptShop = DEFAULT_RECEIPT): Rece
     total,
     tendered,
     kembalian: payment?.kembalian ?? 0,
+    hutang: payment?.unpaid ?? 0,
+    pelanggan: sale.pelangganNama,
   };
 }
 
