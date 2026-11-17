@@ -35,6 +35,7 @@ import {
   type PelangganInput,
   type PembayaranHutangInput,
   type StockCorrection,
+  type VoidSaleInput,
 } from './ledger';
 import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, type TodayTotals } from './queries';
@@ -103,6 +104,8 @@ export interface AppState {
    * quick-sale flow); the till always passes nothing and sells the cart.
    */
   saveSale(payment: PaymentInput, lines?: readonly { varianId: string; qty: number }[]): Promise<string | null> | null;
+  /** Cancels a completed sale with a reason, by appending `sale.voided`. */
+  voidSale(input: VoidSaleInput): Promise<string>;
 
   /** The count for one varian as the log answers it: `unknown` or a number. */
   stockOf(varianId: string): StockState;
@@ -414,6 +417,19 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [kv, persistCart, showShop, showEvents, updateCart],
   );
 
+  /** A void is one appended event; the original sale stays in the log. */
+  const voidSale = useCallback(
+    async (input: VoidSaleInput) => {
+      const current = ledgerRef.current;
+      if (!current) throw new Error('Catatan belum siap.');
+      const id = await current.voidSale(input);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return id;
+    },
+    [showShop, showEvents],
+  );
+
   /** Stock, read off the log. Pure and instant: the events are already in hand. */
   const stockFold = useMemo(() => foldStock(events), [events]);
 
@@ -695,6 +711,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     removeLine: (varianId) => updateCart(removeFromCart(cartRef.current, varianId)),
     cancelCart: () => updateCart(emptyCart()),
     saveSale,
+    voidSale,
     forgetLastSale: () => setLastSaleId(null),
     stockOf,
     stockHistory,

@@ -27,6 +27,12 @@ export interface Ledger {
   /** Records one sale, with what was paid, as one event. Returns the sale's id. */
   recordSale(lines: SaleLineInput[], payment: PaymentInput): Promise<string>;
   /**
+   * Cancels a completed sale by appending `sale.voided`, never by deleting it.
+   * The reason is required: a correction with no reason is a silent guess.
+   * Returns the void event's id.
+   */
+  voidSale(input: VoidSaleInput): Promise<string>;
+  /**
    * Brings the app back to the shelf: the owner types what they counted, with
    * a reason, and one `stock.adjusted` records the delta from what the app
    * believed — never the absolute number. Returns the event's id.
@@ -110,6 +116,13 @@ export interface PembayaranHutangInput {
   jumlah: number;
 }
 
+/** What the Riwayat screen hands the ledger: which sale, and why it is cancelled. */
+export interface VoidSaleInput {
+  saleId: string;
+  /** The owner's own words. Required: a void with no reason is a silent guess. */
+  alasan: string;
+}
+
 /** A write-off: the owner's reason is required, as with a stock correction. */
 export interface HapusBukuInput {
   pelangganId: string;
@@ -154,6 +167,14 @@ export class HutangError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'HutangError';
+  }
+}
+
+/** A refusal about a void: no sale, no reason, or a sale already cancelled. */
+export class VoidError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VoidError';
   }
 }
 
@@ -413,6 +434,17 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
         } as StoredEvent,
       ]);
       return id;
+    },
+    async voidSale(input) {
+      const alasan = input.alasan.trim();
+      if (!alasan) throw new VoidError('Alasan pembatalan wajib diisi.');
+      const shop = foldEvents(await store.readAll());
+      const sale = shop.sales.find((entry) => entry.id === input.saleId);
+      if (!sale) throw new VoidError('Penjualan tidak ditemukan.');
+      if (sale.voided) throw new VoidError('Penjualan ini sudah dibatalkan.');
+      // The original event is never touched: the void is appended beside it,
+      // and every fold cancels the sale by reading the two together.
+      return append('sale.voided', { saleId: sale.id, alasan });
     },
     async tambahPelanggan(input) {
       const nama = input.nama.trim();

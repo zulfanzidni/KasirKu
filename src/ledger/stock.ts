@@ -29,11 +29,22 @@ export function normaliseQty(qty: number): number {
   return Math.round(qty * 1000) / 1000;
 }
 
+/** A consignment lot a sale drew from, kept so a void can put the units back. */
+export interface SaleTitipLot {
+  supplierId?: string;
+  hargaBeli: number | null;
+  qty: number;
+  /** The delivery's moment, so a restored lot keeps its place in the queue. */
+  at: string;
+  eventId: string;
+}
+
 /** One thing that moved a varian's count, in the order it happened. */
 export type StockMovement =
   | {
       kind: 'sale';
       at: string;
+      varianId: string;
       /** The physical count moved by this much: always −qty. */
       delta: number;
       /** The part of the sale that came out of the shop's own stock. */
@@ -41,6 +52,22 @@ export type StockMovement =
       /** The part of the sale that came out of consignment stock. */
       titip: number;
       saleId: string;
+      /** The consignment lots this sale consumed, so a void can restore them. */
+      titipLots: SaleTitipLot[];
+    }
+  | {
+      kind: 'void';
+      at: string;
+      varianId: string;
+      /** The stock the cancelled sale gave back: +qty. */
+      delta: number;
+      /** The owned part the cancelled sale gave back. */
+      ownedDelta: number;
+      /** The consignment units the cancelled sale gave back. */
+      titip: number;
+      saleId: string;
+      reason: string;
+      eventId: string;
     }
   | { kind: 'adjusted'; at: string; delta: number; reason: string; eventId: string }
   | {
@@ -71,6 +98,8 @@ export type StockMovement =
 export function ownedDelta(movement: StockMovement): number {
   switch (movement.kind) {
     case 'sale':
+      return movement.ownedDelta;
+    case 'void':
       return movement.ownedDelta;
     case 'adjusted':
       return movement.delta;
@@ -144,7 +173,13 @@ function snapshotOf(fold: StockFold, varianId: string): VarianStock {
  * negative — the app and the shelf disagree, and that must stay visible
  * (user story 32).
  */
-function sell(fold: StockFold, lotsByVarian: Map<string, TitipLot[]>, line: SaleLine, at: string, saleId: string): void {
+function sell(
+  fold: StockFold,
+  lotsByVarian: Map<string, TitipLot[]>,
+  line: SaleLine,
+  at: string,
+  saleId: string,
+): Extract<StockMovement, { kind: 'sale' }> {
   const snapshot = snapshotOf(fold, line.varianId);
   const qty = normaliseQty(line.qty);
 
@@ -156,6 +191,8 @@ function sell(fold: StockFold, lotsByVarian: Map<string, TitipLot[]>, line: Sale
   const fromOwned = Math.min(qty, Math.max(0, ownedBefore));
   let remaining = normaliseQty(qty - fromOwned);
   let fromTitip = 0;
+  /** Which consignment lots paid for this line, so a void can return them. */
+  const titipLots: SaleTitipLot[] = [];
 
   const lots = lotsByVarian.get(line.varianId) ?? [];
   let consumed = false;
@@ -168,6 +205,13 @@ function sell(fold: StockFold, lotsByVarian: Map<string, TitipLot[]>, line: Sale
     fromTitip = normaliseQty(fromTitip + take);
     remaining = normaliseQty(remaining - take);
     consumed = true;
+    titipLots.push({
+      supplierId: lot.supplierId,
+      hargaBeli: lot.hargaBeli,
+      qty: take,
+      at: lot.at,
+      eventId: lot.eventId,
+    });
     // Selling a titip unit is what creates the debt (user story 50), at the
     // price the supplier and the shop agreed for that delivery.
     if (lot.supplierId && lot.hargaBeli !== null) {
@@ -178,13 +222,67 @@ function sell(fold: StockFold, lotsByVarian: Map<string, TitipLot[]>, line: Sale
 
   // What neither bucket covered is a shortage of the shop's own goods.
   snapshot.owned = normaliseQty(ownedBefore - fromOwned - remaining);
-  snapshot.movements.push({
+  const movement: Extract<StockMovement, { kind: 'sale' }> = {
     kind: 'sale',
     at,
+    varianId: line.varianId,
     delta: -qty,
     ownedDelta: normaliseQty(-(fromOwned + remaining)),
     titip: fromTitip,
     saleId,
+    titipLots,
+  };
+  snapshot.movements.push(movement);
+  return movement;
+}
+
+/**
+ * Puts a cancelled sale's units back where they came from. Owned units return
+ * to owned stock; consignment units return to the lots that paid for them, so
+ * a later sale draws them and owes the same supplier the same price. The void
+ * is itself a movement, so the stock history's running total stays honest.
+ */
+function unsell(
+  fold: StockFold,
+  lotsByVarian: Map<string, TitipLot[]>,
+  varianId: string,
+  movement: Extract<StockMovement, { kind: 'sale' }>,
+  at: string,
+  eventId: string,
+  reason: string,
+): void {
+  const snapshot = snapshotOf(fold, varianId);
+  snapshot.owned = normaliseQty((snapshot.owned ?? 0) - movement.ownedDelta);
+
+  for (const taken of movement.titipLots) {
+    const lots = lotsByVarian.get(varianId) ?? [];
+    lots.push({
+      varianId,
+      supplierId: taken.supplierId,
+      qty: taken.qty,
+      hargaBeli: taken.hargaBeli,
+      at: taken.at,
+      eventId: taken.eventId,
+    });
+    // Oldest delivery first, as a sale would have taken them.
+    lots.sort((a, b) => a.at.localeCompare(b.at) || a.eventId.localeCompare(b.eventId));
+    lotsByVarian.set(varianId, lots);
+    snapshot.titip = normaliseQty(snapshot.titip + taken.qty);
+    if (taken.supplierId && taken.hargaBeli !== null) {
+      add(fold.titipSale, taken.supplierId, -Math.round(taken.qty * taken.hargaBeli));
+    }
+  }
+
+  snapshot.movements.push({
+    kind: 'void',
+    at,
+    varianId,
+    delta: normaliseQty(-movement.delta),
+    ownedDelta: normaliseQty(-movement.ownedDelta),
+    titip: movement.titip,
+    saleId: movement.saleId,
+    reason,
+    eventId,
   });
 }
 
@@ -199,13 +297,51 @@ export function foldStock(events: readonly LedgerEvent[]): StockFold {
   };
   const lotsByVarian = new Map<string, TitipLot[]>();
 
-  for (const event of events) {
+  // A void cancels the sale it names, wherever the merged log put the two
+  // events. The first pass finds each sale's position and the first void that
+  // names it; the second pass folds in order and reverses at the void.
+  const saleAt = new Map<string, number>();
+  const voidAt = new Map<string, number>();
+  events.forEach((event, index) => {
+    if (event.type === 'sale.completed') {
+      saleAt.set(event.id, index);
+    } else if (event.type === 'sale.voided') {
+      const current = voidAt.get(event.payload.saleId);
+      if (current === undefined || index < current) voidAt.set(event.payload.saleId, index);
+    }
+  });
+  /** What each sale did to stock, so its void can undo exactly that. */
+  const saleEffects = new Map<string, { varianId: string; movement: Extract<StockMovement, { kind: 'sale' }> }[]>();
+
+  for (let index = 0; index < events.length; index += 1) {
+    const event = events[index];
     switch (event.type) {
-      case 'sale.completed':
+      case 'sale.completed': {
+        // A void that arrived before its sale means the sale never stood at
+        // this point in the log; folding it would take stock twice.
+        const cancelledAt = voidAt.get(event.id);
+        if (cancelledAt !== undefined && cancelledAt < index) break;
+        const effects = saleEffects.get(event.id) ?? [];
         for (const line of event.payload.lines as readonly SaleLine[]) {
-          sell(fold, lotsByVarian, line, event.createdAt, event.id);
+          effects.push({ varianId: line.varianId, movement: sell(fold, lotsByVarian, line, event.createdAt, event.id) });
+        }
+        saleEffects.set(event.id, effects);
+        break;
+      }
+
+      case 'sale.voided': {
+        const soldAt = saleAt.get(event.payload.saleId);
+        // The sale is not in the log yet (or the void came first): it will be
+        // skipped when it arrives, so there is nothing to reverse here.
+        if (soldAt === undefined || soldAt > index) break;
+        // A second void of the same sale (two phones correcting one mistake)
+        // changes nothing: the first one already gave the stock back.
+        if (voidAt.get(event.payload.saleId) !== index) break;
+        for (const effect of saleEffects.get(event.payload.saleId) ?? []) {
+          unsell(fold, lotsByVarian, effect.varianId, effect.movement, event.createdAt, event.id, event.payload.alasan);
         }
         break;
+      }
 
       case 'stock.adjusted': {
         const snapshot = snapshotOf(fold, event.payload.varianId);

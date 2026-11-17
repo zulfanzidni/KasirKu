@@ -161,9 +161,21 @@ export function produkWithVarian(shop: Shop) {
   );
 }
 
-/** Every event as stored, oldest first: the history the owner can look back on. */
+/**
+ * Every sale, newest first: the history the owner can look back on. A voided
+ * sale stays here, marked, so a receipt number a customer holds is traceable.
+ */
 export function saleHistory(shop: Shop) {
   return [...shop.sales].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * The sales that still count: everything except the ones a void cancelled.
+ * Revenue and transaction counts read this, so a correction never inflates the
+ * day and a re-rung sale counts once.
+ */
+export function liveSales(shop: Shop) {
+  return shop.sales.filter((sale) => !sale.voided);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,10 +208,18 @@ export function todayTotals(events: readonly LedgerEvent[], now: Date = new Date
   const today = dayStamp(now.toISOString());
   const totals: TodayTotals = { penjualan: 0, tunai: 0, hutang: 0, diskon: 0 };
 
+  // A voided sale no longer counts, whichever day it was rung up: the day's
+  // revenue and transaction count must not include a sale that was cancelled.
+  const voided = new Set<string>();
+  for (const event of events) {
+    if (event.type === 'sale.voided') voided.add(event.payload.saleId);
+  }
+
   for (const event of events) {
     if (dayStamp(event.createdAt) !== today) continue;
     switch (event.type) {
       case 'sale.completed': {
+        if (voided.has(event.id)) break;
         const payment = event.payload.payment;
         const net = payment?.net ?? event.payload.total;
         const unpaid = payment?.unpaid ?? 0;

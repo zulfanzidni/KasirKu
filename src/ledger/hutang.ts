@@ -41,9 +41,17 @@ export function hutangOf(events: readonly LedgerEvent[], pelangganId: string): H
   const entries: (HutangEntry & { setelah: number })[] = [];
   let saldo = 0;
 
+  // A voided sale no longer creates debt. A payment already made is left where
+  // it is: money changed hands, so the customer simply holds a credit.
+  const voided = new Set<string>();
+  for (const event of events) {
+    if (event.type === 'sale.voided') voided.add(event.payload.saleId);
+  }
+
   for (const event of events) {
     switch (event.type) {
       case 'sale.completed': {
+        if (voided.has(event.id)) break;
         if (event.payload.pelangganId !== pelangganId) break;
         const unpaid = event.payload.payment?.unpaid ?? 0;
         if (unpaid <= 0) break;

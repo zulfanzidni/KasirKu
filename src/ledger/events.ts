@@ -32,6 +32,10 @@ export function emptyShop(): Shop {
 export function foldEvents(events: readonly LedgerEvent[]): Shop {
   const shop = emptyShop();
   const fieldAt = new WeakMap<object, Map<string, string>>();
+  // Voids are collected and applied after the sales are in place: a merged log
+  // can hand a void to a phone before the sale it cancels (the two phones have
+  // independent clocks), and the answer must not depend on that order.
+  const voids: { saleId: string; alasan: string; at: string }[] = [];
 
   for (const event of events) {
     switch (event.type) {
@@ -143,10 +147,17 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
           payment: event.payload.payment ?? null,
           pelangganId: event.payload.pelangganId ?? null,
           pelangganNama: event.payload.pelangganNama ?? null,
+          voided: false,
+          voidedAt: null,
+          voidReason: null,
         };
         shop.sales.push(sale);
         break;
       }
+
+      case 'sale.voided':
+        voids.push({ saleId: event.payload.saleId, alasan: event.payload.alasan, at: event.createdAt });
+        break;
 
       case 'pelanggan.created':
         shop.pelanggan.push({
@@ -185,6 +196,17 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
         }
         break;
     }
+  }
+
+  // A sale is cancelled by the first void that names it. A second void (two
+  // phones correcting the same mistake) changes nothing: the sale is already
+  // cancelled, and the first reason is the one the owner wrote.
+  for (const voided of voids) {
+    const sale = shop.sales.find((entry) => entry.id === voided.saleId);
+    if (!sale || sale.voided) continue;
+    sale.voided = true;
+    sale.voidedAt = voided.at;
+    sale.voidReason = voided.alasan;
   }
 
   // A produk whose kategori is archived is not deleted: it stays in the list,
@@ -230,9 +252,13 @@ function applyFieldEdits<T extends object>(
   }
 }
 
-/** Every rupiah the shop has sold, per the log. */
+/**
+ * Every rupiah the shop has sold, per the log. A voided sale gives its rupiah
+ * back, so it is skipped here: callers that want the whole history (Riwayat)
+ * read `shop.sales` itself, which keeps the cancelled sale.
+ */
 export function sumSales(sales: readonly Sale[]): number {
-  return sales.reduce((sum, sale) => sum + sale.total, 0);
+  return sales.reduce((sum, sale) => (sale.voided ? sum : sum + sale.total), 0);
 }
 
 export type { Kategori, Produk, Sale, Shop, Stamped, Varian, LedgerEvent };

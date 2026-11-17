@@ -16,6 +16,7 @@ import type { CashBaselineKind, CashCounted, LedgerEvent } from './types';
  *            − payable.paid
  *            − cash.expense
  *            − cash.withdrawn
+ *            − cash handed back on a voided sale
  *
  * A count is a measurement, not a movement: it records what the owner saw, what
  * the log expected, and the difference, and it becomes the baseline for the
@@ -31,7 +32,14 @@ export interface CashBaseline {
   eventId: string;
 }
 
-export type CashMovementKind = 'penjualan' | 'hutang' | 'setor' | 'pemasok' | 'pengeluaran' | 'tarik';
+export type CashMovementKind =
+  | 'penjualan'
+  | 'pembatalan'
+  | 'hutang'
+  | 'setor'
+  | 'pemasok'
+  | 'pengeluaran'
+  | 'tarik';
 
 /** One event that moved money in or out of the drawer. */
 export interface CashMovementEntry {
@@ -50,6 +58,8 @@ export interface CashDrawer {
   expected: number;
   /** Cash taken on sales since the baseline. */
   penjualan: number;
+  /** Cash handed back on voided sales, as a positive magnitude. */
+  pembatalan: number;
   /** Hutang paid in cash since the baseline. */
   hutang: number;
   /** Money put in from outside. */
@@ -86,6 +96,7 @@ export function cashDrawer(events: readonly LedgerEvent[]): CashDrawer {
     baseline,
     expected: baseline?.jumlah ?? 0,
     penjualan: 0,
+    pembatalan: 0,
     hutang: 0,
     setor: 0,
     pemasok: 0,
@@ -94,13 +105,63 @@ export function cashDrawer(events: readonly LedgerEvent[]): CashDrawer {
     movements: [],
   };
 
-  for (const event of events.slice(start)) {
+  // A void cancels the sale it names. The cash it handed back is its own
+  // figure on the screen, never a silent reduction of "penjualan": the owner
+  // needs to see both the sale and the refund.
+  const saleCashAt = new Map<string, number>();
+  const saleAt = new Map<string, number>();
+  const voidAt = new Map<string, number>();
+  events.forEach((event, index) => {
+    if (event.type === 'sale.completed') {
+      const payment = event.payload.payment;
+      const net = payment?.net ?? event.payload.total;
+      const unpaid = payment?.unpaid ?? 0;
+      saleCashAt.set(event.id, net - unpaid);
+      saleAt.set(event.id, index);
+    } else if (event.type === 'sale.voided') {
+      const current = voidAt.get(event.payload.saleId);
+      if (current === undefined || index < current) voidAt.set(event.payload.saleId, index);
+    }
+  });
+
+  for (let index = start; index < events.length; index += 1) {
+    const event = events[index];
+
+    // A void that arrived before its sale means the sale never stood at this
+    // point in the log; folding its cash would count money that never came.
+    if (event.type === 'sale.completed') {
+      const cancelledAt = voidAt.get(event.id);
+      if (cancelledAt !== undefined && cancelledAt < index) continue;
+    }
+
+    if (event.type === 'sale.voided') {
+      const soldAt = saleAt.get(event.payload.saleId);
+      if (soldAt === undefined || soldAt > index) continue;
+      // Only the first void hands the cash back; a second one would refund it
+      // twice.
+      if (voidAt.get(event.payload.saleId) !== index) continue;
+      const cash = saleCashAt.get(event.payload.saleId) ?? 0;
+      if (cash === 0) continue;
+      drawer.movements.push({
+        kind: 'pembatalan',
+        at: event.createdAt,
+        jumlah: -cash,
+        label: 'Penjualan dibatalkan',
+        eventId: event.id,
+      });
+      drawer.pembatalan += cash;
+      continue;
+    }
+
     const movement = movementOf(event);
     if (!movement) continue;
     drawer.movements.push(movement);
     switch (movement.kind) {
       case 'penjualan':
         drawer.penjualan += movement.jumlah;
+        break;
+      case 'pembatalan':
+        drawer.pembatalan += -movement.jumlah;
         break;
       case 'hutang':
         drawer.hutang += movement.jumlah;
@@ -127,7 +188,8 @@ export function cashDrawer(events: readonly LedgerEvent[]): CashDrawer {
     drawer.setor -
     drawer.pemasok -
     drawer.pengeluaran -
-    drawer.tarik;
+    drawer.tarik -
+    drawer.pembatalan;
 
   return drawer;
 }

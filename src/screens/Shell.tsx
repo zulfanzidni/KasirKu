@@ -8,6 +8,7 @@ import { KasScreen } from '@/screens/Kas';
 import { KasirScreen } from '@/screens/Kasir';
 import { OrangScreen } from '@/screens/Orang';
 import { PengaturanScreen } from '@/screens/Pengaturan';
+import { RiwayatScreen } from '@/screens/Riwayat';
 import { StokScreen } from '@/screens/Stok';
 
 /**
@@ -24,7 +25,7 @@ const TABS: readonly TabItem[] = [
 
 export function Shell() {
   const [tab, setTab] = useState('kasir');
-  const [lainView, setLainView] = useState<'menu' | 'kas'>('menu');
+  const [lainView, setLainView] = useState<'menu' | 'kas' | 'riwayat'>('menu');
   const { error } = useApp();
   const insets = useSafeAreaInsets();
 
@@ -42,6 +43,8 @@ export function Shell() {
         {!error && tab === 'lain' ? (
           lainView === 'kas' ? (
             <KasScreen onBack={() => setLainView('menu')} />
+          ) : lainView === 'riwayat' ? (
+            <RiwayatScreen onBack={() => setLainView('menu')} />
           ) : (
             <View style={styles.lainScreen}>
               <View style={styles.lainHeader}>
@@ -57,6 +60,12 @@ export function Shell() {
                 value="Kas & Tutup Toko"
                 onPress={() => setLainView('kas')}
                 testID="buka-kas"
+              />
+              <RuledRow
+                title="Riwayat"
+                value="Nota & pembatalan"
+                onPress={() => setLainView('riwayat')}
+                testID="buka-riwayat"
               />
               <PengaturanScreen />
             </View>
