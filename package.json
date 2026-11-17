@@ -45,6 +45,7 @@
     "react-test-renderer": "19.1.0"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testTimeout": 30000
   }
 }
