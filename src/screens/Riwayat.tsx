@@ -8,6 +8,7 @@ import {
   Note,
   Screen,
   colors,
+  formatMoment,
   formatRupiah,
   space,
 } from '@/design';
@@ -102,15 +103,15 @@ function SaleRow({ sale, onPress }: { sale: Sale; onPress: () => void }) {
           {`No. ${sale.number}`}
         </AppText>
         <AppText typeRole="labelSmall" tone="muted">
-          {`${tanggal(sale.createdAt)}${sale.pelangganNama ? ` · ${sale.pelangganNama}` : ''}`}
+          {`${formatMoment(sale.createdAt, { withYear: false })}${sale.pelangganNama ? ` · ${sale.pelangganNama}` : ''}`}
         </AppText>
       </View>
       {sale.voided ? (
-        <AppText typeRole="labelSmall" tone="owed" testID={`riwayat-status-${sale.id}`}>
+        <AppText typeRole="labelSmall" tone="muted" testID={`riwayat-status-${sale.id}`}>
           Dibatalkan
         </AppText>
       ) : null}
-      <AppText typeRole="numericLarge" tone={sale.voided ? 'owed' : 'default'} align="right" style={styles.amount}>
+      <AppText typeRole="numericLarge" tone={sale.voided ? 'muted' : 'default'} align="right" style={styles.amount}>
         {formatRupiah(totalOf(sale))}
       </AppText>
     </Pressable>
@@ -219,13 +220,6 @@ function SaleDetail({ sale }: { sale: Sale }) {
 /** What the customer was charged: the receipt total, after discount and pembulatan. */
 function totalOf(sale: Sale): number {
   return sale.payment?.net ?? sale.total;
-}
-
-/** A moment as the shop writes it: 17/11 14.20. */
-function tanggal(at: string): string {
-  const moment = new Date(at);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)} ${pad(moment.getHours())}.${pad(moment.getMinutes())}`;
 }
 
 const styles = StyleSheet.create({

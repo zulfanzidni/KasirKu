@@ -34,6 +34,13 @@ export interface PaymentInput {
 export type Satuan = 'pcs' | 'bungkus' | 'kg' | 'liter' | 'sak';
 
 /**
+ * The units a varian may be counted in, in the order the app offers them.
+ * One list, so the varian form and the spreadsheet import can never disagree
+ * about what a satuan is.
+ */
+export const SATUAN: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
+
+/**
  * How a varian is tapped.
  *  - `unit`   — whole units only (Indomie, Telur pcs)
  *  - `weight` — fractional kilos, chosen in steps of 1/4 (Tepung, Gula)

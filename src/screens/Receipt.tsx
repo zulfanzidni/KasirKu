@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     marginHorizontal: space.gutter,
     marginTop: space.sm,
     paddingVertical: space.sm,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.error,
     gap: space.xs,
   },

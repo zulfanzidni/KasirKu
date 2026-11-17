@@ -114,7 +114,7 @@ export interface Laporan {
   tampilanFilter: {
     rentang: string;
     kategori: string;
-    barang: string;
+    varian: string;
   };
   dasar: {
     /** The day boundary the window is counted on. */
@@ -411,13 +411,15 @@ export function buildLaporan(input: {
   const kategori = input.filter.kategoriId
     ? shop.kategori.find((entry) => entry.id === input.filter.kategoriId)
     : null;
-  const barang = input.filter.varianId ? shop.varian.find((entry) => entry.id === input.filter.varianId) : null;
+  const varian = input.filter.varianId
+    ? shop.varian.find((entry) => entry.id === input.filter.varianId)
+    : null;
 
   const varianOf = new Map(shop.varian.map((entry) => [entry.id, entry]));
   const produkOf = new Map(shop.produk.map((entry) => [entry.id, entry]));
   const kategoriIds = input.filter.kategoriId ? kategoriDenganTurunan(shop, input.filter.kategoriId) : null;
 
-  /** Both narrowings hold at once: a barang outside the chosen kategori is not in the report. */
+  /** Both narrowings hold at once: a varian outside the chosen kategori is not in the report. */
   const cocok = (entry: BarisTerjual): boolean => {
     if (input.filter.varianId && entry.line.varianId !== input.filter.varianId) return false;
     if (kategoriIds) {
@@ -446,7 +448,7 @@ export function buildLaporan(input: {
     tampilanFilter: {
       rentang: labelRentang(rentang),
       kategori: kategori?.nama ?? 'Semua kategori',
-      barang: barang?.nama ?? 'Semua barang',
+      varian: varian?.nama ?? 'Semua varian',
     },
     dasar: {
       hari: 'Hari lokal 00.00–23.59',

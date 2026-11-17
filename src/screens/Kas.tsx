@@ -11,6 +11,7 @@ import {
   SectionHeading,
   TotalBlock,
   colors,
+  formatMoment,
   formatRupiah,
   parseRupiah,
   space,
@@ -176,13 +177,15 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
 
 function CashRow({ title, amount, testID }: { title: string; amount: number; testID: string }) {
   const value = amount === 0 ? 'Rp 0' : amount < 0 ? `−Rp ${formatRupiah(-amount)}` : `Rp ${formatRupiah(amount)}`;
-  return <RuledRow title={title} value={value} owed={amount < 0} testID={testID} />;
+  // A refund or an outflow is information, not money owed: the sign says which
+  // way the cash went, and red is kept for what someone still owes.
+  return <RuledRow title={title} value={value} testID={testID} />;
 }
 
 function CountRow({ count, index }: { count: CashCount; index: number }) {
   return (
     <View style={styles.history} testID={`hitung-baris-${index}`}>
-      <AppText typeRole="bodyLarge">{tanggal(count.at)}</AppText>
+      <AppText typeRole="bodyLarge">{formatMoment(count.at)}</AppText>
       <AppText typeRole="labelSmall" tone="muted">
         {`Seharusnya Rp ${formatRupiah(count.expected)} · Dihitung Rp ${formatRupiah(count.counted)} · ${selisihLabel(
           count.difference,
@@ -363,15 +366,6 @@ function CountForm({ onDone }: { onDone: () => void }) {
       <Button label="Simpan hitung kas" onPress={submit} testID="simpan-hitung" />
     </>
   );
-}
-
-/** A moment as the shop writes it: 17/11/2026 14.20. */
-function tanggal(at: string): string {
-  const moment = new Date(at);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)}/${moment.getFullYear()} ${pad(
-    moment.getHours(),
-  )}.${pad(moment.getMinutes())}`;
 }
 
 const styles = StyleSheet.create({

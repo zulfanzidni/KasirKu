@@ -11,6 +11,7 @@ import {
   Screen,
   SectionHeading,
   colors,
+  formatMoment,
   formatQty,
   formatRupiah,
   space,
@@ -47,7 +48,7 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
   const [draftDari, setDraftDari] = useState('');
   const [draftSampai, setDraftSampai] = useState('');
   const [galatKustom, setGalatKustom] = useState<string | null>(null);
-  const [pilihBarang, setPilihBarang] = useState(false);
+  const [pilihVarian, setPilihVarian] = useState(false);
 
   const report = laporan(filter);
   const kategori = shop.kategori.filter((entry) => !entry.archived);
@@ -149,14 +150,14 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
 
           <ChipRow>
             <Chip
-              label={filter.varianId ? 'Ganti barang' : 'Pilih barang'}
+              label={filter.varianId ? 'Ganti varian' : 'Pilih varian'}
               selected={filter.varianId !== null}
-              onPress={() => setPilihBarang(true)}
+              onPress={() => setPilihVarian(true)}
               testID="pilih-barang"
             />
             {filter.varianId ? (
               <Chip
-                label="Semua barang"
+                label="Semua varian"
                 selected={false}
                 onPress={() => setFilter((current) => ({ ...current, varianId: null }))}
                 testID="filter-barang-semua"
@@ -168,7 +169,7 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
         <View style={styles.applied} testID="laporan-filter">
           <AppText typeRole="bodyMedium">{report.tampilanFilter.rentang}</AppText>
           <AppText typeRole="labelSmall" tone="muted">
-            {`${report.tampilanFilter.kategori} · ${report.tampilanFilter.barang}`}
+            {`${report.tampilanFilter.kategori} · ${report.tampilanFilter.varian}`}
           </AppText>
         </View>
 
@@ -178,13 +179,9 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
             {report.dasar.hari}
           </AppText>
           <AppText typeRole="bodyMedium" tone="muted" testID="laporan-dasar-sinkron">
-            {report.dasar.lastSyncAt ? `Tersinkron terakhir ${tanggal(report.dasar.lastSyncAt)}.` : 'Belum pernah sinkron.'}
+            {report.dasar.lastSyncAt ? `Tersinkron terakhir ${formatMoment(report.dasar.lastSyncAt)}.` : 'Belum pernah sinkron.'}
           </AppText>
-          <AppText
-            typeRole="bodyMedium"
-            tone={report.dasar.unsentCount > 0 ? 'owed' : 'muted'}
-            testID="laporan-dasar-belum-terkirim"
-          >
+          <AppText typeRole="bodyMedium" tone="muted" testID="laporan-dasar-belum-terkirim">
             {report.dasar.unsentCount > 0
               ? `${report.dasar.unsentCount} catatan belum terkirim.`
               : 'Semua catatan sudah terkirim.'}
@@ -304,17 +301,17 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
       </ScrollView>
 
       <BottomSheet
-        visible={pilihBarang}
-        onClose={() => setPilihBarang(false)}
-        title="Pilih barang"
+        visible={pilihVarian}
+        onClose={() => setPilihVarian(false)}
+        title="Pilih varian"
         testID="sheet-barang"
       >
         <ScrollView>
           <RuledRow
-            title="Semua barang"
+            title="Semua varian"
             onPress={() => {
               setFilter((current) => ({ ...current, varianId: null }));
-              setPilihBarang(false);
+              setPilihVarian(false);
             }}
             testID="filter-barang-semua"
           />
@@ -325,7 +322,7 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
               value={entry.satuan}
               onPress={() => {
                 setFilter((current) => ({ ...current, varianId: entry.id }));
-                setPilihBarang(false);
+                setPilihVarian(false);
               }}
               testID={`filter-barang-${entry.id}`}
             />
@@ -364,18 +361,11 @@ function bandingLabel(kini: number, lalu: number): string {
   return `Turun Rp ${formatRupiah(-selisih)} dari periode sebelumnya.`;
 }
 
-function bandingTone(kini: number, lalu: number): 'primary' | 'owed' | 'muted' {
+function bandingTone(kini: number, lalu: number): 'primary' | 'muted' {
   if (kini === lalu) return 'muted';
-  return kini > lalu ? 'primary' : 'owed';
-}
-
-/** A moment as the shop writes it: 17/11/2026 14.20. */
-function tanggal(at: string): string {
-  const moment = new Date(at);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)}/${moment.getFullYear()} ${pad(
-    moment.getHours(),
-  )}.${pad(moment.getMinutes())}`;
+  // Up is ink; down is simply a smaller number. A quieter month is not a debt,
+  // so red stays out of the comparison.
+  return kini > lalu ? 'primary' : 'muted';
 }
 
 const styles = StyleSheet.create({

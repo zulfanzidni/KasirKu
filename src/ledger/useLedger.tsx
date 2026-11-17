@@ -41,7 +41,7 @@ import { buildLaporan, type Laporan, type LaporanFilter } from './laporan';
 import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, type TodayTotals } from './queries';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
-import { foldStock, normaliseQty, ownedDelta, type StockRow } from './stock';
+import { foldStock, normaliseQty, ownedDelta, stockState, type StockRow } from './stock';
 import {
   parseCheckpoint,
   STARTING_CHECKPOINT,
@@ -441,10 +441,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const stockFold = useMemo(() => foldStock(events), [events]);
 
   const stockOf = useCallback(
-    (varianId: string): StockState => {
-      const owned = stockFold.varian.get(varianId)?.owned;
-      return owned == null ? { kind: 'unknown' } : { kind: 'counted', qty: normaliseQty(owned) };
-    },
+    (varianId: string): StockState => stockState(stockFold.varian.get(varianId)?.owned),
     [stockFold],
   );
 
@@ -462,13 +459,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     // shows: the owner's minimum, or selling speed when they set none.
     const rows = shop.varian
       .filter((varian) => !varian.archived)
-      .map((varian) => {
-        const owned = stockFold.varian.get(varian.id)?.owned;
-        return {
-          varian,
-          stock: owned == null ? { kind: 'unknown' as const } : { kind: 'counted' as const, qty: normaliseQty(owned) },
-        };
-      });
+      .map((varian) => ({
+        varian,
+        stock: stockState(stockFold.varian.get(varian.id)?.owned),
+      }));
     const checks = new Map(rows.map((row) => [row.varian.id, checkLow(row.varian, row.stock, events)]));
     return sortStock(rows, checks);
   }, [events, shop.varian, stockFold]);
@@ -491,9 +485,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const lowChecks = useCallback((): Map<string, LowCheck> => {
     const checks = new Map<string, LowCheck>();
     for (const varian of shop.varian) {
-      const owned = stockFold.varian.get(varian.id)?.owned;
-      const stock: StockState =
-        owned == null ? { kind: 'unknown' } : { kind: 'counted', qty: normaliseQty(owned) };
+      const stock = stockState(stockFold.varian.get(varian.id)?.owned);
       checks.set(varian.id, checkLow(varian, stock, events));
     }
     return checks;

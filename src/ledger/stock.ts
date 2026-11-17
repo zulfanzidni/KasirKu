@@ -29,6 +29,15 @@ export function normaliseQty(qty: number): number {
   return Math.round(qty * 1000) / 1000;
 }
 
+/**
+ * A fold's `owned` number as the `StockState` a screen reads: `unknown` when
+ * nothing has ever moved the count, `counted` (normalised) otherwise. The one
+ * conversion, so "never counted" can never be written as zero anywhere.
+ */
+export function stockState(owned: number | null | undefined): StockState {
+  return owned == null ? { kind: 'unknown' } : { kind: 'counted', qty: normaliseQty(owned) };
+}
+
 /** A consignment lot a sale drew from, kept so a void can put the units back. */
 export interface SaleTitipLot {
   supplierId?: string;
@@ -470,8 +479,7 @@ export function movementsOf(events: readonly LedgerEvent[], varianId: string): S
 export function stockOf(events: readonly LedgerEvent[], varianId: string): StockLedgerEntry {
   const snapshot = foldStock(events).varian.get(varianId);
   const movements = snapshot?.movements ?? [];
-  if (!snapshot || snapshot.owned === null) return { stock: { kind: 'unknown' }, movements };
-  return { stock: { kind: 'counted', qty: normaliseQty(snapshot.owned) }, movements };
+  return { stock: stockState(snapshot?.owned), movements };
 }
 
 /** Titip units still on the shelf for one varian. Never added to owned stock. */
@@ -494,7 +502,7 @@ export function stockRows(events: readonly LedgerEvent[], varian: readonly Varia
       const owned = fold.varian.get(entry.id)?.owned;
       return {
         varian: entry,
-        stock: owned == null ? { kind: 'unknown' } : { kind: 'counted', qty: normaliseQty(owned) },
+        stock: stockState(owned),
       };
     });
 }

@@ -1,4 +1,4 @@
-import { formatQty, formatRupiah } from '../design/money';
+import { checkRupiah, formatQty, formatRupiah } from '../design/money';
 import { newEventId } from './dbLedger';
 import { foldStock } from './stock';
 import type { LedgerEvent, Settlement, Shop, Supplier } from './types';
@@ -88,11 +88,6 @@ function checkQty(qty: number, label: string): number {
   return qty;
 }
 
-function checkRupiah(amount: number, label: string): number {
-  if (!Number.isInteger(amount) || amount < 0) throw new SupplierError(`${label} harus angka rupiah bulat.`);
-  return amount;
-}
-
 export function createSupplierBook(
   append: (type: string, payload: unknown) => Promise<string>,
   read: () => SupplierReader,
@@ -128,7 +123,8 @@ export function createSupplierBook(
         if (line.settlement !== 'tunai' && line.hargaBeli == null) {
           throw new SupplierError(`Baris ${index + 1}: harga beli wajib untuk tempo atau titip.`);
         }
-        const hargaBeli = line.hargaBeli == null ? undefined : checkRupiah(line.hargaBeli, `Baris ${index + 1} harga beli`);
+        const hargaBeli =
+          line.hargaBeli == null ? undefined : checkRupiah(line.hargaBeli, `Baris ${index + 1} harga beli`, SupplierError);
         return { varianId: line.varianId, qty, settlement: line.settlement, hargaBeli };
       });
 
@@ -148,7 +144,7 @@ export function createSupplierBook(
 
     async paySupplier(input) {
       const supplier = supplierOrThrow(input.supplierId);
-      const amount = checkRupiah(input.amount, 'Jumlah bayar');
+      const amount = checkRupiah(input.amount, 'Jumlah bayar', SupplierError);
       if (amount === 0) throw new SupplierError('Jumlah bayar harus lebih dari 0.');
       const owed = supplierPayable(read().events, supplier.id);
       if (amount > owed.total) {

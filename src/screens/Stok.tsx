@@ -12,6 +12,7 @@ import {
   SectionHeading,
   StockBadge,
   colors,
+  formatMoment,
   formatQty,
   formatRupiah,
   parseQty,
@@ -22,6 +23,7 @@ import { IconButton } from '@/design/components/Icons';
 import {
   bulkOf,
   teks,
+  SATUAN,
   type BulkContext,
   type JualBy,
   type Kategori,
@@ -35,7 +37,6 @@ import {
 import { useApp } from '@/ledger/useLedger';
 import { ImporScreen } from '@/screens/Impor';
 
-const SATUAN: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
 /** The group a produk falls into when its kategori is archived or absent. */
 const TANPA_KATEGORI = 'tanpa-kategori';
 const JUAL: readonly { value: JualBy; label: string }[] = [
@@ -625,7 +626,7 @@ function HistoryList({ varian }: { varian: Varian }) {
                         : 'Penjualan'}
             </AppText>
             <AppText typeRole="labelSmall" tone="muted">
-              {`${tanggal(entry.at)} · sisa ${formatQty(entry.after)} ${varian.satuan}`}
+              {`${formatMoment(entry.at, { withYear: false })} · sisa ${formatQty(entry.after)} ${varian.satuan}`}
             </AppText>
           </View>
           <AppText typeRole="numericMedium" tone={entry.delta < 0 ? 'owed' : 'default'} align="right">
@@ -637,12 +638,6 @@ function HistoryList({ varian }: { varian: Varian }) {
   );
 }
 
-/** A moment as the shop writes it: 31/10 14.20. */
-function tanggal(at: string): string {
-  const moment = new Date(at);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)} ${pad(moment.getHours())}.${pad(moment.getMinutes())}`;
-}
 function KategoriForm({ onDone }: { onDone: () => void }) {
   const { catalog } = useApp();
   const [nama, setNama] = useState('');

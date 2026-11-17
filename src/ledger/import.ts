@@ -1,5 +1,5 @@
 import { parseQty, parseRupiah } from '@/design';
-import type { JualBy, Satuan, Shop } from './types';
+import { SATUAN, type JualBy, type Satuan, type Shop } from './types';
 
 /**
  * Reading the owner's spreadsheet into a plan, without writing anything.
@@ -14,9 +14,6 @@ import type { JualBy, Satuan, Shop } from './types';
  * spreadsheet) or semicolon (a saved CSV); a comma is not a separator because
  * Indonesian writes 12,5 with one.
  */
-
-/** The units a varian may be counted in (GLOSSARY: Satuan). */
-export const SATUAN_IMPOR: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
 
 /** One row the owner must fix before anything can be imported. */
 export interface ImportRowError {
@@ -139,7 +136,7 @@ export function planImport(text: string, shop: Shop): ImportPlan {
       salah('nama varian wajib diisi.');
       continue;
     }
-    if (!SATUAN_IMPOR.includes(satuanRaw as Satuan)) {
+    if (!SATUAN.includes(satuanRaw as Satuan)) {
       salah('satuan wajib diisi (pcs, bungkus, kg, liter, sak).');
       continue;
     }

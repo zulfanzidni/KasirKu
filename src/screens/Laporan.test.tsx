@@ -178,7 +178,7 @@ describe('Laporan — penjualan dan dasar laporannya', () => {
     // The report opens on this month, and says so on its face.
     expect(screen.getByTestId('laporan-filter')).toHaveTextContent(/Bulan ini/);
     expect(screen.getByTestId('laporan-filter')).toHaveTextContent(/Semua kategori/);
-    expect(screen.getByTestId('laporan-filter')).toHaveTextContent(/Semua barang/);
+    expect(screen.getByTestId('laporan-filter')).toHaveTextContent(/Semua varian/);
     expect(screen.getByTestId('laporan-total')).toHaveTextContent(/Rp 10\.000/);
 
     fireEvent.press(screen.getByTestId('filter-hari'));

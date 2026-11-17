@@ -19,7 +19,6 @@ export { clearCart, loadCart, saveCart, type KeyValue } from './cartStorage';
 export {
   ImportError,
   planImport,
-  SATUAN_IMPOR,
   type ImportCommit,
   type ImportKategori,
   type ImportPlan,
@@ -127,6 +126,7 @@ export {
   normaliseQty,
   stockOf,
   stockRows,
+  stockState,
   titipStockOf,
   type StockFold,
   type StockMovement,
@@ -134,6 +134,7 @@ export {
   type TitipLot,
   type VarianStock,
 } from './stock';
+export { SATUAN } from './types';
 export {
   createSupplierBook,
   SupplierError,

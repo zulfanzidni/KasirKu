@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { AppText, Button, Field, Note, SectionHeading, space } from '@/design';
+import { AppText, Button, Field, formatMoment, Note, SectionHeading, space } from '@/design';
 import { backupFiles, parseBackup, type BackupFile } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
@@ -214,9 +214,9 @@ export function PengaturanScreen() {
 
       <View style={styles.sync} testID="sinkron-status">
         <AppText typeRole="bodyMedium" testID="sinkron-terakhir">
-          {lastSyncAt ? `Tersinkron terakhir ${tanggal(lastSyncAt)}.` : 'Belum pernah sinkron.'}
+          {lastSyncAt ? `Tersinkron terakhir ${formatMoment(lastSyncAt)}.` : 'Belum pernah sinkron.'}
         </AppText>
-        <AppText typeRole="bodyMedium" tone={unsentCount > 0 ? 'owed' : 'muted'} testID="sinkron-belum-terkirim">
+        <AppText typeRole="bodyMedium" tone="muted" testID="sinkron-belum-terkirim">
           {unsentCount > 0 ? `${unsentCount} catatan belum terkirim.` : 'Semua catatan sudah terkirim.'}
         </AppText>
       </View>
@@ -370,7 +370,7 @@ export function PengaturanScreen() {
                 <View style={styles.adoptText}>
                   <AppText typeRole="bodyMedium">{identity.deviceId}</AppText>
                   <AppText typeRole="labelSmall" tone="muted">
-                    {`${identity.events} catatan · nomor terakhir ${identity.lastSeq} · ${tanggal(identity.lastAt)}`}
+                    {`${identity.events} catatan · nomor terakhir ${identity.lastSeq} · ${formatMoment(identity.lastAt)}`}
                   </AppText>
                 </View>
                 <Button
@@ -434,15 +434,6 @@ export function PengaturanScreen() {
 function namaCadangan(at: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `cadangan-kasirku-${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}.json`;
-}
-
-/** A moment as the shop writes it: 17/11/2026 14.20. */
-function tanggal(at: string): string {
-  const moment = new Date(at);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)}/${moment.getFullYear()} ${pad(
-    moment.getHours(),
-  )}.${pad(moment.getMinutes())}`;
 }
 
 function pesanDari(cause: unknown): string {

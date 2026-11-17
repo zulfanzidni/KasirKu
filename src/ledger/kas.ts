@@ -1,4 +1,4 @@
-import { formatRupiah } from '../design/money';
+import { checkRupiah, formatRupiah } from '../design/money';
 import { dayStamp } from './saleNumber';
 import type { CashBaselineKind, CashCounted, LedgerEvent } from './types';
 
@@ -328,19 +328,12 @@ export interface CashMovementInput {
   keterangan?: string | null;
 }
 
-function checkRupiah(jumlah: number, label: string): number {
-  if (!Number.isInteger(jumlah) || jumlah < 0) {
-    throw new CashError(`${label} harus angka rupiah bulat.`);
-  }
-  return jumlah;
-}
-
 /** The event a cash movement writes, validated before anything is appended. */
 export function cashMovement(input: CashMovementInput): {
   type: 'cash.expense' | 'cash.withdrawn' | 'cash.deposited';
   payload: { jumlah: number; keterangan: string | null };
 } {
-  const jumlah = checkRupiah(input.jumlah, 'Jumlah');
+  const jumlah = checkRupiah(input.jumlah, 'Jumlah', CashError);
   if (jumlah === 0) throw new CashError('Jumlah harus lebih dari 0.');
   const keterangan = input.keterangan?.trim() || null;
   if (input.kind === 'expense' && !keterangan) {
@@ -360,7 +353,7 @@ export function openingFloat(input: { jumlah: number }): {
   type: 'cash.opening_float';
   payload: { jumlah: number };
 } {
-  return { type: 'cash.opening_float', payload: { jumlah: checkRupiah(input.jumlah, 'Kas awal') } };
+  return { type: 'cash.opening_float', payload: { jumlah: checkRupiah(input.jumlah, 'Kas awal', CashError) } };
 }
 
 /**
@@ -372,7 +365,7 @@ export function countPayload(
   events: readonly LedgerEvent[],
   input: { counted: number; catatan?: string | null },
 ): { type: 'cash.counted'; payload: CashCounted['payload'] } {
-  const counted = checkRupiah(input.counted, 'Jumlah dihitung');
+  const counted = checkRupiah(input.counted, 'Jumlah dihitung', CashError);
   const drawer = cashDrawer(events);
   return {
     type: 'cash.counted',

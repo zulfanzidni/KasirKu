@@ -9,6 +9,7 @@ import {
   RuledRow,
   Screen,
   colors,
+  formatMoment,
   formatRupiah,
   parseRupiah,
   space,
@@ -294,7 +295,7 @@ function HutangHistory({ entries }: { entries: HutangLedger['entries'] }) {
               {entryLabel(entry)}
             </AppText>
             <AppText typeRole="labelSmall" tone="muted">
-              {`${tanggal(entry.at)} · sisa ${formatRupiah(Math.max(0, entry.setelah))}${
+              {`${formatMoment(entry.at, { withYear: false })} · sisa ${formatRupiah(Math.max(0, entry.setelah))}${
                 entry.setelah < 0 ? ` · kredit ${formatRupiah(-entry.setelah)}` : ''
               }`}
             </AppText>
@@ -322,13 +323,6 @@ function entryLabel(entry: HutangEntry): string {
 function signed(entry: HutangEntry): string {
   const sign = entry.kind === 'penjualan' ? '+' : '−';
   return `${sign}${formatRupiah(entry.jumlah)}`;
-}
-
-/** A moment as the shop writes it: 31/10 14.20. */
-function tanggal(at: string): string {
-  const moment = new Date(at);
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)} ${pad(moment.getHours())}.${pad(moment.getMinutes())}`;
 }
 
 const styles = StyleSheet.create({

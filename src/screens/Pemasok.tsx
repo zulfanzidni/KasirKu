@@ -159,7 +159,7 @@ function SupplierRow({
       <AppText typeRole="bodyLarge">{supplier.nama}</AppText>
       <AppText
         typeRole="titleMedium"
-        tone={total > 0 ? 'owed' : 'muted'}
+        tone={total > 0 ? 'default' : 'muted'}
         testID={`utang-${supplier.id}`}
       >
         {total > 0 ? `Utang Rp ${formatRupiah(total)}` : 'Tidak ada utang'}
