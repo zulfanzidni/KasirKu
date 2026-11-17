@@ -112,7 +112,8 @@ describe('Stok — renaming a kategori', () => {
   });
 });
 
-describe('Stok — archiving a kategori', () => {  it('leaves its produk in place, uncategorised, rather than deleting them', async () => {
+describe('Stok — archiving a kategori', () => {
+  it('leaves its produk in place, uncategorised, rather than deleting them', async () => {
     await open();
     const kategoriId = await seedKategori('Tepung');
     await seedProduk(kategoriId, 'Tepung terigu');
