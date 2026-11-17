@@ -1,4 +1,5 @@
-import { stockOf, stockRows as rowsOf, type StockMovement, type StockRow } from './stock';
+import { checkLow, lowRows, type LowCheck, type LowRow } from './lowStock';
+import { ownedDelta, stockOf, stockRows as rowsOf, type StockMovement, type StockRow } from './stock';
 import type { LedgerEvent, Shop, StockState, Varian } from './types';
 
 /**
@@ -31,26 +32,27 @@ export async function stockByVariant(source: StockSource): Promise<StockRow[]> {
 }
 
 /**
- * The variants the log says are low: counted, and either out (0) or below the
- * owner's own minimum for that varian.
+ * The variants the log says are low, each with the rule that flagged it.
  *
  * Only `counted` rows are judged. An unknown count is neither low nor fine —
  * it is a question, and firing a warning at every item of a new shop would
- * teach the owner to ignore warnings (spec §Low stock, user story 30). Ticket
- * 05 adds the selling-speed rule here for variants with no minimum.
+ * teach the owner to ignore warnings (spec §Low stock, user story 30).
+ * The minimum decides when set; otherwise selling speed does, or the rule
+ * admits the history is too thin to say.
  */
-export async function lowStock(source: StockSource): Promise<StockRow[]> {
-  return (await stockByVariant(source)).filter((row) => isLow(row));
+export async function lowStock(source: StockSource, now: Date = new Date()): Promise<LowRow[]> {
+  const [shop, events] = await Promise.all([source.shop(), source.events()]);
+  return lowRows(events, shop.varian, now).filter((row) => row.check.kind === 'rendah');
 }
 
 /**
- * One row judged by the low rule. Never counted is never low (a question, not
- * a warning). Out of stock is low whatever the minimum — a zero shelf needs
- * action. Above zero, only the owner's own rule decides: the app does not
- * invent one.
+ * One row judged by the minimum/out rule alone. Kept for callers that have no
+ * log in hand; a screen with the events should use `checkLow`, which also
+ * knows selling speed and its own "too little history" answer.
  */
 export function isLow(row: StockRow): boolean {
   if (row.stock.kind !== 'counted') return false;
+  if (row.stock.qty < 0) return true;
   if (row.stock.qty === 0) return true;
   const { minimum } = row.varian;
   return minimum != null && row.stock.qty < minimum;
@@ -64,7 +66,8 @@ export async function stockHistory(
   const { movements } = stockOf(await source.events(), varianId);
   let after = 0;
   return movements.map((movement) => {
-    after += movement.delta;
+    // Titip goods are not the shop's, so they never enter the owned running total.
+    after += ownedDelta(movement);
     return { ...movement, after };
   });
 }
@@ -78,18 +81,19 @@ export async function stockHistory(
  *  4. the rest — counted and fine
  * Ties read by name, in Indonesian collation, as `gridVarian` does.
  */
-export function sortStock(rows: StockRow[]): StockRow[] {
+export function sortStock(rows: StockRow[], checks?: ReadonlyMap<string, LowCheck>): StockRow[] {
   return [...rows].sort((a, b) => {
-    const rank = rankOf(a) - rankOf(b);
+    const rank = rankOf(a, checks) - rankOf(b, checks);
     if (rank !== 0) return rank;
     return a.varian.nama.localeCompare(b.varian.nama, 'id');
   });
 }
 
-function rankOf(row: StockRow): number {
+function rankOf(row: StockRow, checks?: ReadonlyMap<string, LowCheck>): number {
   if (row.stock.kind === 'unknown') return 2;
   if (row.stock.qty < 0) return 0;
-  if (isLow(row)) return 1;
+  const judged = checks?.get(row.varian.id);
+  if (judged ? judged.kind === 'rendah' : isLow(row)) return 1;
   return 3;
 }
 

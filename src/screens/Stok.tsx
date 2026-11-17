@@ -19,7 +19,19 @@ import {
   space,
 } from '@/design';
 import { IconButton } from '@/design/components/Icons';
-import { teks, type JualBy, type Kategori, type Produk, type Satuan, type StockState, type Varian } from '@/ledger';
+import {
+  bulkOf,
+  teks,
+  type BulkContext,
+  type JualBy,
+  type Kategori,
+  type LowCheck,
+  type LowRule,
+  type Produk,
+  type Satuan,
+  type StockState,
+  type Varian,
+} from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
 const SATUAN: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
@@ -39,7 +51,7 @@ const JUAL: readonly { value: JualBy; label: string }[] = [
  * the list (DESIGN.md: red is a promise, and this is the promise being broken).
  */
 export function StokScreen() {
-  const { shop, stockRows } = useApp();
+  const { shop, stockRows, lowChecks } = useApp();
   const [form, setForm] = useState<'kategori' | 'produk' | 'varian' | null>(null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [produkId, setProdukId] = useState<string | null>(null);
@@ -53,6 +65,7 @@ export function StokScreen() {
    * keep the order they arrive in; the varian lines are looked up from here.
    */
   const ranked = stockRows();
+  const checks = lowChecks();
   const order = new Map(ranked.map((row, index) => [row.varian.id, index]));
   const stock = new Map(ranked.map((row) => [row.varian.id, row.stock]));
   const ordered = (entry: Varian) => order.get(entry.id) ?? Number.MAX_SAFE_INTEGER;
@@ -166,6 +179,8 @@ export function StokScreen() {
                         key={item.id}
                         varian={item}
                         stock={stock.get(item.id) ?? { kind: 'unknown' }}
+                        check={checks.get(item.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
+                        bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
                         onCount={() => setSheet({ kind: 'hitung', varianId: item.id })}
                         onMinimum={() => setSheet({ kind: 'minimum', varianId: item.id })}
                         onHistory={() => setSheet({ kind: 'riwayat', varianId: item.id })}
@@ -252,6 +267,34 @@ export function StokScreen() {
 const signed = (qty: number) => (qty > 0 ? `+${formatQty(qty)}` : formatQty(qty));
 
 /**
+ * Why a varian is low, in the owner's words. A warning never appears without
+ * the rule that fired, so it can be trusted instead of tuned out.
+ */
+function lowReason(rule: LowRule): string {
+  switch (rule.kind) {
+    case 'minimum':
+      return `Rendah: di bawah minimum ${formatQty(rule.minimum)}`;
+    case 'kecepatan':
+      return `Rendah: terjual ${formatQty(rule.sold)} dalam ${rule.hari} hari`;
+    case 'habis':
+      return 'Rendah: stok habis';
+    case 'selisih':
+      return 'Rendah: stok minus, hitung ulang';
+  }
+}
+
+/**
+ * The sack stock beside a low packet, and the word it implies. The app shows
+ * the fact; it never suggests how many to repack or order.
+ */
+function bulkCopy(bulk: BulkContext): string {
+  const reading = bulk.stock.kind === 'counted' ? formatQty(bulk.stock.qty) : 'belum dihitung';
+  if (bulk.choice === 'repack') return `Stok sak: ${reading} · Repack`;
+  if (bulk.choice === 'reorder') return `Stok sak: ${reading} · Reorder`;
+  return `Stok sak: ${reading}`;
+}
+
+/**
  * One sellable size, on a ruled line: name, satuan, the count the log derives,
  * and its state in words beside the number so colour is never the only signal.
  * A negative count makes the whole row red and keeps the sign visible.
@@ -264,12 +307,16 @@ const signed = (qty: number) => (qty > 0 ? `+${formatQty(qty)}` : formatQty(qty)
 function VarianLine({
   varian,
   stock,
+  check,
+  bulk,
   onCount,
   onMinimum,
   onHistory,
 }: {
   varian: Varian;
   stock: StockState;
+  check: LowCheck;
+  bulk: BulkContext | null;
   onCount: () => void;
   onMinimum: () => void;
   onHistory: () => void;
@@ -293,13 +340,37 @@ function VarianLine({
         <AppText typeRole="labelSmall" tone={negative ? 'owed' : 'muted'}>
           {`${formatRupiah(varian.harga)} · per ${varian.satuan} · ${rule}`}
         </AppText>
+        {check.kind === 'rendah' ? (
+          <AppText
+            typeRole="labelSmall"
+            tone={negative ? 'owed' : 'default'}
+            testID={`alasan-rendah-${varian.id}`}
+          >
+            {lowReason(check.rule)}
+          </AppText>
+        ) : null}
+        {check.kind === 'rendah' && bulk ? (
+          <AppText typeRole="labelSmall" tone="muted" testID={`sak-${varian.id}`}>
+            {bulkCopy(bulk)}
+          </AppText>
+        ) : null}
+        {check.kind === 'tidakTahu' && check.sebab === 'riwayat-terlalu-sedikit' ? (
+          <AppText typeRole="labelSmall" tone="muted" testID={`alasan-tidak-tahu-${varian.id}`}>
+            Riwayat penjualan belum cukup untuk menilai. Atur minimum untuk peringatan.
+          </AppText>
+        ) : null}
       </View>
       <View style={styles.rowButtons}>
         <IconButton name="add-circle-outline" label={`Hitung stok ${varian.nama}`} onPress={onCount} testID={`hitung-${varian.id}`} />
         <IconButton name="tune" label={`Atur minimum ${varian.nama}`} onPress={onMinimum} testID={`minimum-${varian.id}`} />
         <IconButton name="history" label={`Riwayat stok ${varian.nama}`} onPress={onHistory} testID={`riwayat-${varian.id}`} />
       </View>
-      <StockBadge qty={stock.kind === 'counted' ? stock.qty : null} minimum={varian.minimum ?? null} testID={`stok-angka-${varian.id}`} />
+      <StockBadge
+        qty={stock.kind === 'counted' ? stock.qty : null}
+        minimum={varian.minimum ?? null}
+        low={check.kind === 'rendah'}
+        testID={`stok-angka-${varian.id}`}
+      />
     </Pressable>
   );
 }
@@ -412,10 +483,19 @@ function HistoryList({ varian }: { varian: Varian }) {
   return (
     <View testID="riwayat-daftar">
       {[...entries].reverse().map((entry) => (
-        <View key={entry.kind === 'adjusted' ? entry.eventId : `${entry.saleId}-${entry.at}`} style={styles.historyRow}>
+        <View
+          key={entry.kind === 'sale' ? `${entry.saleId}-${entry.at}` : entry.eventId}
+          style={styles.historyRow}
+        >
           <View style={styles.varianMain}>
             <AppText typeRole="bodyMedium" numberOfLines={1}>
-              {entry.kind === 'adjusted' ? entry.reason : 'Penjualan'}
+              {entry.kind === 'adjusted'
+                ? entry.reason
+                : entry.kind === 'received'
+                  ? entry.settlement === 'titip'
+                    ? 'Titip dari supplier'
+                    : 'Barang masuk'
+                  : 'Penjualan'}
             </AppText>
             <AppText typeRole="labelSmall" tone="muted">
               {`${tanggal(entry.at)} · sisa ${formatQty(entry.after)} ${varian.satuan}`}

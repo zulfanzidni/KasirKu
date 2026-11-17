@@ -16,9 +16,10 @@ import { createSettings, type Settings } from './settings';
 import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
 import { openLedger, StockError, type Ledger, type StockCorrection } from './ledger';
+import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf } from './queries';
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
-import { stockOf as stockOfEvents, type StockRow } from './stock';
+import { ownedDelta, stockOf as stockOfEvents, type StockRow } from './stock';
 import type { LedgerEvent, PaymentInput, Shop, StockState, Varian } from './types';
 
 /** One line of a varian's stock history, with the count after it. */
@@ -69,6 +70,8 @@ export interface AppState {
   stockHistory(varianId: string): StockHistoryEntry[];
   /** Every live varian with its own count, in the Stok screen's order. */
   stockRows(): StockRow[];
+  /** Why each varian is or is not low: the rule that judged it, or that it cannot. */
+  lowChecks(): Map<string, LowCheck>;
   /**
    * The owner counted the shelf: `counted` becomes the stock, recorded as the
    * delta from what the app believed, with their reason. Returns the event id.
@@ -295,16 +298,25 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     const { movements } = stockOfEvents(events, varianId);
     let after = 0;
     return movements.map((movement) => {
-      after += movement.delta;
+      after += ownedDelta(movement);
       return { ...movement, after };
     });
   }, [events]);
 
   const stockRows = useCallback((): StockRow[] => {
-    // Same order the Stok list draws; the low rule comes from the owner's
-    // minimum stored on the varian (ticket 05 adds selling speed).
+    // Same order the Stok list draws, judged by the same low rule the screen
+    // shows: the owner's minimum, or selling speed when they set none.
     const rows = shop.varian.map((varian) => ({ varian, stock: stockOfEvents(events, varian.id).stock }));
-    return sortStock(rows.filter((row) => !row.varian.archived));
+    const checks = new Map(rows.map((row) => [row.varian.id, checkLow(row.varian, row.stock, events)]));
+    return sortStock(rows.filter((row) => !row.varian.archived), checks);
+  }, [events, shop.varian]);
+
+  const lowChecks = useCallback((): Map<string, LowCheck> => {
+    const checks = new Map<string, LowCheck>();
+    for (const varian of shop.varian) {
+      checks.set(varian.id, checkLow(varian, stockOfEvents(events, varian.id).stock, events));
+    }
+    return checks;
   }, [events, shop.varian]);
 
   const adjustStock = useCallback(
@@ -369,6 +381,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     stockOf,
     stockHistory,
     stockRows,
+    lowChecks,
     adjustStock,
     backupText,
     hasHistory,

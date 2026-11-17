@@ -176,6 +176,18 @@ export interface SalePayload {
 export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: number; reason: string }>;
 
 /**
+ * Goods arriving from a supplier. `settlement` says whose goods they are:
+ * tunai and tempo are the shop's own the moment they arrive; titip is the
+ * supplier's until it sells (GLOSSARY: Titip), so it never counts as owned.
+ * Ticket 08 builds the delivery-note flow on this event; the stock fold only
+ * needs to know which bucket a line lands in.
+ */
+export type StockReceived = Event<
+  'stock.received',
+  { varianId: string; qty: number; settlement: 'tunai' | 'tempo' | 'titip' }
+>;
+
+/**
  * A varian's stock as the log answers it. A discriminated result rather than a
  * number or null, so "nobody has counted this yet" cannot be read as "zero":
  *  - `unknown` — nothing has ever moved the count; not out of stock.
@@ -183,7 +195,7 @@ export type StockAdjusted = Event<'stock.adjusted', { varianId: string; delta: n
  */
 export type StockState = { kind: 'unknown' } | { kind: 'counted'; qty: number };
 
-export type LedgerEvent = MasterEvent | SaleCompleted | StockAdjusted;
+export type LedgerEvent = MasterEvent | SaleCompleted | StockAdjusted | StockReceived;
 
 // ---------------------------------------------------------------------------
 // Derived state — never stored, always folded
