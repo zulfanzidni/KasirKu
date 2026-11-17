@@ -161,6 +161,15 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
         );
       });
     },
+
+    async continueFrom(lastSeq: number): Promise<void> {
+      // Adoption continues another phone's stream, so the counter moves to its
+      // tail even when this phone had written further. The log is untouched.
+      await db.runAsync(
+        'INSERT INTO ledger_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [SEQ_KEY, lastSeq],
+      );
+    },
   };
 
   return { ...store, deviceId };

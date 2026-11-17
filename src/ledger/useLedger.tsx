@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { phoneEnvironment } from './environment';
 import { emptyShop } from './events';
+import { adoptDeviceIdentity, knownIdentities, type DeviceIdentity } from './adoption';
 import { serializeBackup, type BackupFile } from './backup';
 import { createCatalog, type Catalog } from './catalog';
 import type { ImportCommit, ImportPlan } from './import';
@@ -180,6 +181,16 @@ export interface AppState {
   lastSyncAt: string | null;
   /** This phone's events the shared place has not acknowledged yet. */
   unsentCount: number;
+  /** The name this phone writes new events under. Changes when an identity is adopted. */
+  deviceId: string;
+  /** Other phones whose notes are in this log, newest activity first. */
+  adoptableIdentities: DeviceIdentity[];
+  /**
+   * Continue another phone's stream: new events carry its name and numbers
+   * above the last one it used. Refused when its notes are still arriving, or
+   * when this phone's own notes cannot be sent first (ADR 0003).
+   */
+  adoptIdentity(candidateId: string): Promise<void>;
   /**
    * One exchange with the shared place, now. Throws with a readable reason when
    * it fails, so the screen can say so; no local event is ever discarded.
@@ -598,6 +609,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [events, deviceId, checkpoint.lastAckSeq],
   );
 
+  /** The other phones this log knows about, as the adoption setting lists them. */
+  const adoptableIdentities = useMemo(() => knownIdentities(events, deviceId), [events, deviceId]);
+
   /**
    * One exchange, now. The checkpoint moves only when the whole exchange
    * finished, so a failure leaves every unsent event where it is — and saying
@@ -622,6 +636,35 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       syncingRef.current = false;
     }
   }, [kv, showShop, showEvents]);
+
+  /**
+   * Adopting continues another phone's stream without rewriting the log. The
+   * safety check lives in `adoptDeviceIdentity`: it refuses when the old
+   * phone's notes are still arriving, and sends this phone's own notes first
+   * so the name change cannot strand them.
+   */
+  const adoptIdentity = useCallback(
+    async (candidateId: string) => {
+      const current = ledgerRef.current;
+      if (!current) throw new Error('Catatan belum siap.');
+      const { checkpoint: next } = await adoptDeviceIdentity(
+        current,
+        syncExchange.current,
+        checkpointRef.current,
+        candidateId,
+      );
+      checkpointRef.current = next;
+      setCheckpoint(next);
+      // The next launch must write under the adopted name, or the stream would
+      // split again. A failed checkpoint write only re-sends, which is safe.
+      await kv.setItem(DEVICE_KEY, candidateId);
+      await kv.setItem(SYNC_KEY, JSON.stringify(next)).catch(() => {});
+      setDeviceId(candidateId);
+      showShop(await current.shop());
+      showEvents(await current.events());
+    },
+    [kv, showShop, showEvents],
+  );
 
   /**
    * Restoring is a rewrite, not a merge: the phone becomes the other phone.
@@ -696,6 +739,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     restoreBackup,
     lastSyncAt: checkpoint.lastSyncAt,
     unsentCount,
+    deviceId,
+    adoptableIdentities,
+    adoptIdentity,
     syncNow,
   };
 

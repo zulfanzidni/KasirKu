@@ -93,6 +93,13 @@ export interface Ledger {
    * responsible for the owner's consent; this is a rewrite, not a merge.
    */
   restore(backup: BackupFile): Promise<void>;
+  /**
+   * Continues another phone's stream without touching the log: new events
+   * carry `deviceId` and numbers above the last one that phone used. The
+   * caller is responsible for the safety check (ADR 0003); this only moves the
+   * identity and the counter.
+   */
+  adoptIdentity(deviceId: string): Promise<void>;
   /** Escape hatch for tests and the next tickets; appends raw event types. */
   append(type: string, payload: unknown): Promise<string>;
 }
@@ -260,6 +267,17 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
     async restore(backup) {
       await store.replaceAll(backup.events, backup.lastSeq);
       deviceId = backup.deviceId;
+    },
+    async adoptIdentity(nextDeviceId) {
+      // The log is not rewritten: only the name on the next event and the
+      // number it takes move. The tail is the last number the adopted phone
+      // used, so the next event continues its stream instead of reusing one.
+      const events = await store.readAll();
+      const tail = events
+        .filter((event) => event.deviceId === nextDeviceId)
+        .reduce((high, event) => Math.max(high, event.seq), 0);
+      await store.continueFrom(tail);
+      deviceId = nextDeviceId;
     },
     async applyRemote(events) {
       // Nothing here knows what an event means. The store merges by id, which

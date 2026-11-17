@@ -25,7 +25,19 @@ import { useApp } from '@/ledger/useLedger';
  * A section, not a full screen: it sits inside Lainnya, which owns the title.
  */
 export function PengaturanScreen() {
-  const { shop, settings, backupText, hasHistory, restoreBackup, lastSyncAt, unsentCount, syncNow } = useApp();
+  const {
+    shop,
+    settings,
+    backupText,
+    hasHistory,
+    restoreBackup,
+    lastSyncAt,
+    unsentCount,
+    syncNow,
+    deviceId,
+    adoptableIdentities,
+    adoptIdentity,
+  } = useApp();
   const [draft, setDraft] = useState<{ nama: string; keterangan: string; footer: string } | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +52,12 @@ export function PengaturanScreen() {
   const [backupError, setBackupError] = useState<string | null>(null);
   /** A parsed backup waiting for the owner to agree that history will be replaced. */
   const [pending, setPending] = useState<{ name: string; backup: BackupFile } | null>(null);
+
+  const [adoptBusy, setAdoptBusy] = useState(false);
+  const [adoptNotice, setAdoptNotice] = useState<string | null>(null);
+  const [adoptError, setAdoptError] = useState<string | null>(null);
+  /** The identity the owner picked, waiting for them to agree to the risk. */
+  const [adoptPending, setAdoptPending] = useState<string | null>(null);
 
   // The fields follow the record until the owner starts typing. Starting from
   // the read-only defaults while the log was still opening would otherwise
@@ -160,6 +178,29 @@ export function PengaturanScreen() {
       setSyncError(`Sinkron gagal: ${pesanDari(cause)} Catatan yang belum terkirim tetap tersimpan di ponsel ini.`);
     } finally {
       setSyncBusy(false);
+    }
+  }
+
+  /**
+   * Adopting a dead phone's name. The refusal is the app's, not a warning: if
+   * the old phone's notes are still arriving, two phones on one name would
+   * collide, so nothing is changed and the reason is said plainly.
+   */
+  async function adopsi(candidateId: string) {
+    if (adoptBusy) return;
+    setAdoptBusy(true);
+    setAdoptPending(null);
+    setAdoptNotice(null);
+    setAdoptError(null);
+    try {
+      await adoptIdentity(candidateId);
+      setAdoptNotice(
+        `Identitas ${candidateId} diadopsi. Catatan berikutnya melanjutkan nomor urut ponsel lama, bukan mulai dari satu lagi.`,
+      );
+    } catch (cause) {
+      setAdoptError(`Adopsi ditolak: ${pesanDari(cause)}`);
+    } finally {
+      setAdoptBusy(false);
     }
   }
 
@@ -306,6 +347,85 @@ export function PengaturanScreen() {
           </AppText>
         ) : null}
       </View>
+
+      <View style={styles.adoption}>
+        <SectionHeading>Identitas ponsel</SectionHeading>
+        <AppText typeRole="bodyMedium" tone="muted" style={styles.adoptNote} testID="adopsi-penjelasan">
+          Kalau ponsel lama rusak dan tidak akan dipakai lagi, ponsel ini bisa memakai namanya supaya catatan yang belum
+          terkirim tidak hilang. Ini berisiko: kalau ponsel lama ternyata masih menyinkron, dua ponsel memakai satu nama
+          dan catatan bisa hilang. Jalan yang lebih aman adalah memulihkan cadangan di bagian Cadangan di atas.
+        </AppText>
+        <AppText typeRole="labelSmall" tone="muted" style={styles.adoptNote} testID="adopsi-sekarang">
+          {`Ponsel ini memakai identitas ${deviceId || '…'}.`}
+        </AppText>
+
+        {adoptableIdentities.length === 0 ? (
+          <AppText typeRole="bodyMedium" tone="muted" style={styles.adoptNote} testID="adopsi-kosong">
+            Belum ada identitas ponsel lain di catatan ini. Sinkron dulu supaya identitas ponsel lama terlihat.
+          </AppText>
+        ) : (
+          <View style={styles.adoptList}>
+            {adoptableIdentities.map((identity) => (
+              <View key={identity.deviceId} style={styles.adoptRow}>
+                <View style={styles.adoptText}>
+                  <AppText typeRole="bodyMedium">{identity.deviceId}</AppText>
+                  <AppText typeRole="labelSmall" tone="muted">
+                    {`${identity.events} catatan · nomor terakhir ${identity.lastSeq} · ${tanggal(identity.lastAt)}`}
+                  </AppText>
+                </View>
+                <Button
+                  label="Adopsi"
+                  variant="outlined"
+                  onPress={() => {
+                    setAdoptPending(identity.deviceId);
+                    setAdoptNotice(null);
+                    setAdoptError(null);
+                  }}
+                  disabled={adoptBusy}
+                  testID={`adopsi-${identity.deviceId}`}
+                  style={styles.adoptButton}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+
+        {adoptPending ? (
+          <View style={styles.warning} testID="peringatan-adopsi">
+            <AppText typeRole="bodyMedium" tone="owed">
+              {`Ponsel ini akan memakai nama ${adoptPending} dan melanjutkan nomor urutnya. Lakukan hanya kalau ponsel lama benar-benar tidak akan dipakai lagi. Kalau masih ragu, pulihkan cadangan saja.`}
+            </AppText>
+            <View style={styles.actions}>
+              <Button
+                label="Batal"
+                variant="outlined"
+                onPress={() => setAdoptPending(null)}
+                testID="batal-adopsi"
+                style={styles.cancel}
+              />
+              <Button
+                label="Adopsi identitas"
+                variant="destructive"
+                onPress={() => adopsi(adoptPending)}
+                disabled={adoptBusy}
+                testID="konfirmasi-adopsi"
+                style={styles.grow}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {adoptNotice ? (
+          <AppText typeRole="bodyMedium" tone="primary" style={styles.adoptNote} testID="adopsi-pesan">
+            {adoptNotice}
+          </AppText>
+        ) : null}
+        {adoptError ? (
+          <AppText typeRole="bodyMedium" tone="owed" style={styles.adoptNote} testID="adopsi-galat">
+            {adoptError}
+          </AppText>
+        ) : null}
+      </View>
     </ScrollView>
   );
 }
@@ -337,6 +457,12 @@ const styles = StyleSheet.create({
   syncActions: { paddingTop: space.md, paddingHorizontal: space.gutter, flexDirection: 'row', gap: space.sm },
   syncNote: { paddingHorizontal: space.gutter, paddingTop: space.sm },
   backup: { paddingHorizontal: space.gutter, paddingTop: space.xxl },
+  adoption: { paddingHorizontal: space.gutter, paddingTop: space.xxl },
+  adoptNote: { paddingTop: space.sm },
+  adoptList: { paddingTop: space.md, gap: space.sm },
+  adoptRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  adoptText: { flex: 1, gap: 2 },
+  adoptButton: { width: 104 },
   warning: { paddingTop: space.md, gap: space.xs },
   cancel: { width: 96 },
   grow: { flex: 1 },
