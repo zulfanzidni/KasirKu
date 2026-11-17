@@ -19,10 +19,12 @@ import {
   space,
 } from '@/design';
 import { IconButton } from '@/design/components/Icons';
-import { teks, type JualBy, type Satuan, type StockState, type Varian } from '@/ledger';
+import { teks, type JualBy, type Kategori, type Produk, type Satuan, type StockState, type Varian } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
 const SATUAN: readonly Satuan[] = ['pcs', 'bungkus', 'kg', 'liter', 'sak'];
+/** The group a produk falls into when its kategori is archived or absent. */
+const TANPA_KATEGORI = 'tanpa-kategori';
 const JUAL: readonly { value: JualBy; label: string }[] = [
   { value: 'unit', label: teks.jualSatuan },
   { value: 'weight', label: teks.jualBerat },
@@ -42,6 +44,7 @@ export function StokScreen() {
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [produkId, setProdukId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ kind: 'hitung' | 'minimum' | 'riwayat'; varianId: string } | null>(null);
+  const [edit, setEdit] = useState<{ kind: 'kategori' | 'produk'; id: string } | null>(null);
 
   /**
    * Every varian in the order the list reads in (negative first, then low,
@@ -60,6 +63,24 @@ export function StokScreen() {
     return ranks.length === 0 ? Number.MAX_SAFE_INTEGER : Math.min(...ranks);
   };
   const sheetVarian = sheet ? shop.varian.find((entry) => entry.id === sheet.varianId) ?? null : null;
+  const editKategori = edit?.kind === 'kategori' ? shop.kategori.find((entry) => entry.id === edit.id) ?? null : null;
+  const editProduk = edit?.kind === 'produk' ? shop.produk.find((entry) => entry.id === edit.id) ?? null : null;
+
+  /**
+   * The list is grouped by kategori, and a produk whose kategori is archived
+   * (or that never had one) still has a home: "Tanpa kategori". Archiving a
+   * kategori therefore never hides its produk (ticket 13).
+   */
+  const kategoriAktif = shop.kategori.filter((entry) => !entry.archived);
+  const kategoriAktifIds = new Set(kategoriAktif.map((entry) => entry.id));
+  const groupOf = (entry: Produk) =>
+    entry.kategoriId !== null && kategoriAktifIds.has(entry.kategoriId) ? entry.kategoriId : TANPA_KATEGORI;
+  const groups: { id: string; nama: string; kategoriId: string | null }[] = [
+    ...kategoriAktif.map((entry) => ({ id: entry.id, nama: entry.nama, kategoriId: entry.id })),
+    ...(shop.produk.some((entry) => !entry.archived && groupOf(entry) === TANPA_KATEGORI)
+      ? [{ id: TANPA_KATEGORI, nama: teks.tanpaKategori, kategoriId: null }]
+      : []),
+  ];
 
   function close() {
     setForm(null);
@@ -76,26 +97,36 @@ export function StokScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {shop.kategori.length === 0 ? <Note>{teks.belumAdaKategori}</Note> : null}
 
-        {[...shop.kategori]
+        {groups
           // Groups follow the most urgent varian inside them, so a red varian
           // never hides under a kategori that happens to sort first.
           .sort((a, b) => groupRank(a.id) - groupRank(b.id))
-          .map((kategori) => {
-          const produk = shop.produk.filter((entry) => entry.kategoriId === kategori.id && !entry.archived);
+          .map((group) => {
+          const produk = shop.produk.filter((entry) => !entry.archived && groupOf(entry) === group.id);
           return (
-            <View key={kategori.id}>
+            <View key={group.id}>
               <View style={styles.kategoriRow}>
-                <SectionHeading>{kategori.nama}</SectionHeading>
-                <View style={styles.kategoriAdd}>
-                  <IconButton
-                    name="add-circle-outline"
-                    label={`Tambah produk di ${kategori.nama}`}
-                    onPress={() => {
-                      setKategoriId(kategori.id);
-                      setForm('produk');
-                    }}
-                    testID={`tambah-produk-${kategori.id}`}
-                  />
+                <SectionHeading>{group.nama}</SectionHeading>
+                <View style={styles.kategoriActions}>
+                  {group.kategoriId ? (
+                    <IconButton
+                      name="edit"
+                      label={`Ubah kategori ${group.nama}`}
+                      onPress={() => setEdit({ kind: 'kategori', id: group.kategoriId as string })}
+                      testID={`ubah-kategori-${group.kategoriId}`}
+                    />
+                  ) : null}
+                  {group.kategoriId ? (
+                    <IconButton
+                      name="add-circle-outline"
+                      label={`Tambah produk di ${group.nama}`}
+                      onPress={() => {
+                        setKategoriId(group.kategoriId);
+                        setForm('produk');
+                      }}
+                      testID={`tambah-produk-${group.kategoriId}`}
+                    />
+                  ) : null}
                 </View>
               </View>
               {produk.length === 0 ? (
@@ -114,10 +145,16 @@ export function StokScreen() {
                         {entry.nama}
                       </AppText>
                       <IconButton
+                        name="edit"
+                        label={`Ubah produk ${entry.nama}`}
+                        onPress={() => setEdit({ kind: 'produk', id: entry.id })}
+                        testID={`ubah-produk-${entry.id}`}
+                      />
+                      <IconButton
                         name="add"
                         label={`Tambah varian di ${entry.nama}`}
                         onPress={() => {
-                          setKategoriId(kategori.id);
+                          setKategoriId(group.kategoriId);
                           setProdukId(entry.id);
                           setForm('varian');
                         }}
@@ -162,6 +199,24 @@ export function StokScreen() {
         testID="form-varian"
       >
         {produkId ? <VarianForm produkId={produkId} onDone={close} /> : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={editKategori !== null}
+        onClose={() => setEdit(null)}
+        title={teks.ubahKategori}
+        testID="form-ubah-kategori"
+      >
+        {editKategori ? <KategoriEditForm kategori={editKategori} onDone={() => setEdit(null)} /> : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={editProduk !== null}
+        onClose={() => setEdit(null)}
+        title={teks.ubahProduk}
+        testID="form-ubah-produk"
+      >
+        {editProduk ? <ProdukEditForm produk={editProduk} onDone={() => setEdit(null)} /> : null}
       </BottomSheet>
 
       <BottomSheet
@@ -428,6 +483,104 @@ function ProdukForm({ kategoriId, onDone }: { kategoriId: string; onDone: () => 
 }
 
 /**
+ * Renaming a kategori. Only the name is written: its produk keep their own
+ * names and their place, because a kategori is a grouping, not a prefix.
+ */
+function KategoriEditForm({ kategori, onDone }: { kategori: Kategori; onDone: () => void }) {
+  const { catalog } = useApp();
+  const [nama, setNama] = useState(kategori.nama);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!catalog) return;
+    try {
+      await catalog.updateKategori(kategori.id, { nama });
+      onDone();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  async function archive() {
+    if (!catalog) return;
+    try {
+      await catalog.archiveKategori(kategori.id);
+      onDone();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  return (
+    <>
+      <Field label={teks.nama} value={nama} onChangeText={setNama} autoFocus error={error} testID="kategori-nama-ubah" />
+      <Button label={teks.simpan} onPress={submit} testID="simpan-kategori-ubah" />
+      <Button label={teks.arsipkan} variant="destructive" onPress={archive} testID="arsipkan-kategori" />
+    </>
+  );
+}
+
+/** Renaming a produk, and moving it to another kategori. */
+function ProdukEditForm({ produk, onDone }: { produk: Produk; onDone: () => void }) {
+  const { catalog, shop } = useApp();
+  const [nama, setNama] = useState(produk.nama);
+  const [kategoriId, setKategoriId] = useState<string | null>(produk.kategoriId);
+  const [error, setError] = useState<string | null>(null);
+  const kategori = shop.kategori.filter((entry) => !entry.archived);
+
+  async function submit() {
+    if (!catalog) return;
+    const changes: { nama?: string; kategoriId?: string | null } = {};
+    if (nama.trim() !== produk.nama) changes.nama = nama;
+    if (kategoriId !== produk.kategoriId) changes.kategoriId = kategoriId;
+    if (Object.keys(changes).length === 0) {
+      onDone();
+      return;
+    }
+    try {
+      await catalog.updateProduk(produk.id, changes);
+      onDone();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  async function archive() {
+    if (!catalog) return;
+    try {
+      await catalog.archiveProduk(produk.id);
+      onDone();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  return (
+    <>
+      <Field label={teks.nama} value={nama} onChangeText={setNama} autoFocus error={error} testID="produk-nama-ubah" />
+
+      <AppText typeRole="labelSmall" tone="muted" style={styles.pickLabel}>
+        {teks.pindahKategori}
+      </AppText>
+      <ChipRow>
+        {kategori.map((entry) => (
+          <Chip
+            key={entry.id}
+            label={entry.nama}
+            selected={kategoriId === entry.id}
+            onPress={() => setKategoriId(entry.id)}
+            testID={`pindah-kategori-${entry.id}`}
+          />
+        ))}
+      </ChipRow>
+
+      <Button label={teks.simpan} onPress={submit} testID="simpan-produk-ubah" />
+      <Button label={teks.arsipkan} variant="destructive" onPress={archive} testID="arsipkan-produk" />
+    </>
+  );
+}
+
+/**
  * The varian form. Satuan is picked here and the note underneath says it is
  * final, because the ledger has no event that could change it afterwards.
  */
@@ -509,7 +662,7 @@ function VarianForm({ produkId, onDone }: { produkId: string; onDone: () => void
 const styles = StyleSheet.create({
   content: { paddingBottom: space.lg },
   kategoriRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: space.md },
-  kategoriAdd: { paddingTop: space.lg },
+  kategoriActions: { flexDirection: 'row', alignItems: 'center', paddingTop: space.lg },
   empty: { paddingHorizontal: space.gutter, paddingVertical: space.xs },
   produkRow: {
     flexDirection: 'row',

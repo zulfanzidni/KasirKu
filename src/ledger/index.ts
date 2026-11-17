@@ -23,6 +23,7 @@ export {
   produkWithVarian,
   saleHistory,
   searchVarian,
+  sellableVarian,
   sortStock,
   stockByVariant,
   stockHistory,

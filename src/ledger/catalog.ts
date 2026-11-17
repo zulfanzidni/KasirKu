@@ -33,6 +33,21 @@ export interface Catalog {
   createProduk(input: ProdukInput): Promise<string>;
   createVarian(input: VarianInput): Promise<string>;
   /**
+   * Renames a kategori. Only the name is written, so its produk keep their own
+   * names and their place (GLOSSARY: a kategori is a grouping, not a prefix).
+   */
+  updateKategori(kategoriId: string, input: { nama: string }): Promise<string>;
+  /**
+   * Renames a produk and/or moves it to another kategori. Only the fields
+   * given are written, each stamped, so a rename on one phone and a move on
+   * the other both survive. `kategoriId: null` leaves it uncategorised.
+   */
+  updateProduk(produkId: string, input: { nama?: string; kategoriId?: string | null }): Promise<string>;
+  /** Hides a kategori from the working list; its produk stay, uncategorised. */
+  archiveKategori(kategoriId: string): Promise<string>;
+  /** Hides a produk and its varian from the till; history still reads it. */
+  archiveProduk(produkId: string): Promise<string>;
+  /**
    * The owner's low-stock rule for one varian: "tell me below N" (user story
    * 41). Writes one stamped field, so an edit on the other phone to a different
    * field of the same varian survives. Returns the event's id.
@@ -80,6 +95,38 @@ export function createCatalog(append: (type: string, payload: unknown) => Promis
         jualBy: input.jualBy,
         harga: input.harga,
       });
+    },
+
+    async updateKategori(kategoriId, input) {
+      const nama = input.nama.trim();
+      if (!nama) throw new CatalogError('Nama kategori wajib diisi.');
+      return append('kategori.updated', {
+        kategoriId,
+        nama: { value: nama, at: new Date().toISOString() },
+      });
+    },
+
+    async updateProduk(produkId, input) {
+      const payload: Record<string, unknown> = { produkId };
+      const at = new Date().toISOString();
+      if (input.nama !== undefined) {
+        const nama = input.nama.trim();
+        if (!nama) throw new CatalogError('Nama produk wajib diisi.');
+        payload.nama = { value: nama, at };
+      }
+      if (input.kategoriId !== undefined) {
+        payload.kategoriId = { value: input.kategoriId, at };
+      }
+      if (Object.keys(payload).length === 1) throw new CatalogError('Tidak ada perubahan.');
+      return append('produk.updated', payload);
+    },
+
+    async archiveKategori(kategoriId) {
+      return append('kategori.archived', { kategoriId, archived: true });
+    },
+
+    async archiveProduk(produkId) {
+      return append('produk.archived', { produkId, archived: true });
     },
 
     async setMinimum(varianId, minimum) {

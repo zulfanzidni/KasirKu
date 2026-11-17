@@ -100,6 +100,16 @@ export function gridVarian(shop: Shop): Varian[] {
 }
 
 /**
+ * The variants the till may sell: not archived themselves, and not under an
+ * archived produk. Archiving a produk hides its sizes from the grid while the
+ * log keeps them, so old receipts and old stock figures still resolve.
+ */
+export function sellableVarian(shop: Shop): Varian[] {
+  const archivedProduk = new Set(shop.produk.filter((entry) => entry.archived).map((entry) => entry.id));
+  return shop.varian.filter((entry) => !entry.archived && !archivedProduk.has(entry.produkId));
+}
+
+/**
  * Search by name, ignoring case and accents the way a person types. An empty
  * query is not a filter: the whole grid stays.
  */
