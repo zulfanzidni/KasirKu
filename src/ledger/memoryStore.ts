@@ -10,12 +10,12 @@ import type { LedgerEvent } from './types';
  */
 export class MemoryStore implements LedgerStore {
   readonly events: StoredEvent[] = [];
-  private lastSeq = 0;
+  private seq = 0;
 
   async nextIdentity(): Promise<{ id: string; seq: number }> {
-    this.lastSeq += 1;
+    this.seq += 1;
     const random = Math.random().toString(36).slice(2, 10).padEnd(8, '0');
-    return { id: `evt-${this.lastSeq}-${random}`, seq: this.lastSeq };
+    return { id: `evt-${this.seq}-${random}`, seq: this.seq };
   }
 
   async append(events: readonly StoredEvent[]): Promise<void> {
@@ -29,5 +29,23 @@ export class MemoryStore implements LedgerStore {
 
   async readAll(): Promise<StoredEvent[]> {
     return this.events.map((event) => structuredClone(event) as LedgerEvent as StoredEvent);
+  }
+
+  async lastSeq(): Promise<number> {
+    return this.seq;
+  }
+
+  async replaceAll(events: readonly StoredEvent[], lastSeq: number): Promise<void> {
+    this.events.length = 0;
+    for (const event of events) {
+      this.events.push(structuredClone(event) as LedgerEvent as StoredEvent);
+    }
+    // A tail below the events it claims to follow would hand out a used number.
+    this.seq = events.reduce((high, event) => Math.max(high, event.seq), lastSeq);
+  }
+
+  /** The counter the SQL layer wrote to its meta table, mirrored here. */
+  setLastSeq(value: number): void {
+    this.seq = Math.max(this.seq, value);
   }
 }

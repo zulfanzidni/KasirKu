@@ -22,6 +22,17 @@ export interface LedgerStore {
   append(events: readonly StoredEvent[]): Promise<void>;
   /** The whole log, oldest first. */
   readAll(): Promise<StoredEvent[]>;
+  /**
+   * The last number this phone has used. A backup carries it so a restored
+   * phone continues the same stream instead of reusing a number.
+   */
+  lastSeq(): Promise<number>;
+  /**
+   * Replaces the entire log with another phone's, and sets the counter to its
+   * tail. Only restore calls this: it is the one operation that is not an
+   * append, because the log is being adopted wholesale.
+   */
+  replaceAll(events: readonly StoredEvent[], lastSeq: number): Promise<void>;
 }
 
 /** Thrown when an id is already in the log. Events are never rewritten. */

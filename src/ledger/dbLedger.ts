@@ -102,6 +102,36 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
           }) as LedgerEvent as StoredEvent,
       );
     },
+
+    async lastSeq(): Promise<number> {
+      const row = await db.getFirstAsync<MetaRow>('SELECT value FROM ledger_meta WHERE key = ?', [SEQ_KEY]);
+      return Number(row?.value ?? 0);
+    },
+
+    async replaceAll(events: readonly StoredEvent[], lastSeq: number): Promise<void> {
+      // One transaction: a kill halfway through must not leave a phone with
+      // half of one shop's history and half of another's.
+      await db.withTransactionAsync(async () => {
+        await db.runAsync('DELETE FROM events');
+        for (const event of events) {
+          await db.runAsync('INSERT INTO events (id, device_id, seq, created_at, type, payload) VALUES (?, ?, ?, ?, ?, ?)', [
+            event.id,
+            event.deviceId,
+            event.seq,
+            event.createdAt,
+            event.type,
+            JSON.stringify(event.payload),
+          ]);
+        }
+        // The tail is written last, as it was for the events themselves: the
+        // next number must follow the restored history, never precede it.
+        const tail = events.reduce((high, event) => Math.max(high, event.seq), lastSeq);
+        await db.runAsync(
+          'INSERT INTO ledger_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          [SEQ_KEY, tail],
+        );
+      });
+    },
   };
 
   return { ...store, deviceId };

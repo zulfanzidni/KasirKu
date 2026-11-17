@@ -1,8 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { StokScreen } from '@/screens/Stok';
 import { KasirScreen } from '@/screens/Kasir';
-import { app, mockPhone, resetPhone, wrap } from './testPhone';
-import { createLedger } from '@/ledger/ledger';
+import { app, phoneLedger, resetPhone, wrap } from './testPhone';
 import type { Shop } from '@/ledger/types';
 
 /**
@@ -14,15 +13,7 @@ beforeEach(() => {
 });
 
 function phoneShop(): Promise<Shop> {
-  const store = mockPhone.store;
-  return createLedger(
-    {
-      nextIdentity: () => store.nextIdentity(),
-      append: (events) => store.append(events),
-      readAll: () => store.readAll(),
-    },
-    'gawai-uji',
-  ).shop();
+  return phoneLedger().shop();
 }
 
 async function open() {
