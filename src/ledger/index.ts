@@ -24,6 +24,23 @@ export { connectImportFiles, importFiles, type ImportFile, type ImportFiles } fr
 export { emptyShop, foldEvents, sumSales } from './events';
 export { hutangOf, stateOf, type HutangEntry, type HutangLedger, type HutangState } from './hutang';
 export {
+  baselineKindLabel,
+  baselineLabel,
+  CashError,
+  cashCounts,
+  cashDrawer,
+  cashMovement,
+  countPayload,
+  openingFloat,
+  selisihLabel,
+  type CashBaseline,
+  type CashCount,
+  type CashDrawer,
+  type CashMovementEntry,
+  type CashMovementInput,
+  type CashMovementKind,
+} from './kas';
+export {
   openLedger,
   createLedger,
   saleDraft,
@@ -117,6 +134,12 @@ export {
 export { teks } from './copy';
 
 export type {
+  CashBaselineKind,
+  CashCounted,
+  CashDeposited,
+  CashExpense,
+  CashOpeningFloat,
+  CashWithdrawn,
   JualBy,
   Kategori,
   LedgerEvent,

@@ -26,6 +26,7 @@ describe('today’s two numbers', () => {
       penjualan: 40000,
       tunai: 34000,
       hutang: 10000,
+      diskon: 0,
     });
   });
 
@@ -39,13 +40,27 @@ describe('today’s two numbers', () => {
       ),
     ];
 
-    expect(todayTotals(events, HARI_INI)).toEqual({ penjualan: 8000, tunai: 3000, hutang: 5000 });
+    expect(todayTotals(events, HARI_INI)).toEqual({ penjualan: 8000, tunai: 3000, hutang: 5000, diskon: 0 });
+  });
+
+  it('adds today’s discounts as their own figure, without changing what was sold', () => {
+    const events: LedgerEvent[] = [
+      // 50.000 gross, 5.000 discount: the customer was charged 45.000.
+      sale('2026-11-17T10:00:00', { total: 50000, net: 45000, tendered: 45000, unpaid: 0, discount: 5000 }),
+    ];
+
+    expect(todayTotals(events, HARI_INI)).toEqual({
+      penjualan: 45000,
+      tunai: 45000,
+      hutang: 0,
+      diskon: 5000,
+    });
   });
 });
 
 function sale(
   at: string,
-  input: { total: number; net: number; tendered: number; unpaid: number },
+  input: { total: number; net: number; tendered: number; unpaid: number; discount?: number },
 ): LedgerEvent {
   return event(
     'sale.completed',
@@ -55,7 +70,7 @@ function sale(
       total: input.total,
       payment: {
         method: 'tunai',
-        discount: 0,
+        discount: input.discount ?? 0,
         cashStep: 500,
         rounding: 0,
         net: input.net,

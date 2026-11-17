@@ -284,6 +284,61 @@ export type StockConsignmentReturned = Event<
  * allocation: a payment settles the running total, and the remainder carries. */
 export type PayablePaid = Event<'payable.paid', { supplierId: string; amount: number }>;
 
+// ---------------------------------------------------------------------------
+// Cash drawer (spec §Cash)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a count compared against (spec §Cash, "Baseline when no float is
+ * declared"):
+ *  - `float` — an explicitly declared opening amount
+ *  - `count` — the previous physical count, when no float has been declared
+ *    since it
+ *  - `nol`   — neither exists; the drawer is followed from zero
+ *
+ * It is stored on the count so the owner can read, months later, which number a
+ * difference was measured from.
+ */
+export type CashBaselineKind = 'float' | 'count' | 'nol';
+
+/** The amount declared to be in the drawer at the start of a period. */
+export type CashOpeningFloat = Event<'cash.opening_float', { jumlah: number }>;
+
+/**
+ * Money paid out of the drawer that is not a supplier payment: listrik,
+ * transport, a personal purchase. The reason is required — an unexplained
+ * outflow is what makes an owner stop trusting the count.
+ */
+export type CashExpense = Event<'cash.expense', { jumlah: number; keterangan: string }>;
+
+/** Money taken out, including banking the takings. */
+export type CashWithdrawn = Event<'cash.withdrawn', { jumlah: number; keterangan: string | null }>;
+
+/** Money put into the drawer from outside. */
+export type CashDeposited = Event<'cash.deposited', { jumlah: number; keterangan: string | null }>;
+
+/**
+ * A physical count: what the owner saw, what the log expected at that moment,
+ * and the difference. The baseline is recorded with the count so the figure is
+ * never an orphan. A count is a measurement, not a movement: it changes no
+ * money, it only says what the drawer held.
+ */
+export type CashCounted = Event<
+  'cash.counted',
+  {
+    counted: number;
+    expected: number;
+    /** `counted − expected`: positive means the drawer held more than expected. */
+    difference: number;
+    baseline: CashBaselineKind;
+    /** What the drawer held at the baseline; 0 for `nol`. */
+    baselineJumlah: number;
+    /** When the baseline event happened; null for `nol`. */
+    baselineAt: string | null;
+    catatan: string | null;
+  }
+>;
+
 /**
  * A varian's stock as the log answers it. A discriminated result rather than a
  * number or null, so "nobody has counted this yet" cannot be read as "zero":
@@ -301,7 +356,12 @@ export type LedgerEvent =
   | StockConsignmentReturned
   | PayablePaid
   | ReceivablePaid
-  | ReceivableWrittenOff;
+  | ReceivableWrittenOff
+  | CashOpeningFloat
+  | CashExpense
+  | CashWithdrawn
+  | CashDeposited
+  | CashCounted;
 
 // ---------------------------------------------------------------------------
 // Derived state — never stored, always folded

@@ -167,7 +167,7 @@ export function saleHistory(shop: Shop) {
 }
 
 // ---------------------------------------------------------------------------
-// Today — the two numbers that differ on purpose
+// Today — what was sold, what cash came in, and what was given away
 // ---------------------------------------------------------------------------
 
 /**
@@ -177,6 +177,9 @@ export function saleHistory(shop: Shop) {
  *  - `tunai` — cash that actually came in: what was handed over at the till
  *    plus hutang payments. A write-off adds nothing, because no money moved.
  *  - `hutang` — the part of today's sales that became debt.
+ *  - `diskon` — what the owner gave away today, as its own figure. It is
+ *    already absent from `penjualan` (the receipt total is after discount), so
+ *    the two are shown side by side rather than added.
  *
  * `penjualan` is the receipt total (after discount and pembulatan), not the
  * gross: it is what the customer was charged. The two figures are not meant to
@@ -186,11 +189,12 @@ export interface TodayTotals {
   penjualan: number;
   tunai: number;
   hutang: number;
+  diskon: number;
 }
 
 export function todayTotals(events: readonly LedgerEvent[], now: Date = new Date()): TodayTotals {
   const today = dayStamp(now.toISOString());
-  const totals: TodayTotals = { penjualan: 0, tunai: 0, hutang: 0 };
+  const totals: TodayTotals = { penjualan: 0, tunai: 0, hutang: 0, diskon: 0 };
 
   for (const event of events) {
     if (dayStamp(event.createdAt) !== today) continue;
@@ -202,6 +206,7 @@ export function todayTotals(events: readonly LedgerEvent[], now: Date = new Date
         totals.penjualan += net;
         totals.tunai += net - unpaid;
         totals.hutang += unpaid;
+        totals.diskon += payment?.discount ?? 0;
         break;
       }
       case 'receivable.paid':

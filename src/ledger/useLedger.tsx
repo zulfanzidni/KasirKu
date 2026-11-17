@@ -18,6 +18,14 @@ import { clearCart, loadCart, saveCart } from './cartStorage';
 import { newEventId } from './dbLedger';
 import { hutangOf as hutangOfEvents, type HutangLedger } from './hutang';
 import {
+  CashError,
+  cashCounts as cashCountsOf,
+  cashDrawer as cashDrawerOf,
+  type CashCount,
+  type CashDrawer,
+  type CashMovementInput,
+} from './kas';
+import {
   openLedger,
   StockError,
   type HapusBukuInput,
@@ -127,6 +135,17 @@ export interface AppState {
   catatPembayaranHutang(input: PembayaranHutangInput): Promise<string>;
   /** Forgets the remaining hutang without collecting cash. */
   hapusBukuHutang(input: HapusBukuInput): Promise<string>;
+
+  /** The drawer as the log answers it: expected cash and what makes it up. */
+  cashDrawer(): CashDrawer;
+  /** Every recorded count, newest first: the reconciliation history. */
+  cashCounts(): CashCount[];
+  /** Money out for listrik/transport/banking, or money put in. */
+  recordCashMovement(input: CashMovementInput): Promise<string>;
+  /** Declares what the drawer holds now: expected cash folds from it. */
+  setOpeningFloat(input: { jumlah: number }): Promise<string>;
+  /** Records a physical count, with the baseline it was compared against. */
+  countCash(input: { counted: number; catatan?: string | null }): Promise<string>;
 
   forgetLastSale(): void;
 
@@ -482,6 +501,35 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [writePelanggan],
   );
 
+  /** Drawer reads and writes: all four are folds of the events already in hand. */
+  const cashDrawer = useCallback((): CashDrawer => cashDrawerOf(events), [events]);
+  const cashCounts = useCallback((): CashCount[] => cashCountsOf(events), [events]);
+
+  const writeCash = useCallback(
+    async (write: (ledger: Ledger) => Promise<string>) => {
+      const current = ledgerRef.current;
+      if (!current) throw new CashError('Catatan belum siap.');
+      const id = await write(current);
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return id;
+    },
+    [showShop, showEvents],
+  );
+
+  const recordCashMovement = useCallback(
+    (input: CashMovementInput) => writeCash((ledger) => ledger.recordCashMovement(input)),
+    [writeCash],
+  );
+  const setOpeningFloat = useCallback(
+    (input: { jumlah: number }) => writeCash((ledger) => ledger.setOpeningFloat(input)),
+    [writeCash],
+  );
+  const countCash = useCallback(
+    (input: { counted: number; catatan?: string | null }) => writeCash((ledger) => ledger.countCash(input)),
+    [writeCash],
+  );
+
   const backupText = useCallback(async () => {
     const current = ledgerRef.current;
     if (!current) throw new Error('Catatan belum siap.');
@@ -546,6 +594,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     arsipkanPelanggan,
     catatPembayaranHutang,
     hapusBukuHutang,
+    cashDrawer,
+    cashCounts,
+    recordCashMovement,
+    setOpeningFloat,
+    countCash,
     backupText,
     hasHistory,
     restoreBackup,
