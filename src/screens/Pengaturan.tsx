@@ -5,7 +5,12 @@ import { backupFiles, parseBackup, type BackupFile } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
 /**
- * Pengaturan — what the nota says about the shop, and the shop's backup.
+ * Pengaturan — the shop's two phones, the nota, and the shop's backup.
+ *
+ * Sinkron is the first thing on the page because it is the question behind
+ * every number: when did these phones last agree, and what is still waiting to
+ * be sent? A failed exchange is said out loud, beside the fact that nothing was
+ * lost.
  *
  * The name and the closing line are the shop's own words, so the form does not
  * suggest copy or "improve" it. Saving writes `settings.updated`; the fields
@@ -20,11 +25,15 @@ import { useApp } from '@/ledger/useLedger';
  * A section, not a full screen: it sits inside Lainnya, which owns the title.
  */
 export function PengaturanScreen() {
-  const { shop, settings, backupText, hasHistory, restoreBackup } = useApp();
+  const { shop, settings, backupText, hasHistory, restoreBackup, lastSyncAt, unsentCount, syncNow } = useApp();
   const [draft, setDraft] = useState<{ nama: string; keterangan: string; footer: string } | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const [backupBusy, setBackupBusy] = useState<'ekspor' | 'pulihkan' | null>(null);
   const [backupNotice, setBackupNotice] = useState<string | null>(null);
@@ -133,8 +142,65 @@ export function PengaturanScreen() {
     }
   }
 
+  /**
+   * The manual exchange. A failure is said out loud, with the fact that nothing
+   * was lost: a silent backlog is what makes an owner trust a stale number.
+   */
+  async function sinkron() {
+    if (syncBusy) return;
+    setSyncBusy(true);
+    setSyncNotice(null);
+    setSyncError(null);
+    try {
+      const report = await syncNow();
+      setSyncNotice(
+        `Sinkron selesai. ${report.pushed} catatan terkirim, ${report.applied} catatan baru dari ponsel lain.`,
+      );
+    } catch (cause) {
+      setSyncError(`Sinkron gagal: ${pesanDari(cause)} Catatan yang belum terkirim tetap tersimpan di ponsel ini.`);
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <SectionHeading>Sinkron</SectionHeading>
+      <Note>
+        Dua ponsel bertukar catatan lewat satu tempat bersama, supaya stok dan uangnya sama. Menjual tetap bisa tanpa
+        internet; catatan yang belum terkirim menunggu sampai sambungannya ada.
+      </Note>
+
+      <View style={styles.sync} testID="sinkron-status">
+        <AppText typeRole="bodyMedium" testID="sinkron-terakhir">
+          {lastSyncAt ? `Tersinkron terakhir ${tanggal(lastSyncAt)}.` : 'Belum pernah sinkron.'}
+        </AppText>
+        <AppText typeRole="bodyMedium" tone={unsentCount > 0 ? 'owed' : 'muted'} testID="sinkron-belum-terkirim">
+          {unsentCount > 0 ? `${unsentCount} catatan belum terkirim.` : 'Semua catatan sudah terkirim.'}
+        </AppText>
+      </View>
+
+      <View style={styles.syncActions}>
+        <Button
+          label={syncBusy ? 'Menyinkronkan…' : 'Sinkron sekarang'}
+          onPress={sinkron}
+          disabled={syncBusy}
+          testID="sinkron-sekarang"
+          style={styles.grow}
+        />
+      </View>
+
+      {syncNotice ? (
+        <AppText typeRole="bodyMedium" tone="primary" style={styles.syncNote} testID="sinkron-pesan">
+          {syncNotice}
+        </AppText>
+      ) : null}
+      {syncError ? (
+        <AppText typeRole="bodyMedium" tone="owed" style={styles.syncNote} testID="sinkron-galat">
+          {syncError}
+        </AppText>
+      ) : null}
+
       <SectionHeading>Nota</SectionHeading>
       <Note>Ini yang tercetak di nota pelanggan. Ganti dengan nama dan ucapan toko Anda sendiri.</Note>
 
@@ -250,6 +316,15 @@ function namaCadangan(at: Date): string {
   return `cadangan-kasirku-${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}.json`;
 }
 
+/** A moment as the shop writes it: 17/11/2026 14.20. */
+function tanggal(at: string): string {
+  const moment = new Date(at);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${pad(moment.getDate())}/${pad(moment.getMonth() + 1)}/${moment.getFullYear()} ${pad(
+    moment.getHours(),
+  )}.${pad(moment.getMinutes())}`;
+}
+
 function pesanDari(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
@@ -258,6 +333,9 @@ const styles = StyleSheet.create({
   body: { paddingBottom: space.xxl },
   form: { paddingHorizontal: space.gutter, paddingTop: space.xs },
   actions: { paddingTop: space.md, flexDirection: 'row', gap: space.sm },
+  sync: { paddingHorizontal: space.gutter, gap: space.xs },
+  syncActions: { paddingTop: space.md, paddingHorizontal: space.gutter, flexDirection: 'row', gap: space.sm },
+  syncNote: { paddingHorizontal: space.gutter, paddingTop: space.sm },
   backup: { paddingHorizontal: space.gutter, paddingTop: space.xxl },
   warning: { paddingTop: space.md, gap: space.xs },
   cancel: { width: 96 },

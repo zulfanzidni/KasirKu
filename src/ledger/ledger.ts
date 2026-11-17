@@ -75,6 +75,13 @@ export interface Ledger {
   /** The whole log as a file, ready to be saved off the phone. */
   backup(): Promise<BackupFile>;
   /**
+   * Merges the other phone's events into this log. Additive and idempotent by
+   * event id: an event already held is skipped, and no event type is treated
+   * specially, so a type added later syncs without touching this. Answers how
+   * many events were new.
+   */
+  applyRemote(events: readonly StoredEvent[]): Promise<number>;
+  /**
    * Replaces this phone's log with a backup's, and adopts its device identity
    * so unsent events can continue the original stream. The caller is
    * responsible for the owner's consent; this is a rewrite, not a merge.
@@ -232,6 +239,11 @@ export function createLedger(store: LedgerStore, initialDeviceId: string = newDe
     async restore(backup) {
       await store.replaceAll(backup.events, backup.lastSeq);
       deviceId = backup.deviceId;
+    },
+    async applyRemote(events) {
+      // Nothing here knows what an event means. The store merges by id, which
+      // is what keeps the union additive however the events arrived.
+      return store.appendAbsent(events);
     },
     async adjustStock(input) {
       const reason = input.reason.trim();

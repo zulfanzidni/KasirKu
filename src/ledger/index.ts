@@ -65,6 +65,20 @@ export {
 } from './receipt';
 export { connectPrinter, printer } from './printer';
 export { MemoryStore } from './memoryStore';
+export { MemoryExchange } from './memoryExchange';
+export {
+  connectSync,
+  parseCheckpoint,
+  STARTING_CHECKPOINT,
+  syncExchange,
+  syncLedger,
+  unsentEvents,
+  SyncError,
+  type SharedLog,
+  type SyncCheckpoint,
+  type SyncReport,
+} from './sync';
+export { createHttpExchange, type HttpSyncOptions } from './syncHttp';
 export {
   gridVarian,
   isLow,

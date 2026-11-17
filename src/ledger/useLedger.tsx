@@ -40,6 +40,16 @@ import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, typ
 import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
 import { foldStock, normaliseQty, ownedDelta, type StockRow } from './stock';
 import {
+  parseCheckpoint,
+  STARTING_CHECKPOINT,
+  syncExchange,
+  syncLedger,
+  SyncError,
+  unsentEvents,
+  type SyncCheckpoint,
+  type SyncReport,
+} from './sync';
+import {
   createSupplierBook,
   supplierPayables as payablesOf,
   titipStock as titipStockOfSupplier,
@@ -162,6 +172,16 @@ export interface AppState {
    * restored one. The owner's consent is the caller's job.
    */
   restoreBackup(backup: BackupFile): Promise<void>;
+
+  /** When this phone last completed an exchange; null means it never has. */
+  lastSyncAt: string | null;
+  /** This phone's events the shared place has not acknowledged yet. */
+  unsentCount: number;
+  /**
+   * One exchange with the shared place, now. Throws with a readable reason when
+   * it fails, so the screen can say so; no local event is ever discarded.
+   */
+  syncNow(): Promise<SyncReport>;
 }
 
 export type TapOutcome =
@@ -181,6 +201,9 @@ export function useApp(): AppState {
 /** The key the phone's own id is stored under. */
 const DEVICE_KEY = 'device_id';
 
+/** Where the sync checkpoint is kept, so a restart resumes instead of resending. */
+const SYNC_KEY = 'sync_checkpoint';
+
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,12 +213,17 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   /** The whole log, kept beside the folded shop: stock questions fold this. */
   const [events, setEvents] = useState<LedgerEvent[]>([]);
+  /** The phone that writes new events, mirrored out of the ledger for the screen. */
+  const [deviceId, setDeviceId] = useState('');
+  const [checkpoint, setCheckpoint] = useState<SyncCheckpoint>(STARTING_CHECKPOINT);
 
   const ledgerRef = useRef<Ledger | null>(null);
   const eventsRef = useRef<LedgerEvent[]>([]);
   const shopRef = useRef<Shop>(shop);
   const cartRef = useRef<Cart>(cart);
   const savingRef = useRef(false);
+  const checkpointRef = useRef<SyncCheckpoint>(checkpoint);
+  const syncingRef = useRef(false);
   /** Serialises every write to the saved draft, so a stale write can never land after a newer one. */
   const diskRef = useRef<Promise<void>>(Promise.resolve());
 
@@ -257,6 +285,13 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         ledgerRef.current = opened;
         showShop(await opened.shop());
         showEvents(await opened.events());
+        setDeviceId(opened.deviceId);
+
+        // Where the last exchange stopped. A checkpoint that cannot be read is
+        // started over: the server ignores events it already has.
+        const savedCheckpoint = parseCheckpoint(await kv.getItem(SYNC_KEY));
+        checkpointRef.current = savedCheckpoint;
+        setCheckpoint(savedCheckpoint);
 
         const saved = await loadCart(kv);
         if (cancelled) return;
@@ -539,6 +574,40 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const hasHistory = useCallback(() => eventsRef.current.length > 0, []);
 
   /**
+   * This phone's own events the shared place has not acknowledged. Events that
+   * arrived from the other phone are not ours to send; they are theirs.
+   */
+  const unsentCount = useMemo(
+    () => unsentEvents(events, deviceId, checkpoint.lastAckSeq).length,
+    [events, deviceId, checkpoint.lastAckSeq],
+  );
+
+  /**
+   * One exchange, now. The checkpoint moves only when the whole exchange
+   * finished, so a failure leaves every unsent event where it is — and saying
+   * so is the screen's job, which is why this throws rather than swallowing.
+   */
+  const syncNow = useCallback(async (): Promise<SyncReport> => {
+    const current = ledgerRef.current;
+    if (!current) throw new SyncError('Catatan belum siap.');
+    if (syncingRef.current) throw new SyncError('Sinkron sedang berjalan.');
+    syncingRef.current = true;
+    try {
+      const { checkpoint: next, report } = await syncLedger(current, syncExchange.current, checkpointRef.current);
+      checkpointRef.current = next;
+      setCheckpoint(next);
+      // Best effort: a checkpoint that fails to save only means the same
+      // events are offered again, which the shared place is built to ignore.
+      await kv.setItem(SYNC_KEY, JSON.stringify(next)).catch(() => {});
+      showShop(await current.shop());
+      showEvents(await current.events());
+      return report;
+    } finally {
+      syncingRef.current = false;
+    }
+  }, [kv, showShop, showEvents]);
+
+  /**
    * Restoring is a rewrite, not a merge: the phone becomes the other phone.
    * The device identity moves with the log, and the draft cart is emptied,
    * because its lines may name variants the restored shop has never heard of.
@@ -551,6 +620,12 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       // The identity is the ledger's, but the next launch reads it from here:
       // losing this write would give the restored events a second author.
       await kv.setItem(DEVICE_KEY, backup.deviceId);
+      setDeviceId(backup.deviceId);
+      // The restored log is another stream of event numbers: a checkpoint from
+      // this phone would point at the wrong events. Start the exchange over.
+      await kv.removeItem(SYNC_KEY);
+      checkpointRef.current = STARTING_CHECKPOINT;
+      setCheckpoint(STARTING_CHECKPOINT);
       updateCart(emptyCart());
       await persistCart(emptyCart());
       await clearCart(kv);
@@ -602,6 +677,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     backupText,
     hasHistory,
     restoreBackup,
+    lastSyncAt: checkpoint.lastSyncAt,
+    unsentCount,
+    syncNow,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

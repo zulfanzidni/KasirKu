@@ -31,8 +31,32 @@ export class MemoryStore implements LedgerStore {
     }
   }
 
+  async appendAbsent(events: readonly StoredEvent[]): Promise<number> {
+    // Sync's merge: an id already here is the same happening, already told.
+    const seen = new Set(this.events.map((event) => event.id));
+    let added = 0;
+    for (const event of events) {
+      if (seen.has(event.id)) continue;
+      seen.add(event.id);
+      this.events.push(structuredClone(event) as LedgerEvent as StoredEvent);
+      added += 1;
+    }
+    return added;
+  }
+
   async readAll(): Promise<StoredEvent[]> {
-    return this.events.map((event) => structuredClone(event) as LedgerEvent as StoredEvent);
+    // A merged log needs a total order, and it has to be the same one on every
+    // phone: the shared place hands events out in the order they arrived, but
+    // "arrived" is a transport detail. Device time first, then device and
+    // sequence, exactly as the SQLite store orders its rows.
+    return [...this.events]
+      .sort(
+        (left, right) =>
+          left.createdAt.localeCompare(right.createdAt) ||
+          left.deviceId.localeCompare(right.deviceId) ||
+          left.seq - right.seq,
+      )
+      .map((event) => structuredClone(event) as LedgerEvent as StoredEvent);
   }
 
   async lastSeq(): Promise<number> {

@@ -2,6 +2,8 @@ import { connectPhone, type PhoneEnvironment } from '@/ledger/environment';
 import { connectBackupFiles, type BackupFiles } from '@/ledger/backupFiles';
 import { connectImportFiles, type ImportFiles } from '@/ledger/importFiles';
 import { connectPrinter } from '@/ledger/printer';
+import { MemoryExchange } from '@/ledger/memoryExchange';
+import { connectSync } from '@/ledger/sync';
 import { receiptHtml } from '@/ledger/receiptHtml';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
@@ -53,9 +55,17 @@ export const mockImportFiles: { picked: { name: string; text: string } | null } 
   picked: null,
 };
 
+/**
+ * The shared place this phone syncs through. A test can make it `offline` to
+ * stand in for a dead connection, and can read `ids()` to see what crossed.
+ */
+export let mockShared: MemoryExchange = new MemoryExchange();
+
 export function resetPhone() {
   mockPhone.store = new MemoryStore();
   mockPhone.kv.clear();
+  mockShared = new MemoryExchange();
+  connectSync(mockShared);
   mockPrinter.printed = [];
   mockPrinter.shared = [];
   mockPrinter.canShare = true;
