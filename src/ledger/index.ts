@@ -30,6 +30,17 @@ export {
   type StockSource,
 } from './queries';
 export { correctionDelta, normaliseQty, stockOf, stockRows, type StockMovement, type StockRow } from './stock';
+export {
+  bulkOf,
+  checkLow,
+  lowRows,
+  LOW_WINDOW_DAYS,
+  MIN_HISTORY_DAYS,
+  type BulkContext,
+  type LowCheck,
+  type LowRow,
+  type LowRule,
+} from './lowStock';
 export { StockError, type StockCorrection } from './ledger';
 export {
   addToCart,
@@ -58,6 +69,7 @@ export type {
   Satuan,
   Shop,
   StockAdjusted,
+  StockReceived,
   StockState,
   Varian,
 } from './types';

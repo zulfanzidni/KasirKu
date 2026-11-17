@@ -4,7 +4,7 @@ import { KasirScreen } from '@/screens/Kasir';
 import { colors } from '@/design';
 import { app, mockPhone, resetPhone, wrap } from './testPhone';
 import { createLedger } from '@/ledger/ledger';
-import type { Shop } from '@/ledger/types';
+import type { Satuan, Shop } from '@/ledger/types';
 
 /**
  * The Stok screen reading the log: what is on the shelf, per varian, and what
@@ -57,9 +57,10 @@ async function seedProduk(kategori: string, produk: string) {
   return (await phoneShop()).produk[0].id;
 }
 
-async function seedVarian(produkId: string, nama: string) {
+async function seedVarian(produkId: string, nama: string, satuan: Satuan = 'pcs') {
   fireEvent.press(screen.getByTestId(`tambah-varian-${produkId}`));
   fireEvent.changeText(screen.getByTestId('varian-nama'), nama);
+  if (satuan !== 'pcs') fireEvent.press(screen.getByTestId(`satuan-${satuan}`));
   fireEvent.changeText(screen.getByTestId('varian-harga'), '1.000');
   fireEvent.press(screen.getByTestId('simpan-varian'));
   await act(async () => {});
@@ -252,6 +253,195 @@ describe('Stok — selling reduces the count', () => {
   });
 });
 
+describe('Stok — why a varian is low', () => {
+  it('says the owner’s minimum is what flagged it', async () => {
+    await open();
+    const produkId = await seedProduk('Sembako', 'Tepung terigu');
+    const varianId = await seedVarian(produkId, 'Tepung terigu 1 kg');
+
+    fireEvent.press(screen.getByTestId(`minimum-${varianId}`));
+    fireEvent.changeText(screen.getByTestId('minimum-jumlah'), '5');
+    fireEvent.press(screen.getByTestId('simpan-minimum'));
+    await act(async () => {});
+    await count(varianId, '3', 'Hitung rak');
+
+    expect(screen.getByText('Rendah: di bawah minimum 5')).toBeTruthy();
+  });
+
+  it('flags a varian with no minimum by how fast it sold, and names that rule', async () => {
+    await open();
+    const produkId = await seedProduk('Sembako', 'Tepung terigu');
+    const varianId = await seedVarian(produkId, 'Tepung terigu 1 kg');
+
+    // The shop has been selling this for ten days: two 12-packs, one long
+    // enough ago to prove the history, one inside the short window.
+    screen.unmount();
+    mounted = false;
+    await seedPastSale(varianId, 12, 10);
+    await seedPastSale(varianId, 12, 2);
+    await open();
+    // The shelf holds 4 — less than one window of sales.
+    await count(varianId, '4', 'Hitung gudang');
+
+    expect(screen.getByText('Rendah: terjual 12 dalam 7 hari')).toBeTruthy();
+  });
+
+  it('admits it does not know when the history is too short, instead of inventing a figure', async () => {
+    await open();
+    const produkId = await seedProduk('Sembako', 'Indomie goreng');
+    const varianId = await seedVarian(produkId, 'Indomie goreng');
+
+    // One day of selling is not a selling speed.
+    screen.unmount();
+    mounted = false;
+    await seedPastSale(varianId, 50, 1);
+    await open();
+    await count(varianId, '2', 'Hitung rak');
+
+    expect(screen.getByText('Riwayat penjualan belum cukup untuk menilai. Atur minimum untuk peringatan.')).toBeTruthy();
+    expect(screen.queryByText(/^Rendah: terjual/)).toBeNull();
+  });
+});
+
+describe('Stok — whose goods they are', () => {
+  it('counts goods that arrived as the shop’s own', async () => {
+    await open();
+    const produkId = await seedProduk('Sembako', 'Indomie goreng');
+    const varianId = await seedVarian(produkId, 'Indomie goreng');
+
+    screen.unmount();
+    mounted = false;
+    await seedReceived(varianId, 12, 'tunai');
+    await open();
+
+    expect(stringOf(`stok-angka-${varianId}`)).toBe('12');
+  });
+
+  it('does not let titip stock hide a shortage', async () => {
+    await open();
+    const produkId = await seedProduk('Sembako', 'Indomie goreng');
+    const varianId = await seedVarian(produkId, 'Indomie goreng');
+
+    fireEvent.press(screen.getByTestId(`minimum-${varianId}`));
+    fireEvent.changeText(screen.getByTestId('minimum-jumlah'), '5');
+    fireEvent.press(screen.getByTestId('simpan-minimum'));
+    await act(async () => {});
+    await count(varianId, '1', 'Hitung rak');
+
+    // The supplier left fifty on the shelf, but they are not the shop's to sell
+    // as its own — the warning must still stand.
+    screen.unmount();
+    mounted = false;
+    await seedReceived(varianId, 50, 'titip');
+    await open();
+
+    expect(stringOf(`stok-angka-${varianId}`)).toBe('1');
+    expect(screen.getByText('Rendah: di bawah minimum 5')).toBeTruthy();
+  });
+
+  it('reads a varian with only titip goods as never counted, not as owned stock', async () => {
+    await open();
+    const produkId = await seedProduk('Sembako', 'Indomie goreng');
+    const varianId = await seedVarian(produkId, 'Indomie goreng');
+
+    screen.unmount();
+    mounted = false;
+    await seedReceived(varianId, 50, 'titip');
+    await open();
+
+    expect(stringOf(`stok-angka-${varianId}`)).toBe('—');
+    expect(screen.getByText('Belum dihitung')).toBeTruthy();
+  });
+});
+
+describe('Stok — repack or reorder', () => {
+  it('shows the sack stock beside a low packet, and reads it as repack', async () => {
+    await open();
+    const produkId = await seedProduk('Tepung', 'Tepung terigu');
+    const sak = await seedVarian(produkId, 'Tepung terigu 25 kg', 'sak');
+    const packet = await seedVarian(produkId, 'Tepung terigu 1 kg', 'kg');
+    await count(sak, '3', 'Hitung gudang');
+
+    fireEvent.press(screen.getByTestId(`minimum-${packet}`));
+    fireEvent.changeText(screen.getByTestId('minimum-jumlah'), '5');
+    fireEvent.press(screen.getByTestId('simpan-minimum'));
+    await act(async () => {});
+    await count(packet, '1', 'Hitung rak');
+
+    expect(screen.getByText('Stok sak: 3 · Repack')).toBeTruthy();
+  });
+
+  it('reads a low packet with no sacks left as reorder', async () => {
+    await open();
+    const produkId = await seedProduk('Tepung', 'Tepung terigu');
+    const sak = await seedVarian(produkId, 'Tepung terigu 25 kg', 'sak');
+    const packet = await seedVarian(produkId, 'Tepung terigu 1 kg', 'kg');
+    await count(sak, '0', 'Rak kosong');
+
+    fireEvent.press(screen.getByTestId(`minimum-${packet}`));
+    fireEvent.changeText(screen.getByTestId('minimum-jumlah'), '5');
+    fireEvent.press(screen.getByTestId('simpan-minimum'));
+    await act(async () => {});
+    await count(packet, '1', 'Hitung rak');
+
+    expect(screen.getByText('Stok sak: 0 · Reorder')).toBeTruthy();
+  });
+
+  it('flags the bulk varian itself, apart from its packets', async () => {
+    await open();
+    const produkId = await seedProduk('Tepung', 'Tepung terigu');
+    const sak = await seedVarian(produkId, 'Tepung terigu 25 kg', 'sak');
+    const packet = await seedVarian(produkId, 'Tepung terigu 1 kg', 'kg');
+
+    fireEvent.press(screen.getByTestId(`minimum-${sak}`));
+    fireEvent.changeText(screen.getByTestId('minimum-jumlah'), '2');
+    fireEvent.press(screen.getByTestId('simpan-minimum'));
+    await act(async () => {});
+    await count(sak, '1', 'Hitung gudang');
+    await count(packet, '20', 'Hitung rak');
+
+    expect(screen.getByText('Rendah: di bawah minimum 2')).toBeTruthy();
+    // The sack is judged on its own count; it has no bulk sibling to point at.
+    expect(screen.queryByTestId(`sak-${sak}`)).toBeNull();
+  });
+});
+
 async function storedEvents() {
   return mockPhone.store.readAll();
+}
+
+/** A sale written into the phone's log as if it happened `daysAgo` days ago. */
+async function seedPastSale(varianId: string, qty: number, daysAgo: number) {
+  const store = mockPhone.store;
+  const { id, seq } = await store.nextIdentity();
+  const at = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+  await store.append([
+    {
+      id,
+      seq,
+      deviceId: 'gawai-uji',
+      createdAt: at,
+      type: 'sale.completed',
+      payload: {
+        lines: [{ varianId, nama: 'Tepung terigu 1 kg', satuan: 'kg', qty, harga: 1000, jumlah: 1000 * qty }],
+        total: 1000 * qty,
+      },
+    } as never,
+  ]);
+}
+
+/** Goods arriving from a supplier, in the way they arrived. */
+async function seedReceived(varianId: string, qty: number, settlement: 'tunai' | 'tempo' | 'titip') {
+  const store = mockPhone.store;
+  const { id, seq } = await store.nextIdentity();
+  await store.append([
+    {
+      id,
+      seq,
+      deviceId: 'gawai-uji',
+      createdAt: new Date().toISOString(),
+      type: 'stock.received',
+      payload: { varianId, qty, settlement },
+    } as never,
+  ]);
 }

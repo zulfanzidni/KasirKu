@@ -26,7 +26,25 @@ export function normaliseQty(qty: number): number {
 /** One thing that moved a varian's count, in the order it happened. */
 export type StockMovement =
   | { kind: 'sale'; at: string; delta: number; saleId: string }
-  | { kind: 'adjusted'; at: string; delta: number; reason: string; eventId: string };
+  | { kind: 'adjusted'; at: string; delta: number; reason: string; eventId: string }
+  | {
+      kind: 'received';
+      at: string;
+      delta: number;
+      /** `titip` goods are the supplier's, so they never move the owned count. */
+      settlement: 'tunai' | 'tempo' | 'titip';
+      eventId: string;
+    };
+
+/** Whether a movement belongs to the shop's own stock (GLOSSARY: dimiliki). */
+export function isOwned(movement: StockMovement): boolean {
+  return movement.kind !== 'received' || movement.settlement !== 'titip';
+}
+
+/** The part of a movement that changes owned stock; titip contributes nothing. */
+export function ownedDelta(movement: StockMovement): number {
+  return isOwned(movement) ? movement.delta : 0;
+}
 
 /** Everything the log says about one varian's count. */
 export interface StockLedgerEntry {
@@ -57,6 +75,17 @@ export function movementsOf(events: readonly LedgerEvent[], varianId: string): S
           eventId: event.id,
         });
         break;
+
+      case 'stock.received':
+        if (event.payload.varianId !== varianId) break;
+        movements.push({
+          kind: 'received',
+          at: event.createdAt,
+          delta: normaliseQty(event.payload.qty),
+          settlement: event.payload.settlement,
+          eventId: event.id,
+        });
+        break;
     }
   }
   return movements;
@@ -69,8 +98,9 @@ export function movementsOf(events: readonly LedgerEvent[], varianId: string): S
  */
 export function stockOf(events: readonly LedgerEvent[], varianId: string): StockLedgerEntry {
   const movements = movementsOf(events, varianId);
-  if (movements.length === 0) return { stock: { kind: 'unknown' }, movements };
-  const qty = normaliseQty(movements.reduce((sum, movement) => sum + movement.delta, 0));
+  const owned = movements.filter(isOwned);
+  if (owned.length === 0) return { stock: { kind: 'unknown' }, movements };
+  const qty = normaliseQty(owned.reduce((sum, movement) => sum + movement.delta, 0));
   return { stock: { kind: 'counted', qty }, movements };
 }
 

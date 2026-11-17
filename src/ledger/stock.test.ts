@@ -79,13 +79,14 @@ describe('stock, asked for per varian', () => {
     expect(await lowStock(ledger)).toEqual([]);
   });
 
-  it('leaves the unknown varian out of the reorder list too, even beside a known-low one', async () => {
+  it('flags a negative count as low, even when the varian was never counted', async () => {
     const { ledger, ids } = await shopWith([KG1, KG2]);
     await ledger.recordSale([{ varianId: ids[KG2.nama], qty: 1 }], paid(26000));
     await adjust(ledger, ids[KG1.nama], 0, 'Hitung awal');
 
-    // 1 kg was counted at 0 and is out; 2 kg has never been counted.
-    expect((await lowStock(ledger)).map((entry) => entry.varian.nama)).toEqual([KG1.nama]);
+    // 1 kg was counted at 0 and is out; 2 kg sold one without ever being
+    // counted, so its count is −1 — the app and the shelf disagree.
+    expect((await lowStock(ledger)).map((entry) => entry.varian.nama)).toEqual([KG1.nama, KG2.nama]);
   });
 
   it('counts a correction from the shelf: the counted number becomes the stock', async () => {
