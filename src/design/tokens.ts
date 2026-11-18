@@ -1,13 +1,16 @@
 import type { TextStyle } from 'react-native';
 
 /**
- * Nota — design tokens.
+ * Jendela kasir — design tokens.
  *
  * Single source of truth for every colour, type size, spacing and shape value
  * in the app. Nothing outside this folder may declare a raw hex value, a font
  * size, or a spacing number, except a component's own layout arithmetic.
  *
  * Read DESIGN.md before changing anything here.
+ *
+ * Every screen reads these roles, never a value, so this file is the whole
+ * visual world: change the tokens and all fifteen screens change with them.
  */
 
 // ---------------------------------------------------------------------------
@@ -15,31 +18,40 @@ import type { TextStyle } from 'react-native';
 // ---------------------------------------------------------------------------
 
 /**
- * The six colours of the world, exposed as Material 3 colour roles so a future
- * dynamic-colour or dark theme resolves through the same keys rather than
- * through raw hex at the call site.
+ * Two grounds and one ink. The screen is the counter (a cool, neutral paper
+ * grey), a panel is a sheet laid on it (white), and everything you read or press
+ * is near-black ink. Red is not an accent: it is money someone still owes.
+ *
+ * Exposed as Material 3 colour roles so a future dark theme resolves through
+ * the same keys rather than through raw hex at the call site.
  */
 export const colors = {
-  primary: '#1F3A6E',
-  onPrimary: '#FDFBF6',
-  primaryContainer: '#E7EAE3',
-  onPrimaryContainer: '#1F3A6E',
+  /** The till's own display: the total, and every primary action. */
+  primary: '#101418',
+  onPrimary: '#FFFFFF',
+  /** Selection wash and Android ripple. */
+  primaryContainer: '#E6E6E0',
+  onPrimaryContainer: '#101418',
 
-  surface: '#F7F3EA',
-  onSurface: '#2F2A24',
-  surfaceContainerLowest: '#FDFBF6',
-  onSurfaceVariant: '#8A7F6D',
+  /** The counter the app sits on. */
+  surface: '#F1F1EE',
+  onSurface: '#101418',
+  /** Panels and lists: a sheet laid on the counter. */
+  surfaceContainerLowest: '#FFFFFF',
+  /** Labels, units, timestamps. 5.0:1 on the counter, 4.6:1 on a panel. */
+  onSurfaceVariant: '#64645D',
 
-  outline: '#DED5C4',
-  outlineVariant: '#DED5C4',
+  outline: '#E2E2DC',
+  outlineVariant: '#EFEFEA',
 
+  /** Only money still owed, negative stock, and a destructive confirm. */
   error: '#A8231F',
-  onError: '#FDFBF6',
+  onError: '#FFFFFF',
 
-  disabled: '#E3DCCD',
-  disabledContent: '#A69C8B',
+  disabled: '#E9E9E4',
+  disabledContent: '#9A9A92',
 
-  scrim: 'rgba(47, 42, 36, 0.40)',
+  scrim: 'rgba(16, 20, 24, 0.40)',
 } as const;
 
 export type ColorToken = keyof typeof colors;
@@ -48,11 +60,12 @@ export type ColorToken = keyof typeof colors;
 // Typography
 // ---------------------------------------------------------------------------
 
+/**
+ * One voice. The till is an instrument, and an instrument has one legible face:
+ * IBM Plex Sans. It carries real tabular figures, which is what a column of
+ * rupiah needs. There is no second, decorative face in the app.
+ */
 export const fontFamily = {
-  /** A ballpoint's hand. Headings and totals ONLY. */
-  pen: 'Kalam_700Bold',
-  penRegular: 'Kalam_400Regular',
-  /** Everything read under pressure. */
   print: 'PlexSans_400Regular',
   printMedium: 'PlexSans_500Medium',
   printSemibold: 'PlexSans_600SemiBold',
@@ -61,67 +74,68 @@ export const fontFamily = {
 const tabular: TextStyle['fontVariant'] = ['tabular-nums'];
 
 /**
- * Material 3 type roles. `fontSize` values are device-independent points that
- * follow the system font scale — Android's `sp`. Never multiply these by a
- * density factor by hand.
+ * Material 3 type roles, sized for a counter rather than a desk. `fontSize`
+ * values are device-independent points that follow the system font scale —
+ * Android's `sp`. Never multiply these by a density factor by hand.
  */
 export const typography = {
+  /** The total in its window. Appears once per screen, and only for money. */
   displayLarge: {
-    fontFamily: fontFamily.pen,
-    fontSize: 44,
-    lineHeight: 58,
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 34,
+    lineHeight: 38,
     letterSpacing: -0.5,
     fontVariant: tabular,
   },
   headlineSmall: {
-    fontFamily: fontFamily.pen,
-    fontSize: 24,
-    lineHeight: 34,
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 19,
+    lineHeight: 24,
     letterSpacing: -0.2,
     fontVariant: tabular,
   },
   titleMedium: {
     fontFamily: fontFamily.printSemibold,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 20,
     letterSpacing: 0,
   },
   bodyLarge: {
     fontFamily: fontFamily.print,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     letterSpacing: 0,
   },
   bodyMedium: {
     fontFamily: fontFamily.print,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     letterSpacing: 0,
   },
   labelLarge: {
     fontFamily: fontFamily.printSemibold,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 18,
     letterSpacing: 0.1,
   },
   labelSmall: {
     fontFamily: fontFamily.printSemibold,
     fontSize: 11,
     lineHeight: 16,
-    letterSpacing: 1.32,
+    letterSpacing: 1.1,
     textTransform: 'uppercase' as const,
   },
   numericLarge: {
     fontFamily: fontFamily.printSemibold,
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 22,
     letterSpacing: 0,
     fontVariant: tabular,
   },
   numericMedium: {
     fontFamily: fontFamily.printMedium,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     letterSpacing: 0,
     fontVariant: tabular,
   },
@@ -142,22 +156,40 @@ export const space = {
   xxl: 28,
   /** Screen edge gutter, both sides. */
   gutter: 20,
-  /** Height of a ruled row. Tall enough for a thumb, tight enough to fit eight. */
-  row: 46,
+  /** Height of a list row. Tall enough for a thumb, tight enough to scan. */
+  row: 48,
   /** Minimum touch target, per Material and DESIGN.md. */
   touch: 48,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Layout — how the frame reflows between portrait and landscape
+// ---------------------------------------------------------------------------
+
+/**
+ * Material's window-size breakpoint. Under it the app is "compact" and keeps the
+ * bottom bar; at or above it there is width to spare, so navigation moves to a
+ * rail down the left edge and screens may use two panes.
+ */
+export const layout = {
+  /** Width at which navigation becomes a rail and Kasir splits in two. */
+  wide: 600,
+  /** Rail width. Narrower than the old bottom bar is tall, which is the point. */
+  rail: 72,
+  /** The nota panel's fixed width in two-pane Kasir. */
+  notaPanel: 320,
 } as const;
 
 // ---------------------------------------------------------------------------
 // Shape
 // ---------------------------------------------------------------------------
 
-/** A notebook corner, not a pill. */
+/** A machined corner, not a pill. */
 export const shape = {
   none: 0,
   sm: 4,
-  md: 4,
-  lg: 4,
+  md: 6,
+  lg: 8,
   /** Bottom-sheet top corners only. */
   sheetTop: 16,
   full: 999,
@@ -165,7 +197,7 @@ export const shape = {
 
 export const borderWidth = {
   hairline: 1,
-  /** The accountant's double rule above a total. */
+  /** A section rule. Heavier than a row rule, lighter than a border. */
   rule: 3,
   focus: 2,
 } as const;
@@ -176,10 +208,10 @@ export const borderWidth = {
 
 /**
  * Quiet and quick. State changes are steps, never eases that draw attention.
- * `savingSale` is the one authored moment: the notebook page turning.
+ * `savingSale` is the one authored moment: the total settling into the window.
  */
 export const motion = {
-  /** Row appearing in the cart. */
+  /** A tile joining the nota. */
   step: 90,
   /** Screen fades. */
   screen: 200,
@@ -199,19 +231,19 @@ export const elevation = {
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
   },
-  /** Sticky totals and floating cart sections. */
+  /** Sticky totals and panels that sit above the counter. */
   raised: {
     shadowColor: colors.onSurface,
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: -2 },
     elevation: 2,
   },
   /** Bottom sheets and dialogs. */
   overlay: {
     shadowColor: colors.onSurface,
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: -4 },
     elevation: 6,
   },

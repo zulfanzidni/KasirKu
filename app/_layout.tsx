@@ -2,12 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Kalam_400Regular, Kalam_700Bold } from '@expo-google-fonts/kalam';
 import {
+  useFonts,
   IBMPlexSans_400Regular,
   IBMPlexSans_500Medium,
   IBMPlexSans_600SemiBold,
-  useFonts as usePlexFonts,
 } from '@expo-google-fonts/ibm-plex-sans';
 import { colors, Note } from '@/design';
 import { LedgerProvider, useApp } from '@/ledger/useLedger';
@@ -17,18 +16,17 @@ import './connectPhone';
 
 /**
  * Fonts and the ledger are the two things that must be ready before anything
- * renders: the world is two voices, and every number on screen is read off
- * the log. Both are loaded here, behind a paper-coloured holding screen.
+ * renders: the till has one voice, and every number on screen is read off the
+ * log. Both are loaded here, behind a holding screen.
  */
 export default function RootLayout() {
-  const [penLoaded, penError] = useFonts({ Kalam_400Regular, Kalam_700Bold });
-  const [printLoaded, printError] = usePlexFonts({
+  const [fontsLoaded, fontError] = useFonts({
     PlexSans_400Regular: IBMPlexSans_400Regular,
     PlexSans_500Medium: IBMPlexSans_500Medium,
     PlexSans_600SemiBold: IBMPlexSans_600SemiBold,
   });
 
-  const fontsReady = (penLoaded || penError) && (printLoaded || printError);
+  const fontsReady = fontsLoaded || fontError;
 
   if (!fontsReady) return <Loading />;
 

@@ -9,9 +9,9 @@ export interface ConfirmationScreenProps {
 }
 
 /**
- * After a sale is saved: the same double rule and pen total as the cart, now
- * reading a sale that exists in the log. It shows what was written, not a
- * congratulation — the till has no celebration (DESIGN.md §Motion).
+ * After a sale is saved: the same total window as the cart, now reading a sale
+ * that exists in the log. It shows what was written, not a congratulation — the
+ * till has no celebration (DESIGN.md §Motion).
  */
 export function ConfirmationScreen({ sale, onNewSale }: ConfirmationScreenProps) {
   const insets = useSafeAreaInsets();

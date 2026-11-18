@@ -6,6 +6,7 @@ export { CloseButton, HeaderAction, IconButton } from './components/Icons';
 export { Screen, type ScreenProps } from './components/Screen';
 export { Note, SectionHeading } from './components/Text';
 export { TabBar, type TabBarProps, type TabItem } from './components/TabBar';
+export { NavRail, type NavRailProps } from './components/NavRail';
 export { Button, TotalRule, type ButtonProps } from './components/Button';
 export { RuledRow, type RuledRowProps } from './components/RuledRow';
 export { TotalBlock, type TotalBlockProps } from './components/TotalBlock';
@@ -15,6 +16,7 @@ export {
   typography,
   fontFamily,
   space,
+  layout,
   shape,
   borderWidth,
   motion,

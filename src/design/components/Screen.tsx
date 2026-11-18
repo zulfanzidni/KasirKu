@@ -17,9 +17,9 @@ export interface ScreenProps {
 }
 
 /**
- * The paper sheet: a header with the screen's title in pen and a rule beneath,
- * the 20 dp gutter DESIGN.md fixes, and nothing else. Screens compose it
- * rather than re-declaring a background or an inset.
+ * The frame every screen composes: a header with the screen's title and a
+ * hairline beneath, the 20 dp gutter DESIGN.md fixes, and nothing else. Screens
+ * compose it rather than re-declaring a background or an inset.
  */
 export function Screen({ title, overline, actions, footer, children }: ScreenProps) {
   const insets = useSafeAreaInsets();
@@ -56,15 +56,15 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     paddingBottom: space.sm,
     minHeight: 56,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.primary,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outline,
   },
   headerText: { flex: 1 },
   body: { flex: 1 },
   footer: {
     backgroundColor: colors.surfaceContainerLowest,
-    borderTopWidth: 1.5,
-    borderTopColor: colors.primary,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.outline,
     paddingHorizontal: space.gutter,
     paddingTop: space.md,
   },

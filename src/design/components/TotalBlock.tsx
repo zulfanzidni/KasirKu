@@ -1,61 +1,53 @@
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { AppText } from './AppText';
 import { formatRupiah } from '../money';
-import { colors, space } from '../tokens';
+import { colors, shape, space } from '../tokens';
 
 export interface TotalBlockProps {
   /** Integer rupiah. */
   amount: number;
-  /** The word above the number. Default "Total". */
+  /** The word beside the number. Default "Total". */
   label?: string;
   style?: ViewStyle;
   testID?: string;
 }
 
 /**
- * The signature move of the whole design: the accountant's double rule, the
- * word, and the amount set in pen at a size readable across the counter.
+ * The signature move of the whole design: the total in its window.
  *
- * This construction appears on Kasir, on the receipt, and at the close of
- * Tutup Toko. Nothing else in the app is ever this large, which is what makes
- * it read as *the* number rather than *a* number.
+ * A dark block, the word in small caps at its left, the amount in tabular
+ * figures at its right — the till's own display reading back at you. It appears
+ * on Kasir, on the receipt, and at the close of Tutup Toko, and nothing else in
+ * the app is ever this large, which is what makes it read as *the* number
+ * rather than *a* number.
  */
 export function TotalBlock({ amount, label = 'Total', style, testID }: TotalBlockProps) {
   return (
-    <View testID={testID} style={style}>
-      <View style={styles.doubleRule}>
-        <View style={styles.ruleTop} />
-        <View style={styles.ruleGap} />
-        <View style={styles.ruleBottom} />
-      </View>
-      <View style={styles.row}>
-        <AppText typeRole="labelSmall" tone="primary">
-          {label}
-        </AppText>
-        <AppText
-          typeRole="displayLarge"
-          tone="primary"
-          align="right"
-          style={styles.amount}
-          accessibilityLabel={`Total ${amount}`}
-        >
-          {formatRupiah(amount)}
-        </AppText>
-      </View>
+    <View testID={testID} style={[styles.block, style]}>
+      <AppText typeRole="labelSmall" tone="onPrimaryMuted">
+        {label}
+      </AppText>
+      <AppText
+        typeRole="displayLarge"
+        tone="onPrimary"
+        align="right"
+        accessibilityLabel={`Total ${amount}`}
+      >
+        {formatRupiah(amount)}
+      </AppText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  doubleRule: { marginBottom: space.sm },
-  ruleTop: { height: 2, backgroundColor: colors.primary },
-  ruleGap: { height: 2 },
-  ruleBottom: { height: 1, backgroundColor: colors.primary },
-  amount: { lineHeight: 48 },
-  row: {
+  block: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
-    paddingBottom: space.xs,
+    gap: space.sm,
+    backgroundColor: colors.primary,
+    borderRadius: shape.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
 });

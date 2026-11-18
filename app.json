@@ -4,7 +4,7 @@
     "slug": "kasirku",
     "scheme": "kasirku",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "platforms": [
@@ -14,7 +14,7 @@
     "android": {
       "package": "id.kasirku.app",
       "adaptiveIcon": {
-        "backgroundColor": "#F7F3EA"
+        "backgroundColor": "#F1F1EE"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true

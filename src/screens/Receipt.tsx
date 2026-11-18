@@ -64,7 +64,7 @@ export function ReceiptScreen({ sale, shop, onNewSale, onShare, sharing, shareEr
   );
 }
 
-/** The paper itself: header, lines, the sums under the double rule, footer. */
+/** The paper itself: header, lines, the sums above the total window, footer. */
 export function ReceiptPaper({ nota }: { nota: ReceiptData }) {
   return (
     <View style={styles.paper} testID="nota-kertas">

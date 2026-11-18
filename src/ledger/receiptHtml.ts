@@ -95,27 +95,28 @@ const STYLE = `
   body {
     font-family: 'IBM Plex Sans', Helvetica, Arial, sans-serif;
     font-variant-numeric: tabular-nums;
-    color: #2F2A24;
+    color: #101418;
     font-size: 12pt;
     line-height: 1.45;
     margin: 0;
   }
   h1 {
-    font-family: 'Kalam', 'Segoe Script', cursive;
-    color: #1F3A6E;
-    font-size: 22pt;
+    font-family: 'IBM Plex Sans', Helvetica, Arial, sans-serif;
+    font-weight: 600;
+    color: #101418;
+    font-size: 20pt;
     margin: 0;
     text-align: center;
   }
   .toko { text-align: center; }
-  .keterangan { color: #8A7F6D; margin: 2mm 0 0; white-space: pre-line; }
+  .keterangan { color: #64645D; margin: 2mm 0 0; white-space: pre-line; }
   .meta {
     display: flex;
     justify-content: space-between;
-    color: #8A7F6D;
+    color: #64645D;
     font-size: 10pt;
-    border-top: 1.5pt solid #1F3A6E;
-    border-bottom: 1.5pt solid #1F3A6E;
+    border-top: 1.5pt solid #101418;
+    border-bottom: 1.5pt solid #101418;
     padding: 2mm 0;
     margin: 4mm 0 0;
   }
@@ -132,9 +133,9 @@ const STYLE = `
   .batal-judul { font-weight: 700; letter-spacing: 0.16em; font-size: 13pt; }
   .batal-alasan { font-size: 10pt; }
   table { width: 100%; border-collapse: collapse; }
-  .line td { padding: 1.6mm 0; border-bottom: 0.5pt solid #DED5C4; }
-  .nama { color: #2F2A24; }
-  .qty { color: #8A7F6D; margin-left: 1.5mm; }
+  .line td { padding: 1.6mm 0; border-bottom: 0.5pt solid #E2E2DC; }
+  .nama { color: #101418; }
+  .qty { color: #64645D; margin-left: 1.5mm; }
   .uang { text-align: right; white-space: nowrap; }
   .jumlah td { padding: 1.2mm 0; }
   .jumlah { margin-top: 3mm; }
@@ -143,16 +144,16 @@ const STYLE = `
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    border-top: 3pt double #1F3A6E;
-    border-bottom: 1.5pt solid #1F3A6E;
+    border-top: 3pt double #101418;
+    border-bottom: 1.5pt solid #101418;
     padding: 2mm 0;
     margin-top: 4mm;
   }
-  .total-label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 10pt; font-weight: 600; color: #1F3A6E; }
-  .total-uang { font-family: 'Kalam', cursive; font-size: 24pt; font-weight: 700; color: #1F3A6E; }
+  .total-label { text-transform: uppercase; letter-spacing: 0.12em; font-size: 10pt; font-weight: 600; color: #101418; }
+  .total-uang { font-family: 'IBM Plex Sans', Helvetica, Arial, sans-serif; font-size: 22pt; font-weight: 600; color: #101418; }
   .kaki {
     text-align: center;
-    color: #8A7F6D;
+    color: #64645D;
     margin-top: 10mm;
     white-space: pre-line;
   }

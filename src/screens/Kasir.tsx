@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AppText,
@@ -8,6 +8,8 @@ import {
   fontFamily,
   formatQty,
   formatRupiah,
+  layout,
+  shape,
   space,
   typography,
 } from '@/design';
@@ -16,7 +18,7 @@ import { shareReceipt } from '@/ledger/receipt';
 import { printer } from '@/ledger/printer';
 import { useApp, type TapOutcome } from '@/ledger/useLedger';
 import { searchVarian, sellableVarian } from '@/ledger/queries';
-import { NotaSheet } from '@/screens/Nota';
+import { NotaPanel, NotaSheet } from '@/screens/Nota';
 import { ChoiceSheet } from '@/screens/ChoiceSheet';
 import { CustomerStep } from '@/screens/CustomerStep';
 import { PaymentStep } from '@/screens/PaymentStep';
@@ -26,8 +28,12 @@ import { ReceiptScreen } from '@/screens/Receipt';
  * Kasir — the sell screen.
  *
  * The grid lists variants, not products: a tap either adds one, opens the
- * sizes of a multi-variant product, or opens the weight control. The cart sits
- * below it so the running total is on screen at all times.
+ * sizes of a multi-variant product, or opens the weight control.
+ *
+ * The frame is the till. Portrait is one column: the grid with the nota folded
+ * along the bottom. Landscape is two panes: the grid on the left, the nota as a
+ * fixed panel on the right where the counter's paper would be. Same state, same
+ * cart, two shapes for two widths.
  */
 export function KasirScreen() {
   const { shop, cart, cartRestored, tapItem, addVarian, setLineQty, removeLine, cancelCart, saveSale, lastSaleId, forgetLastSale, todayTotals, hutangOf } =
@@ -41,6 +47,10 @@ export function KasirScreen() {
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  /** Wide enough for two panes: the width Material calls "medium" and up. */
+  const wide = width >= layout.wide;
 
   const sellable = useMemo(() => sellableVarian(shop), [shop]);
   const varian = useMemo(() => searchVarian(sellable, query), [sellable, query]);
@@ -139,16 +149,16 @@ export function KasirScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <AppText typeRole="headlineSmall" tone="primary">
-          KasirKu
-        </AppText>
-        <AppText typeRole="labelSmall" tone="muted">
-          Kasir
-        </AppText>
-      </View>
+      <View style={[styles.topbar, wide && styles.topbarWide]}>
+        <View style={styles.brand}>
+          <AppText typeRole="headlineSmall">KasirKu</AppText>
+          {wide ? (
+            <AppText typeRole="labelSmall" tone="muted">
+              Kasir
+            </AppText>
+          ) : null}
+        </View>
 
-      <View style={styles.searchRow}>
         <TextInput
           testID="cari-barang"
           accessibilityLabel="Cari barang"
@@ -158,12 +168,10 @@ export function KasirScreen() {
           placeholderTextColor={colors.onSurfaceVariant}
           returnKeyType="search"
           autoCorrect={false}
-          style={styles.search}
+          style={[styles.search, wide && styles.searchWide]}
         />
-      </View>
 
-      <View style={styles.today} testID="hari-ini">
-        <View style={styles.todayRow}>
+        <View style={[styles.today, wide && styles.todayWide]} testID="hari-ini">
           <AppText typeRole="labelSmall" tone="muted">
             Hari ini
           </AppText>
@@ -174,9 +182,6 @@ export function KasirScreen() {
             {`Tunai ${formatRupiah(hari.tunai)}`}
           </AppText>
         </View>
-        <AppText typeRole="labelSmall" tone="muted">
-          Jualan dihitung penuh; tunai hanya yang dibayar. Selisihnya hutang pelanggan.
-        </AppText>
       </View>
 
       {cartRestored ? (
@@ -185,27 +190,52 @@ export function KasirScreen() {
         </AppText>
       ) : null}
 
-      {sellable.length === 0 ? (
-        <View style={styles.empty}>
-          <AppText typeRole="titleMedium" tone="primary" style={styles.emptyTitle}>
-            {teks.belumDiatur}
-          </AppText>
-          <Note>{teks.kosongPanduan}</Note>
-        </View>
-      ) : (
-        <FlatList
-          data={varian}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.gridContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <AppText typeRole="bodyMedium" tone="muted" style={styles.noMatch}>
-              Tidak ada barang yang cocok.
+      <View style={styles.main}>
+        {sellable.length === 0 ? (
+          <View style={styles.empty}>
+            <AppText typeRole="titleMedium" style={styles.emptyTitle}>
+              {teks.belumDiatur}
             </AppText>
-          }
-          renderItem={({ item }) => <VarianRow varian={item} cart={cart} onPress={() => handleTap(item)} />}
-        />
-      )}
+            <Note>{teks.kosongPanduan}</Note>
+          </View>
+        ) : (
+          <FlatList
+            data={varian}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            style={styles.grid}
+            contentContainerStyle={styles.gridContent}
+            columnWrapperStyle={styles.tileRow}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <AppText typeRole="bodyMedium" tone="muted" style={styles.noMatch}>
+                Tidak ada barang yang cocok.
+              </AppText>
+            }
+            renderItem={({ item }) => {
+              const line = cart.find((entry) => entry.varianId === item.id);
+              return (
+                <VarianTile
+                  varian={item}
+                  qty={line?.qty ?? 0}
+                  onPress={() => handleTap(item)}
+                />
+              );
+            }}
+          />
+        )}
+
+        {wide ? (
+          <NotaPanel
+            cart={cart}
+            onSetQty={setLineQty}
+            onRemove={removeLine}
+            onCancel={cancelCart}
+            onSave={() => setStep('pelanggan')}
+            saving={saving}
+          />
+        ) : null}
+      </View>
 
       {saveError ? (
         <AppText typeRole="bodyMedium" tone="owed" style={styles.saveError}>
@@ -213,14 +243,16 @@ export function KasirScreen() {
         </AppText>
       ) : null}
 
-      <NotaSheet
-        cart={cart}
-        onSetQty={setLineQty}
-        onRemove={removeLine}
-        onCancel={cancelCart}
-        onSave={() => setStep('pelanggan')}
-        saving={saving}
-      />
+      {wide ? null : (
+        <NotaSheet
+          cart={cart}
+          onSetQty={setLineQty}
+          onRemove={removeLine}
+          onCancel={cancelCart}
+          onSave={() => setStep('pelanggan')}
+          saving={saving}
+        />
+      )}
 
       <ChoiceSheet
         choice={choice}
@@ -235,94 +267,98 @@ export function KasirScreen() {
 }
 
 /**
- * One tappable line of the grid. It shows the variant's own name — variants
- * are what is sold, so the size is never guessed from the product.
+ * One tappable tile. It shows the variant's own name — variants are what is
+ * sold, so the size is never guessed from the product — its price and unit, and
+ * how many of them the nota already holds.
  */
-function VarianRow({ varian, cart, onPress }: { varian: Varian; cart: ReturnType<typeof useApp>['cart']; onPress: () => void }) {
-  const line = cart.find((entry) => entry.varianId === varian.id);
+function VarianTile({ varian, qty, onPress }: { varian: Varian; qty: number; onPress: () => void }) {
+  const inCart = qty > 0;
   return (
     <Pressable
       testID={`grid-${varian.id}`}
       accessibilityRole="button"
       accessibilityLabel={`${varian.nama}, ${formatRupiah(varian.harga)} per ${varian.satuan}`}
+      accessibilityState={{ selected: inCart }}
       android_ripple={{ color: colors.primaryContainer }}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, line ? styles.rowInCart : null, pressed && styles.rowPressed]}
+      style={({ pressed }) => [styles.tile, inCart && styles.tileInCart, pressed && styles.tilePressed]}
     >
-      <View style={styles.rowMain}>
-        {varian.kode ? (
-          <AppText typeRole="labelSmall" tone="muted" style={styles.kode}>
-            {varian.kode}
-          </AppText>
+      <AppText typeRole="bodyLarge" numberOfLines={2} style={styles.tileName}>
+        {varian.nama}
+      </AppText>
+      <View style={styles.tileFoot}>
+        {inCart ? (
+          <View style={styles.mark}>
+            <AppText typeRole="labelSmall" tone="onPrimary" style={styles.markText}>
+              {`×${formatQty(qty)}`}
+            </AppText>
+          </View>
         ) : null}
-        <AppText typeRole="bodyLarge" numberOfLines={1} style={styles.rowName}>
-          {varian.nama}
+        <AppText typeRole="numericLarge" style={styles.tilePrice}>
+          {formatRupiah(varian.harga)}
         </AppText>
-        {line ? (
-          <AppText typeRole="numericMedium" tone="primary" style={styles.mark}>
-            {`×${formatQty(line.qty)}`}
-          </AppText>
-        ) : null}
+        <AppText typeRole="labelSmall" tone="muted" style={styles.unit}>
+          {`/${varian.satuan}`}
+        </AppText>
       </View>
-      <AppText typeRole="numericLarge" align="right" style={styles.price}>
-        {formatRupiah(varian.harga)}
-      </AppText>
-      <AppText typeRole="labelSmall" tone="muted" style={styles.unit}>
-        {`/${varian.satuan}`}
-      </AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
+  topbar: {
     paddingHorizontal: space.gutter,
     paddingTop: space.sm,
     paddingBottom: space.sm,
-    minHeight: 56,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.primary,
+    gap: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outline,
   },
-  searchRow: { paddingHorizontal: space.gutter, paddingTop: space.md },
+  topbarWide: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
+  brand: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
   search: {
     height: space.touch,
     paddingHorizontal: space.md,
     backgroundColor: colors.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: colors.outline,
-    borderRadius: 4,
+    borderRadius: shape.md,
     color: colors.onSurface,
     ...typography.bodyLarge,
     fontFamily: fontFamily.print,
   },
+  searchWide: { flex: 1, maxWidth: 320, height: 40 },
+  today: { flexDirection: 'row', alignItems: 'baseline', gap: space.md },
+  todayWide: { marginLeft: 'auto', gap: space.lg },
   restored: { paddingHorizontal: space.gutter, paddingTop: space.sm },
-  today: { paddingHorizontal: space.gutter, paddingTop: space.sm, gap: 2 },
-  todayRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.md },
+  main: { flex: 1, flexDirection: 'row' },
+  grid: { flex: 1 },
+  gridContent: { padding: space.sm, gap: space.sm, paddingBottom: space.lg },
+  tileRow: { gap: space.sm },
+  tile: {
+    flex: 1,
+    minHeight: 78,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    justifyContent: 'space-between',
+    gap: space.xs,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: shape.md,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    overflow: 'hidden',
+  },
+  tileInCart: { borderWidth: 1.5, borderColor: colors.primary },
+  tilePressed: { opacity: 0.9 },
+  tileName: { flexShrink: 1 },
+  tileFoot: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: space.xs },
+  mark: { backgroundColor: colors.primary, borderRadius: 3, paddingHorizontal: space.xs, marginRight: 'auto' },
+  markText: { fontSize: 10, lineHeight: 14, letterSpacing: 0.2 },
+  tilePrice: { fontVariant: ['tabular-nums'] },
+  unit: { fontSize: 10, lineHeight: 14, letterSpacing: 0.2 },
   empty: { flex: 1 },
   emptyTitle: { paddingHorizontal: space.gutter, paddingTop: space.xl },
   noMatch: { paddingHorizontal: space.gutter, paddingVertical: space.lg },
-  gridContent: { paddingBottom: space.lg },
-  row: {
-    minHeight: space.touch + 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.gutter,
-    gap: space.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-    overflow: 'hidden',
-  },
-  rowInCart: { backgroundColor: colors.primaryContainer },
-  rowPressed: { opacity: 0.9 },
-  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
-  kode: { minWidth: 46 },
-  rowName: { flexShrink: 1 },
-  mark: { paddingLeft: space.xs },
-  price: { width: 80 },
-  unit: { width: 44 },
   saveError: { paddingHorizontal: space.gutter, paddingBottom: space.sm },
 });

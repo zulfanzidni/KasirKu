@@ -1,7 +1,7 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 import { colors, typography, type TypeRole } from '../tokens';
 
-type Tone = 'default' | 'primary' | 'muted' | 'owed' | 'onPrimary';
+type Tone = 'default' | 'primary' | 'muted' | 'owed' | 'onPrimary' | 'onPrimaryMuted';
 
 const toneColor: Record<Tone, string> = {
   default: colors.onSurface,
@@ -9,6 +9,8 @@ const toneColor: Record<Tone, string> = {
   muted: colors.onSurfaceVariant,
   owed: colors.error,
   onPrimary: colors.onPrimary,
+  /** A label inside the dark total window. */
+  onPrimaryMuted: 'rgba(255, 255, 255, 0.62)',
 };
 
 /**

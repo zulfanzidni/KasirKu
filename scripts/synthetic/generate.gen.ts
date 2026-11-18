@@ -14,12 +14,12 @@
  * timestamp, so the number on a nota and the day it belongs to agree.
  *
  * Run it with:
- *   npx jest --runTestsByPath scripts/synthetic/generate.gen.ts --testMatch "**/*.gen.ts"
+ *   npx jest --runTestsByPath scripts/synthetic/generate.gen.ts --testMatch "*.gen.ts"
  *
  * The `.gen.ts` suffix keeps it out of `npm test`: it writes files, so it is a
  * tool you run on purpose, not a suite that runs on every save. That is also
  * why the command has to widen `testMatch` — jest-expo's default only picks up
- * `*.test.ts`, so the path alone finds nothing.
+ * `.test.ts` files, so the path alone finds nothing.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

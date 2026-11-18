@@ -17,9 +17,9 @@ export interface BottomSheetProps {
 }
 
 /**
- * A Material bottom sheet in Nota's paper: `sheet` surface, a 16 dp top
- * corner, a scrim, and the standard slide. Pressing Back or the scrim closes
- * it — nothing is trapped here.
+ * A Material bottom sheet: `sheet` surface, a 16 dp top corner, a scrim, and
+ * the standard slide. Pressing Back or the scrim closes it — nothing is trapped
+ * here.
  */
 export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(function BottomSheet(
   { visible, onClose, title, children, testID },

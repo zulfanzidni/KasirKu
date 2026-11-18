@@ -16,7 +16,7 @@ export interface ButtonProps {
 }
 
 /**
- * Material 3 buttons, themed by Nota.
+ * Material 3 buttons, themed by Jendela kasir.
  *
  * The disabled state is not a fade: it drops to the `disabled` fill, because a
  * faded ink button still reads as tappable across a counter. That matters most

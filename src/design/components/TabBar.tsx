@@ -35,7 +35,7 @@ export function TabBar({ tabs, active, onChange }: TabBarProps) {
             style={styles.tab}
           >
             <View style={[styles.pill, selected && styles.pillActive]}>
-              <MaterialIcons name={tab.icon} size={22} color={selected ? colors.primary : colors.onSurfaceVariant} />
+              <MaterialIcons name={tab.icon} size={22} color={selected ? colors.onPrimary : colors.onSurfaceVariant} />
             </View>
             <AppText typeRole="labelLarge" tone={selected ? 'primary' : 'muted'} style={styles.label}>
               {tab.label}
@@ -63,6 +63,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillActive: { backgroundColor: colors.primaryContainer },
+  pillActive: { backgroundColor: colors.primary },
   label: { fontSize: 12, lineHeight: 16, paddingTop: 2 },
 });
