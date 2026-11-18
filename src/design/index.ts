@@ -7,6 +7,8 @@ export { Screen, type ScreenProps } from './components/Screen';
 export { Note, SectionHeading } from './components/Text';
 export { TabBar, type TabBarProps, type TabItem } from './components/TabBar';
 export { NavRail, type NavRailProps } from './components/NavRail';
+export { SplitPane, type SplitPaneProps } from './components/SplitPane';
+export { useFrame, type Frame } from './useFrame';
 export { Button, TotalRule, type ButtonProps } from './components/Button';
 export { RuledRow, type RuledRowProps } from './components/RuledRow';
 export { TotalBlock, type TotalBlockProps } from './components/TotalBlock';

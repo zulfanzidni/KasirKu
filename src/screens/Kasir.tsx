@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AppText,
@@ -8,10 +8,10 @@ import {
   fontFamily,
   formatQty,
   formatRupiah,
-  layout,
   shape,
   space,
   typography,
+  useFrame,
 } from '@/design';
 import { teks, type PaymentInput, type Sale, type Varian } from '@/ledger';
 import { shareReceipt } from '@/ledger/receipt';
@@ -47,10 +47,8 @@ export function KasirScreen() {
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-
   /** Wide enough for two panes: the width Material calls "medium" and up. */
-  const wide = width >= layout.wide;
+  const { wide } = useFrame();
 
   const sellable = useMemo(() => sellableVarian(shop), [shop]);
   const varian = useMemo(() => searchVarian(sellable, query), [sellable, query]);

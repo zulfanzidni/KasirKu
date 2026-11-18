@@ -1,8 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
 import { KasirScreen } from '@/screens/Kasir';
 import type { Catalog } from '@/ledger/catalog';
-import { app, resetPhone, waitReady, wrap } from './testPhone';
+import { app, PHONE_PORTRAIT, resetPhone, setWindow, waitReady, wrap } from './testPhone';
 
 /**
  * The same till, in the other shape. Landscape is where the nota stops being a
@@ -10,19 +9,12 @@ import { app, resetPhone, waitReady, wrap } from './testPhone';
  * that cut in place, and the editor that replaces the steppers there.
  */
 
-function setWindow(width: number, height: number) {
-  Dimensions.set({
-    window: { width, height, scale: 2, fontScale: 1 },
-    screen: { width, height, scale: 2, fontScale: 1 },
-  });
-}
-
 beforeEach(() => {
   resetPhone();
-  setWindow(411, 891);
+  setWindow(PHONE_PORTRAIT.width, PHONE_PORTRAIT.height);
 });
 
-afterAll(() => setWindow(411, 891));
+afterAll(() => setWindow(PHONE_PORTRAIT.width, PHONE_PORTRAIT.height));
 
 async function start() {
   setWindow(891, 411);

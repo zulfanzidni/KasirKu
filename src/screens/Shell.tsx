@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/ledger/useLedger';
-import { AppText, Note, RuledRow, colors, layout, space } from '@/design';
+import { AppText, Note, RuledRow, colors, space, useFrame } from '@/design';
 import { NavRail } from '@/design/components/NavRail';
 import { TabBar, type TabItem } from '@/design/components/TabBar';
 import { KasScreen } from '@/screens/Kas';
@@ -30,14 +30,13 @@ export function Shell() {
   const [lainView, setLainView] = useState<'menu' | 'kas' | 'riwayat' | 'laporan'>('menu');
   const { error } = useApp();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { wide } = useFrame();
 
   /**
    * One navigation, two shapes. Landscape gives width and takes height, so the
    * bar becomes a rail; portrait does the opposite, so it stays a bar. The four
    * destinations and their words never change.
    */
-  const wide = width >= layout.wide;
 
   return (
     <View

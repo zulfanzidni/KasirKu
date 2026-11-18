@@ -6,6 +6,7 @@ import { MemoryExchange } from '@/ledger/memoryExchange';
 import { connectSync } from '@/ledger/sync';
 import { receiptHtml } from '@/ledger/receiptHtml';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Dimensions } from 'react-native';
 import type { ReactNode } from 'react';
 import { LedgerProvider, useApp, type AppState } from '@/ledger/useLedger';
 import { createLedger } from '@/ledger/ledger';
@@ -149,8 +150,24 @@ function Probe() {
   return null;
 }
 
-export function wrap(node: ReactNode) {
-  return (
+/**
+ * The size of the frame a screen thinks it is in.
+ *
+ * `jest.setup.ts` starts every suite at a portrait phone (411×891). A test that
+ * wants the other shape asks for it here instead of reaching into `Dimensions`
+ * itself, so turning the phone in a test looks like turning it on the counter.
+ */
+export function setWindow(width: number, height: number) {
+  Dimensions.set({
+    window: { width, height, scale: 2, fontScale: 1 },
+    screen: { width, height, scale: 2, fontScale: 1 },
+  });
+}
+
+/** The phone this app is built for, used to put a suite back after a landscape test. */
+export const PHONE_PORTRAIT = { width: 411, height: 891 } as const;
+
+export function wrap(node: ReactNode) {  return (
     <SafeAreaProvider initialMetrics={metrics}>
       <LedgerProvider>
         <Probe />
