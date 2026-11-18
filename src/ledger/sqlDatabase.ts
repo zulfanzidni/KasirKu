@@ -13,8 +13,12 @@ export interface SqlDatabase {
   runAsync(source: string, ...params: unknown[]): Promise<unknown>;
   getFirstAsync<T>(source: string, ...params: unknown[]): Promise<T | null>;
   getAllAsync<T>(source: string, ...params: unknown[]): Promise<T[]>;
-  /** Runs `task` inside one SQLite transaction. */
-  withTransactionAsync(task: () => Promise<unknown>): Promise<unknown>;
+  /**
+   * Runs `task` inside one SQLite transaction. It returns nothing: the result of
+   * `task` is discarded, exactly as expo-sqlite's own helper does. Read any value
+   * you need out through a variable you own.
+   */
+  withTransactionAsync(task: () => Promise<unknown>): Promise<void>;
 }
 
 /**

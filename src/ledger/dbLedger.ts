@@ -53,18 +53,23 @@ export async function createDbLedger(db: SqlDatabase, deviceId: string) {
       // The counter and the row it numbers are written in one transaction: a
       // kill between them would either burn a seq (harmless) or, worse, leave
       // the counter behind a row that already exists (a reused number).
-      const seq = await db.withTransactionAsync(async () => {
+      //
+      // expo-sqlite's transaction helper discards what its task returns, so the
+      // new number is read out through this variable. Taking it from the
+      // helper's result gives `undefined`, which SQLite binds as NULL and the
+      // `seq` column refuses.
+      let next = 0;
+      await db.withTransactionAsync(async () => {
         const current = await db.getFirstAsync<MetaRow>('SELECT value FROM ledger_meta WHERE key = ?', [
           SEQ_KEY,
         ]);
-        const next = (current?.value ?? 0) + 1;
+        next = Number(current?.value ?? 0) + 1;
         await db.runAsync(
           'INSERT INTO ledger_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
           [SEQ_KEY, next],
         );
-        return next;
       });
-      return { id: newEventId(), seq: Number(seq) };
+      return { id: newEventId(), seq: next };
     },
 
     async append(events: readonly StoredEvent[]): Promise<void> {

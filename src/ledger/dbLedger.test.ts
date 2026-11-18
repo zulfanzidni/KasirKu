@@ -13,6 +13,19 @@ describe('the SQLite ledger', () => {
     expect(first.id).not.toBe(second.id);
   });
 
+  it('numbers an event even though the transaction helper returns nothing', async () => {
+    // expo-sqlite's `withTransactionAsync` resolves with `undefined`; the fake
+    // below mirrors that deliberately. Reading the number out of its result
+    // gave `undefined`, which SQLite binds as NULL — every sale on a real phone
+    // failed with "NOT NULL constraint failed: events.seq".
+    const ledger = await createDbLedger(new FakeDb(), 'gawai-1');
+
+    const { seq } = await ledger.nextIdentity();
+
+    expect(Number.isInteger(seq)).toBe(true);
+    expect(seq).toBe(1);
+  });
+
   it('refuses to write an id twice, so the log can never be rewritten', async () => {
     const ledger = await createDbLedger(new FakeDb(), 'gawai-1');
     const { id, seq } = await ledger.nextIdentity();
@@ -106,8 +119,8 @@ class FakeDb {
   async execAsync() {}
 
   /** One "transaction" is simply: run the task. Uniqueness lives in the fake store. */
-  async withTransactionAsync(task: () => Promise<unknown>) {
-    return task();
+  async withTransactionAsync(task: () => Promise<unknown>): Promise<void> {
+    await task();
   }
 
   async runAsync(sql: string, params: unknown[] = []) {

@@ -25,8 +25,8 @@ jest.mock('expo-sqlite', () => {
       return (globalThis as unknown as { __kasirkuFile: typeof file }).__kasirkuFile.meta;
     })();
     async execAsync() {}
-    async withTransactionAsync(task: () => Promise<unknown>) {
-      return task();
+    async withTransactionAsync(task: () => Promise<unknown>): Promise<void> {
+      await task();
     }
     async runAsync(sql: string, params: unknown[] = []) {
       if (/^\s*INSERT\s+INTO\s+events/i.test(sql)) {

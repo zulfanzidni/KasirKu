@@ -193,8 +193,11 @@ class InMemorySql implements SqlDatabase {
 
   async execAsync() {}
 
-  async withTransactionAsync(task: () => Promise<unknown>) {
-    return task();
+  async withTransactionAsync(task: () => Promise<unknown>): Promise<void> {
+    // The real helper returns nothing, not the task's result. Mirroring that is
+    // what stops a `const x = await withTransactionAsync(...)` from passing here
+    // and arriving as `undefined` on the phone.
+    await task();
   }
 
   async runAsync(sql: string, params: unknown[] = []) {
