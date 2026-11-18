@@ -10,6 +10,7 @@ import {
   Note,
   Screen,
   SectionHeading,
+  SplitPane,
   StockBadge,
   colors,
   formatMoment,
@@ -18,6 +19,7 @@ import {
   parseQty,
   parseRupiah,
   space,
+  useFrame,
 } from '@/design';
 import { IconButton } from '@/design/components/Icons';
 import {
@@ -61,6 +63,9 @@ export function StokScreen() {
   const [edit, setEdit] = useState<{ kind: 'kategori' | 'produk'; id: string } | null>(null);
   const [opening, setOpening] = useState(false);
   const [mode, setMode] = useState<'daftar' | 'impor'>('daftar');
+  /** The varian the landscape pane is about; portrait never shows it. */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { wide } = useFrame();
 
   if (mode === 'impor') return <ImporScreen onBack={() => setMode('daftar')} />;
 
@@ -88,6 +93,16 @@ export function StokScreen() {
   const belumDihitung = ranked.filter((row) => row.stock.kind === 'unknown').map((row) => row.varian);
 
   /**
+   * The varian the pane is about. It is one piece of screen state, so a search
+   * or an archive never silently re-points it, and rotating does not lose it.
+   * `visible` is the same test the list applies: a varian whose produk is
+   * archived has left the list, even though the log still holds it.
+   */
+  const selected = selectedId ? shop.varian.find((entry) => entry.id === selectedId) ?? null : null;
+  const selectedProduk = selected ? shop.produk.find((entry) => entry.id === selected.produkId) ?? null : null;
+  const selectedVisible = selected !== null && !selected.archived && selectedProduk !== null && !selectedProduk.archived;
+
+  /**
    * The list is grouped by kategori, and a produk whose kategori is archived
    * (or that never had one) still has a home: "Tanpa kategori". Archiving a
    * kategori therefore never hides its produk (ticket 13).
@@ -109,29 +124,44 @@ export function StokScreen() {
     setProdukId(null);
   }
 
-  return (
-    <Screen
-      title="Barang"
-      overline="Stok"
-      actions={
-        <>
-          <IconButton
-            name="inventory-2"
-            label="Stok awal"
-            onPress={() => setOpening(true)}
-            testID="stok-awal"
-          />
-          <IconButton
-            name="upload-file"
-            label="Impor barang"
-            onPress={() => setMode('impor')}
-            testID="impor-barang"
-          />
-          <IconButton name="add" label="Tambah barang" onPress={() => setForm('kategori')} testID="tambah-barang" />
-        </>
-      }
-    >
-      <ScrollView contentContainerStyle={styles.content}>
+  /**
+   * A tap on a row selects it in landscape, where there is a pane to fill. In
+   * portrait there is no pane, so the tap keeps its old job: open the count.
+   */
+  function pressRow(varianId: string) {
+    if (wide) setSelectedId(varianId);
+    else setSheet({ kind: 'hitung', varianId });
+  }
+
+  /** An action on a row also points the landscape pane at that varian. */
+  function openSheet(varianId: string, kind: 'hitung' | 'minimum' | 'riwayat') {
+    if (wide) setSelectedId(varianId);
+    setSheet({ kind, varianId });
+  }
+
+  /** The detail pane: this varian's own stock, its movements, and its actions. */
+  const pane = selectedVisible && selected ? (
+    <StokPane
+      varian={selected}
+      stock={stock.get(selected.id) ?? { kind: 'unknown' }}
+      titip={titipOf(selected.id)}
+      check={checks.get(selected.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
+      bulk={bulkOf(shop, selected, (id) => stock.get(id) ?? { kind: 'unknown' })}
+      onCount={() => setSheet({ kind: 'hitung', varianId: selected.id })}
+      onMinimum={() => setSheet({ kind: 'minimum', varianId: selected.id })}
+    />
+  ) : selected ? (
+    <AppText typeRole="bodyMedium" tone="muted" testID="pane-hilang">
+      Barang ini tidak ada di daftar.
+    </AppText>
+  ) : (
+    <AppText typeRole="bodyMedium" tone="muted" style={styles.paneEmpty}>
+      Pilih barang
+    </AppText>
+  );
+
+  const list = (
+    <ScrollView contentContainerStyle={styles.content}>
         {shop.kategori.length === 0 ? <Note>{teks.belumAdaKategori}</Note> : null}
 
         {groups
@@ -206,9 +236,11 @@ export function StokScreen() {
                         titip={titipOf(item.id)}
                         check={checks.get(item.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
                         bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
-                        onCount={() => setSheet({ kind: 'hitung', varianId: item.id })}
-                        onMinimum={() => setSheet({ kind: 'minimum', varianId: item.id })}
-                        onHistory={() => setSheet({ kind: 'riwayat', varianId: item.id })}
+                        selected={wide && selectedId === item.id}
+                        onPress={() => pressRow(item.id)}
+                        onCount={() => openSheet(item.id, 'hitung')}
+                        onMinimum={() => openSheet(item.id, 'minimum')}
+                        onHistory={() => openSheet(item.id, 'riwayat')}
                       />
                     ))}
                   </View>
@@ -217,7 +249,32 @@ export function StokScreen() {
             </View>
           );
           })}
-      </ScrollView>
+    </ScrollView>
+  );
+
+  return (
+    <Screen
+      title="Barang"
+      overline="Stok"
+      actions={
+        <>
+          <IconButton
+            name="inventory-2"
+            label="Stok awal"
+            onPress={() => setOpening(true)}
+            testID="stok-awal"
+          />
+          <IconButton
+            name="upload-file"
+            label="Impor barang"
+            onPress={() => setMode('impor')}
+            testID="impor-barang"
+          />
+          <IconButton name="add" label="Tambah barang" onPress={() => setForm('kategori')} testID="tambah-barang" />
+        </>
+      }
+    >
+      {wide ? <SplitPane list={list} detail={pane} detailTestID="stok-pane" /> : list}
 
       <BottomSheet visible={form === 'kategori'} onClose={close} title={teks.tambahKategori} testID="form-kategori">
         <KategoriForm onDone={close} />
@@ -333,17 +390,14 @@ function bulkCopy(bulk: BulkContext): string {
  * and its state in words beside the number so colour is never the only signal.
  * A negative count makes the whole row red and keeps the sign visible.
  */
-/**
- * One sellable size, on a ruled line: name, satuan, the count the log derives,
- * and its state in words beside the number so colour is never the only signal.
- * A negative count makes the whole row red and keeps the sign visible.
- */
 function VarianLine({
   varian,
   stock,
   titip,
   check,
   bulk,
+  selected,
+  onPress,
   onCount,
   onMinimum,
   onHistory,
@@ -353,6 +407,8 @@ function VarianLine({
   titip: number;
   check: LowCheck;
   bulk: BulkContext | null;
+  selected: boolean;
+  onPress: () => void;
   onCount: () => void;
   onMinimum: () => void;
   onHistory: () => void;
@@ -366,8 +422,9 @@ function VarianLine({
       testID={`stok-baris-${varian.id}`}
       accessibilityRole="button"
       accessibilityLabel={`${varian.nama}, ${reading}`}
-      onPress={onCount}
-      style={[styles.varianRow, negative ? styles.varianNegative : null]}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.varianRow, negative ? styles.varianNegative : null, selected ? styles.varianSelected : null]}
     >
       <View style={styles.varianMain}>
         <AppText typeRole="bodyLarge" numberOfLines={1} tone={negative ? 'owed' : 'default'}>
@@ -417,6 +474,89 @@ function VarianLine({
     </Pressable>
   );
 }
+
+/**
+ * The landscape pane: the selected varian's own reading, its movements, and the
+ * actions the row already offers. Owned and titip are two buckets because titip
+ * goods are the supplier's and a shortage must never hide behind them.
+ *
+ * It is a reading first: the count is the loud figure, and the actions open the
+ * same sheets the list uses, so nothing is duplicated.
+ */
+function StokPane({
+  varian,
+  stock,
+  titip,
+  check,
+  bulk,
+  onCount,
+  onMinimum,
+}: {
+  varian: Varian;
+  stock: StockState;
+  titip: number;
+  check: LowCheck;
+  bulk: BulkContext | null;
+  onCount: () => void;
+  onMinimum: () => void;
+}) {
+  const negative = stock.kind === 'counted' && stock.qty < 0;
+  const rule = varian.minimum != null ? `minimum ${formatQty(varian.minimum)}` : 'tanpa minimum';
+
+  return (
+    <ScrollView style={styles.pane} contentContainerStyle={styles.paneContent}>
+      <View>
+        <AppText typeRole="titleMedium" numberOfLines={2}>
+          {varian.nama}
+        </AppText>
+        <AppText typeRole="labelSmall" tone={negative ? 'owed' : 'muted'}>
+          {`${formatRupiah(varian.harga)} · per ${varian.satuan} · ${rule}`}
+        </AppText>
+      </View>
+
+      <View style={styles.paneBucket}>
+        <AppText typeRole="labelSmall" tone="muted">
+          Milik toko
+        </AppText>
+        <StockBadge
+          qty={stock.kind === 'counted' ? stock.qty : null}
+          minimum={varian.minimum ?? null}
+          low={check.kind === 'rendah'}
+          testID="pane-stok"
+        />
+      </View>
+
+      <View style={styles.paneBucket}>
+        <AppText typeRole="labelSmall" tone="muted">
+          Titip
+        </AppText>
+        <AppText typeRole="numericMedium" testID="pane-titip">
+          {`${formatQty(titip)} ${varian.satuan}`}
+        </AppText>
+      </View>
+
+      {check.kind === 'rendah' ? (
+        <AppText typeRole="labelSmall" tone={negative ? 'owed' : 'default'}>
+          {lowReason(check.rule)}
+        </AppText>
+      ) : null}
+      {check.kind === 'rendah' && bulk ? (
+        <AppText typeRole="labelSmall" tone="muted">
+          {bulkCopy(bulk)}
+        </AppText>
+      ) : null}
+
+      <View style={styles.paneActions}>
+        <Button label="Hitung stok" onPress={onCount} testID="pane-hitung" />
+        <Button label="Atur minimum" variant="outlined" onPress={onMinimum} testID="pane-minimum" />
+      </View>
+
+      <SectionHeading>Pergerakan</SectionHeading>
+      <HistoryList varian={varian} />
+    </ScrollView>
+  );
+}
+
 /**
  * The guided setup pass: one field per varian nobody has counted yet. An empty
  * field is a skip, and a skip writes nothing — the varian stays "belum
@@ -888,6 +1028,8 @@ const styles = StyleSheet.create({
   // Red is a promise (DESIGN.md): a negative count is that promise broken, so
   // it reads in the same ink as a debt, and it sits at the top of the list.
   varianNegative: { borderLeftWidth: 3, borderLeftColor: colors.error, paddingLeft: space.gutter + space.md - 3 },
+  // The landscape pane's row: a wash, never a colour (DESIGN.md §Palette).
+  varianSelected: { backgroundColor: colors.primaryContainer },
   rowButtons: { flexDirection: 'row', alignItems: 'center' },
   historyRow: {
     flexDirection: 'row',
@@ -897,4 +1039,16 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.outline,
   },
   pickLabel: { paddingBottom: space.xs },
+  pane: { flex: 1, minHeight: 0 },
+  paneContent: { paddingBottom: space.lg, gap: space.sm },
+  paneBucket: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: space.row,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outline,
+  },
+  paneActions: { gap: space.sm, paddingVertical: space.sm },
+  paneEmpty: { paddingVertical: space.lg },
 });
