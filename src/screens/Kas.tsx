@@ -15,6 +15,7 @@ import {
   formatRupiah,
   parseRupiah,
   space,
+  useFrame,
 } from '@/design';
 import { IconButton } from '@/design/components/Icons';
 import { baselineKindLabel, baselineLabel, selisihLabel, type CashCount } from '@/ledger';
@@ -41,6 +42,104 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
   const drawer = cashDrawer();
   const counts = cashCounts();
   const today = todayTotals();
+  const { wide } = useFrame();
+
+  const summary = (
+    <View style={styles.block}>
+      <TotalBlock amount={drawer.expected} label="Kas yang seharusnya" testID="kas-expected" />
+      <AppText typeRole="bodyMedium" tone="muted" testID="kas-patokan">
+        {baselineLabel(drawer.baseline)}
+      </AppText>
+    </View>
+  );
+
+  const movements = (
+    <View style={styles.rows}>
+      <CashRow title="Penjualan tunai" amount={drawer.penjualan} testID="kas-penjualan" />
+      <CashRow title="Penjualan dibatalkan" amount={-drawer.pembatalan} testID="kas-pembatalan" />
+      <CashRow title="Pembayaran hutang" amount={drawer.hutang} testID="kas-hutang" />
+      <CashRow title="Setor uang" amount={drawer.setor} testID="kas-setor" />
+      <CashRow title="Bayar pemasok" amount={-drawer.pemasok} testID="kas-pemasok" />
+      <CashRow title="Pengeluaran" amount={-drawer.pengeluaran} testID="kas-pengeluaran" />
+      <CashRow title="Tarik uang" amount={-drawer.tarik} testID="kas-tarik" />
+    </View>
+  );
+
+  const actions = (
+    <>
+      <View style={styles.actions}>
+        <Button
+          label="Catat pengeluaran"
+          variant="outlined"
+          onPress={() => setSheet('pengeluaran')}
+          testID="catat-pengeluaran"
+          style={styles.grow}
+        />
+        <Button
+          label="Hitung kas"
+          onPress={() => setSheet('hitung')}
+          testID="hitung-kas"
+          style={styles.grow}
+        />
+      </View>
+      <View style={styles.actions}>
+        <Button
+          label="Tarik uang"
+          variant="text"
+          onPress={() => setSheet('tarik')}
+          testID="tarik-uang"
+          style={styles.grow}
+        />
+        <Button
+          label="Setor uang"
+          variant="text"
+          onPress={() => setSheet('setor')}
+          testID="setor-uang"
+          style={styles.grow}
+        />
+      </View>
+      <View style={styles.actions}>
+        <Button
+          label="Nyatakan kas awal"
+          variant="text"
+          onPress={() => setSheet('float')}
+          testID="nyatakan-kas-awal"
+        />
+      </View>
+    </>
+  );
+
+  const tutupToko = (
+    <>
+      <SectionHeading>Tutup Toko</SectionHeading>
+      <Note>
+        Tutup toko hanya mencatat. Tidak ada yang dikunci: penjualan berikutnya tetap bisa dicatat.
+      </Note>
+      <View style={styles.rows}>
+        <RuledRow title="Penjualan hari ini" value={`Rp ${formatRupiah(today.penjualan)}`} testID="tutup-penjualan" />
+        <RuledRow title="Diskon hari ini" value={`Rp ${formatRupiah(today.diskon)}`} testID="tutup-diskon" />
+        <RuledRow
+          title="Kas yang seharusnya"
+          value={`Rp ${formatRupiah(drawer.expected)}`}
+          testID="tutup-expected"
+        />
+      </View>
+      <View style={styles.actions}>
+        <Button label="Hitung kas sekarang" onPress={() => setSheet('hitung')} testID="tutup-hitung" />
+      </View>
+    </>
+  );
+
+  const history = (
+    <>
+      <SectionHeading>Riwayat hitung kas</SectionHeading>
+      {counts.length === 0 ? (
+        <Note>Belum ada hitung kas. Hitung laci supaya selisihnya ketahuan.</Note>
+      ) : (
+        counts.map((count, index) => <CountRow key={count.eventId} count={count} index={index} />)
+      )}
+    </>
+  );
 
   return (
     <Screen
@@ -52,88 +151,41 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
         ) : undefined
       }
     >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.block}>
-          <TotalBlock amount={drawer.expected} label="Kas yang seharusnya" testID="kas-expected" />
-          <AppText typeRole="bodyMedium" tone="muted" testID="kas-patokan">
-            {baselineLabel(drawer.baseline)}
-          </AppText>
+      {wide ? (
+        // Landscape: the drawer's own readings on the left, the things that
+        // change them on the right. Both columns scroll on their own, so
+        // recording an expense never hides the balance it is checked against.
+        <View style={styles.columns}>
+          <ScrollView
+            style={styles.column}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            testID="kas-kolom-kiri"
+          >
+            {summary}
+            {movements}
+            {history}
+          </ScrollView>
+          <View style={styles.columnRule} />
+          <ScrollView
+            style={styles.column}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            testID="kas-kolom-kanan"
+          >
+            {actions}
+            {tutupToko}
+          </ScrollView>
         </View>
-
-        <View style={styles.rows}>
-          <CashRow title="Penjualan tunai" amount={drawer.penjualan} testID="kas-penjualan" />
-          <CashRow title="Penjualan dibatalkan" amount={-drawer.pembatalan} testID="kas-pembatalan" />
-          <CashRow title="Pembayaran hutang" amount={drawer.hutang} testID="kas-hutang" />
-          <CashRow title="Setor uang" amount={drawer.setor} testID="kas-setor" />
-          <CashRow title="Bayar pemasok" amount={-drawer.pemasok} testID="kas-pemasok" />
-          <CashRow title="Pengeluaran" amount={-drawer.pengeluaran} testID="kas-pengeluaran" />
-          <CashRow title="Tarik uang" amount={-drawer.tarik} testID="kas-tarik" />
-        </View>
-
-        <View style={styles.actions}>
-          <Button
-            label="Catat pengeluaran"
-            variant="outlined"
-            onPress={() => setSheet('pengeluaran')}
-            testID="catat-pengeluaran"
-            style={styles.grow}
-          />
-          <Button
-            label="Hitung kas"
-            onPress={() => setSheet('hitung')}
-            testID="hitung-kas"
-            style={styles.grow}
-          />
-        </View>
-        <View style={styles.actions}>
-          <Button
-            label="Tarik uang"
-            variant="text"
-            onPress={() => setSheet('tarik')}
-            testID="tarik-uang"
-            style={styles.grow}
-          />
-          <Button
-            label="Setor uang"
-            variant="text"
-            onPress={() => setSheet('setor')}
-            testID="setor-uang"
-            style={styles.grow}
-          />
-        </View>
-        <View style={styles.actions}>
-          <Button
-            label="Nyatakan kas awal"
-            variant="text"
-            onPress={() => setSheet('float')}
-            testID="nyatakan-kas-awal"
-          />
-        </View>
-
-        <SectionHeading>Tutup Toko</SectionHeading>
-        <Note>
-          Tutup toko hanya mencatat. Tidak ada yang dikunci: penjualan berikutnya tetap bisa dicatat.
-        </Note>
-        <View style={styles.rows}>
-          <RuledRow title="Penjualan hari ini" value={`Rp ${formatRupiah(today.penjualan)}`} testID="tutup-penjualan" />
-          <RuledRow title="Diskon hari ini" value={`Rp ${formatRupiah(today.diskon)}`} testID="tutup-diskon" />
-          <RuledRow
-            title="Kas yang seharusnya"
-            value={`Rp ${formatRupiah(drawer.expected)}`}
-            testID="tutup-expected"
-          />
-        </View>
-        <View style={styles.actions}>
-          <Button label="Hitung kas sekarang" onPress={() => setSheet('hitung')} testID="tutup-hitung" />
-        </View>
-
-        <SectionHeading>Riwayat hitung kas</SectionHeading>
-        {counts.length === 0 ? (
-          <Note>Belum ada hitung kas. Hitung laci supaya selisihnya ketahuan.</Note>
-        ) : (
-          counts.map((count, index) => <CountRow key={count.eventId} count={count} index={index} />)
-        )}
-      </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {summary}
+          {movements}
+          {actions}
+          {tutupToko}
+          {history}
+        </ScrollView>
+      )}
 
       <BottomSheet
         visible={sheet === 'pengeluaran'}
@@ -336,12 +388,6 @@ function CountForm({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      <AppText typeRole="bodyMedium" testID="hitung-expected">
-        {`Kas yang seharusnya Rp ${formatRupiah(drawer.expected)}`}
-      </AppText>
-      <AppText typeRole="labelSmall" tone="muted" testID="hitung-patokan">
-        {baselineLabel(drawer.baseline)}
-      </AppText>
       <Field
         label="Uang yang dihitung (Rp)"
         value={jumlah}
@@ -363,6 +409,20 @@ function CountForm({ onDone }: { onDone: () => void }) {
         testID="hitung-catatan"
       />
       <Note>Hitung kas tidak mengunci toko. Penjualan sesudahnya tetap bisa dicatat.</Note>
+      {/*
+        The figure being counted against sits below the field, not above it, so
+        focusing the count field can never scroll it away. It is the close of
+        Tutup Toko, which is where the total window belongs.
+      */}
+      <View style={styles.countSummary} testID="hitung-ringkasan">
+        <AppText typeRole="bodyMedium" testID="hitung-expected">
+          {`Kas yang seharusnya Rp ${formatRupiah(drawer.expected)}`}
+        </AppText>
+        <AppText typeRole="labelSmall" tone="muted" testID="hitung-patokan">
+          {baselineLabel(drawer.baseline)}
+        </AppText>
+        <TotalBlock amount={drawer.expected} label="Kas yang seharusnya" testID="hitung-total" />
+      </View>
       <Button label="Simpan hitung kas" onPress={submit} testID="simpan-hitung" />
     </>
   );
@@ -370,10 +430,14 @@ function CountForm({ onDone }: { onDone: () => void }) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: space.xxl },
+  columns: { flex: 1, flexDirection: 'row', minHeight: 0 },
+  column: { flex: 1, minWidth: 0 },
+  columnRule: { width: StyleSheet.hairlineWidth, backgroundColor: colors.outline },
   block: { paddingHorizontal: space.gutter, paddingTop: space.lg },
   rows: { paddingTop: space.sm },
   actions: { flexDirection: 'row', gap: space.sm, paddingHorizontal: space.gutter, paddingTop: space.sm },
   grow: { flex: 1 },
+  countSummary: { paddingTop: space.sm, paddingBottom: space.md, gap: space.xs },
   history: {
     paddingHorizontal: space.gutter,
     paddingVertical: space.md,
