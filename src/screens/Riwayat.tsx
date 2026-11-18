@@ -7,10 +7,12 @@ import {
   Field,
   Note,
   Screen,
+  SplitPane,
   colors,
   formatMoment,
   formatRupiah,
   space,
+  useFrame,
 } from '@/design';
 import { IconButton } from '@/design/components/Icons';
 import { liveSales, receiptOf, saleHistory, shareReceipt, type Sale } from '@/ledger';
@@ -26,17 +28,22 @@ import { ReceiptPaper } from '@/screens/Receipt';
  * away, and a voided nota is printed marked as cancelled. A mistake is
  * corrected by appending a void and ringing the sale up again, never by
  * deleting the record.
+ *
+ * The frame follows the same rule as Kasir: portrait is the list, with the nota
+ * pushed on top; landscape is the list on the left and the chosen nota's paper
+ * on the right, so a receipt can be checked without leaving the history.
  */
 export function RiwayatScreen({ onBack }: { onBack?: () => void } = {}) {
   const { shop } = useApp();
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { wide } = useFrame();
 
   const sales = saleHistory(shop);
   const live = liveSales(shop);
   // What customers were charged on the sales that still count: the same net
   // figure the rows show and today's totals use.
   const revenue = live.reduce((sum, sale) => sum + totalOf(sale), 0);
-  const detail = detailId ? shop.sales.find((sale) => sale.id === detailId) ?? null : null;
+  const detail = selectedId ? shop.sales.find((sale) => sale.id === selectedId) ?? null : null;
 
   return (
     <Screen
@@ -46,57 +53,83 @@ export function RiwayatScreen({ onBack }: { onBack?: () => void } = {}) {
         onBack ? <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-dari-riwayat" /> : undefined
       }
     >
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.summary} testID="riwayat-ringkasan">
-          <View>
-            <AppText typeRole="labelSmall" tone="muted">
-              Penjualan yang dihitung
-            </AppText>
-            <AppText typeRole="titleMedium" tone="primary">
-              {`${live.length} transaksi`}
-            </AppText>
-          </View>
-          <AppText typeRole="numericLarge" align="right">
-            {`Rp ${formatRupiah(revenue)}`}
-          </AppText>
-        </View>
+      <SplitPane
+        testID="riwayat-pecah"
+        detailTestID="riwayat-pane"
+        list={
+          <ScrollView contentContainerStyle={styles.content}>
+            <View style={styles.summary} testID="riwayat-ringkasan">
+              <View>
+                <AppText typeRole="labelSmall" tone="muted">
+                  Penjualan yang dihitung
+                </AppText>
+                <AppText typeRole="titleMedium" tone="primary">
+                  {`${live.length} transaksi`}
+                </AppText>
+              </View>
+              <AppText typeRole="numericLarge" align="right">
+                {`Rp ${formatRupiah(revenue)}`}
+              </AppText>
+            </View>
 
-        <Note>
-          Penjualan yang dibatalkan tetap ada di sini, ditandai. Nomor nota yang dipegang pelanggan selalu bisa dilacak.
-        </Note>
+            <Note>
+              Penjualan yang dibatalkan tetap ada di sini, ditandai. Nomor nota yang dipegang pelanggan selalu bisa
+              dilacak.
+            </Note>
 
-        {sales.length === 0 ? (
-          <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
-            Belum ada penjualan.
-          </AppText>
-        ) : null}
+            {sales.length === 0 ? (
+              <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
+                Belum ada penjualan.
+              </AppText>
+            ) : null}
 
-        {sales.map((sale) => (
-          <SaleRow key={sale.id} sale={sale} onPress={() => setDetailId(sale.id)} />
-        ))}
-      </ScrollView>
+            {sales.map((sale) => (
+              <SaleRow
+                key={sale.id}
+                sale={sale}
+                selected={wide && selectedId === sale.id}
+                onPress={() => setSelectedId(sale.id)}
+              />
+            ))}
+          </ScrollView>
+        }
+        detail={
+          <ScrollView style={styles.paneScroll} contentContainerStyle={styles.paneContent}>
+            {detail ? (
+              <SaleDetail key={detail.id} sale={detail} />
+            ) : (
+              <AppText typeRole="bodyMedium" tone="muted" style={styles.paneEmpty} testID="riwayat-pane-kosong">
+                Pilih nota
+              </AppText>
+            )}
+          </ScrollView>
+        }
+      />
 
-      <BottomSheet
-        visible={detail !== null}
-        onClose={() => setDetailId(null)}
-        title={detail ? `Nota ${detail.number}` : 'Nota'}
-        testID="riwayat-detail"
-      >
-        {detail ? <SaleDetail sale={detail} /> : null}
-      </BottomSheet>
+      {wide ? null : (
+        <BottomSheet
+          visible={detail !== null}
+          onClose={() => setSelectedId(null)}
+          title={detail ? `Nota ${detail.number}` : 'Nota'}
+          testID="riwayat-detail"
+        >
+          {detail ? <SaleDetail sale={detail} /> : null}
+        </BottomSheet>
+      )}
     </Screen>
   );
 }
 
-function SaleRow({ sale, onPress }: { sale: Sale; onPress: () => void }) {
+function SaleRow({ sale, selected, onPress }: { sale: Sale; selected: boolean; onPress: () => void }) {
   return (
     <Pressable
       testID={`riwayat-baris-${sale.id}`}
       accessibilityRole="button"
       accessibilityLabel={`Nota ${sale.number}, ${formatRupiah(totalOf(sale))}${sale.voided ? ', dibatalkan' : ''}`}
+      accessibilityState={{ selected }}
       android_ripple={{ color: colors.primaryContainer }}
       onPress={onPress}
-      style={styles.row}
+      style={[styles.row, selected && styles.rowSelected]}
     >
       <View style={styles.rowMain}>
         <AppText typeRole="bodyLarge" numberOfLines={1} testID={`riwayat-nomor-${sale.id}`}>
@@ -245,7 +278,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   rowMain: { flex: 1 },
+  rowSelected: { backgroundColor: colors.primaryContainer },
   amount: { minWidth: 88 },
+  paneScroll: { flex: 1 },
+  paneContent: { paddingBottom: space.xxl },
+  paneEmpty: { paddingTop: space.md },
   actions: { flexDirection: 'row', gap: space.sm, paddingTop: space.md },
   back: { width: 96 },
   grow: { flex: 1 },
