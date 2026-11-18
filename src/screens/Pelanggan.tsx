@@ -8,11 +8,13 @@ import {
   Note,
   RuledRow,
   Screen,
+  SplitPane,
   colors,
   formatMoment,
   formatRupiah,
   parseRupiah,
   space,
+  useFrame,
 } from '@/design';
 import { IconButton } from '@/design/components/Icons';
 import type { HutangEntry, HutangLedger, Pelanggan } from '@/ledger';
@@ -28,6 +30,7 @@ import { hutangLabel } from '@/screens/hutangLabel';
  */
 export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
   const { shop, hutangOf } = useApp();
+  const { wide } = useFrame();
   const [adding, setAdding] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -35,6 +38,33 @@ export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
     .filter((entry) => !entry.archived)
     .sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
   const detail = detailId ? shop.pelanggan.find((entry) => entry.id === detailId) ?? null : null;
+
+  const list = (
+    <>
+      <Note>Hutang pelanggan dihitung dari penjualan yang belum dibayar, pembayaran, dan hapus buku.</Note>
+
+      {live.length === 0 ? (
+        <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
+          Belum ada pelanggan. Tambahkan supaya hutang punya nama.
+        </AppText>
+      ) : null}
+
+      {live.map((entry) => {
+        const { state } = hutangOf(entry.id);
+        return (
+          <RuledRow
+            key={entry.id}
+            title={entry.nama}
+            value={hutangLabel(state)}
+            owed={state.kind === 'hutang'}
+            selected={wide && entry.id === detailId}
+            onPress={() => setDetailId(entry.id)}
+            testID={`pelanggan-baris-${entry.id}`}
+          />
+        );
+      })}
+    </>
+  );
 
   return (
     <Screen
@@ -54,36 +84,39 @@ export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
         </View>
       }
     >
-      <ScrollView contentContainerStyle={styles.content}>
-        <Note>Hutang pelanggan dihitung dari penjualan yang belum dibayar, pembayaran, dan hapus buku.</Note>
-
-        {live.length === 0 ? (
-          <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
-            Belum ada pelanggan. Tambahkan supaya hutang punya nama.
-          </AppText>
-        ) : null}
-
-        {live.map((entry) => {
-          const { state } = hutangOf(entry.id);
-          return (
-            <RuledRow
-              key={entry.id}
-              title={entry.nama}
-              value={hutangLabel(state)}
-              owed={state.kind === 'hutang'}
-              onPress={() => setDetailId(entry.id)}
-              testID={`pelanggan-baris-${entry.id}`}
-            />
-          );
-        })}
-      </ScrollView>
+      {wide ? (
+        <SplitPane
+          testID="pelanggan-pecah"
+          detailTestID="pelanggan-pane"
+          list={<ScrollView contentContainerStyle={styles.content}>{list}</ScrollView>}
+          detail={
+            detail ? (
+              <ScrollView contentContainerStyle={styles.pane}>
+                <PelangganDetail
+                  pelanggan={detail}
+                  hutang={hutangOf(detail.id)}
+                  onClose={() => setDetailId(null)}
+                />
+              </ScrollView>
+            ) : (
+              <View style={styles.paneEmpty}>
+                <AppText typeRole="bodyMedium" tone="muted">
+                  Pilih pelanggan
+                </AppText>
+              </View>
+            )
+          }
+        />
+      ) : (
+        <ScrollView contentContainerStyle={styles.content}>{list}</ScrollView>
+      )}
 
       <BottomSheet visible={adding} onClose={() => setAdding(false)} title="Tambah pelanggan" testID="form-pelanggan">
         <PelangganForm onDone={() => setAdding(false)} />
       </BottomSheet>
 
       <BottomSheet
-        visible={detail !== null}
+        visible={!wide && detail !== null}
         onClose={() => setDetailId(null)}
         title={detail ? detail.nama : 'Pelanggan'}
         testID="detail-pelanggan"
@@ -327,6 +360,8 @@ function signed(entry: HutangEntry): string {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: space.lg },
+  pane: { paddingBottom: space.lg },
+  paneEmpty: { paddingTop: space.sm },
   headerActions: { flexDirection: 'row', alignItems: 'center' },
   empty: { paddingHorizontal: space.gutter, paddingVertical: space.md },
   status: {
