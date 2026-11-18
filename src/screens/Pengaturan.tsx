@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { AppText, Button, Field, formatMoment, Note, SectionHeading, space, useFrame } from '@/design';
 import { backupFiles, parseBackup, type BackupFile } from '@/ledger';
@@ -438,6 +438,18 @@ export function PengaturanScreen() {
     </View>
   );
 
+  /**
+   * The four sections, built once and in one order. Landscape splits them across
+   * two columns and portrait stacks them; adding a section touches this list,
+   * not two return trees.
+   */
+  const sections = [
+    <Fragment key="sinkron">{bagianSinkron}</Fragment>,
+    <Fragment key="nota">{bagianNota}</Fragment>,
+    <Fragment key="cadangan">{bagianCadangan}</Fragment>,
+    <Fragment key="adopsi">{bagianAdopsi}</Fragment>,
+  ];
+
   // Two columns in landscape: the shop's own words on the left, the backup that
   // keeps them on the right. Same sections, same order, one ScrollView — so the
   // restore warning still stands between the owner and the destructive button.
@@ -445,12 +457,10 @@ export function PengaturanScreen() {
     return (
       <ScrollView contentContainerStyle={[styles.body, styles.bodyWide]} keyboardShouldPersistTaps="handled">
         <View style={styles.column} testID="pengaturan-kolom-kiri">
-          {bagianSinkron}
-          {bagianNota}
+          {sections.slice(0, 2)}
         </View>
         <View style={styles.column} testID="pengaturan-kolom-kanan">
-          {bagianCadangan}
-          {bagianAdopsi}
+          {sections.slice(2)}
         </View>
       </ScrollView>
     );
@@ -458,10 +468,7 @@ export function PengaturanScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-      {bagianSinkron}
-      {bagianNota}
-      {bagianCadangan}
-      {bagianAdopsi}
+      {sections}
     </ScrollView>
   );
 }

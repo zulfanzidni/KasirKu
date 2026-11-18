@@ -303,7 +303,8 @@ describe('Kas — Tutup Toko', () => {
     fireEvent.press(screen.getByTestId('tutup-hitung'));
     await act(async () => {});
     expect(screen.getByTestId('form-hitung')).toBeTruthy();
-    expect(screen.getByTestId('hitung-expected')).toHaveTextContent('Kas yang seharusnya Rp 45.000');
+    expect(screen.getByTestId('hitung-expected')).toHaveTextContent(/Kas yang seharusnya/);
+    expect(screen.getByTestId('hitung-expected')).toHaveTextContent(/45\.000/);
   });
 
   it('selling after Tutup Toko is still possible; the day is not locked', async () => {

@@ -118,6 +118,19 @@ _Avoid_: "hutang" for what the shop owes a supplier (that is a payable to the
 
 ---
 
+## Utang (supplier payable)
+
+**Definition:** what the shop owes a **pemasok** — goods taken `tempo`, minus
+payments and write-offs. It is the mirror of **hutang**, which is money a
+**pelanggan** owes the shop, and the two must never be called by the same word
+in the interface: on Pemasok the screen says **Utang**, on Pelanggan it says
+**Hutang**.
+
+_Avoid_: "hutang" on a supplier screen, and "utang" on a customer screen. The
+distinction is the whole reason both words exist here.
+
+---
+
 ## Sak (bulk sack)
 
 **Definition:** a bulk unit of purchase, e.g. 25 kg of flour, that the shop

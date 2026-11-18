@@ -388,6 +388,16 @@ function CountForm({ onDone }: { onDone: () => void }) {
 
   return (
     <>
+      {/*
+        The figure being counted against comes first, so focusing the count
+        field can never push it away. It is printed once, as the total window.
+      */}
+      <View style={styles.countSummary} testID="hitung-ringkasan">
+        <TotalBlock amount={drawer.expected} label="Kas yang seharusnya" testID="hitung-expected" />
+        <AppText typeRole="labelSmall" tone="muted" testID="hitung-patokan">
+          {baselineLabel(drawer.baseline)}
+        </AppText>
+      </View>
       <Field
         label="Uang yang dihitung (Rp)"
         value={jumlah}
@@ -409,20 +419,6 @@ function CountForm({ onDone }: { onDone: () => void }) {
         testID="hitung-catatan"
       />
       <Note>Hitung kas tidak mengunci toko. Penjualan sesudahnya tetap bisa dicatat.</Note>
-      {/*
-        The figure being counted against sits below the field, not above it, so
-        focusing the count field can never scroll it away. It is the close of
-        Tutup Toko, which is where the total window belongs.
-      */}
-      <View style={styles.countSummary} testID="hitung-ringkasan">
-        <AppText typeRole="bodyMedium" testID="hitung-expected">
-          {`Kas yang seharusnya Rp ${formatRupiah(drawer.expected)}`}
-        </AppText>
-        <AppText typeRole="labelSmall" tone="muted" testID="hitung-patokan">
-          {baselineLabel(drawer.baseline)}
-        </AppText>
-        <TotalBlock amount={drawer.expected} label="Kas yang seharusnya" testID="hitung-total" />
-      </View>
       <Button label="Simpan hitung kas" onPress={submit} testID="simpan-hitung" />
     </>
   );

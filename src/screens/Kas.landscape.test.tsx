@@ -30,6 +30,27 @@ async function openKasPortrait() {
   return waitReady(act);
 }
 
+/**
+ * The testIDs in the rendered tree, in the order they appear. A sheet's order
+ * is part of its meaning: the figure being counted against must come before
+ * the field that is focused, or the keyboard can push it out of sight.
+ */
+function testIdsInOrder(): string[] {
+  const ids: string[] = [];
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    const element = node as { props?: { testID?: unknown }; children?: unknown };
+    if (typeof element.props?.testID === 'string') ids.push(element.props.testID);
+    walk(element.children);
+  };
+  walk(screen.toJSON());
+  return ids;
+}
+
 async function seedSale(harga = 30_000) {
   const ledger = phoneLedger();
   const kategoriId = await ledger.append('kategori.created', { nama: 'Sembako', parentId: null });
@@ -92,28 +113,30 @@ describe('Kas — landscape', () => {
     expect(screen.getByTestId('kas-pengeluaran')).toHaveTextContent(/−Rp 25\.000/);
   });
 
-  it('keeps the expected cash and the total window above the save button while counting', async () => {
+  it('puts the expected cash window before the count field while counting', async () => {
     await seedSale(45_000);
     await openKasLandscape();
 
     fireEvent.press(screen.getByTestId('tutup-hitung'));
     await act(async () => {});
 
-    // The count field is focused, and the figure it is checked against is still
-    // there — below the field, above the save button, so focusing cannot scroll
-    // it away.
+    // The count field is focused, so the figure it is checked against must come
+    // first in the sheet: a field below it can never push it away.
     fireEvent(screen.getByTestId('hitung-jumlah'), 'focus');
 
-    expect(screen.getByTestId('hitung-expected')).toHaveTextContent('Kas yang seharusnya Rp 45.000');
-    const summary = screen.getByTestId('hitung-ringkasan');
-    expect(within(summary).getByTestId('hitung-expected')).toBeTruthy();
-    expect(within(summary).getByTestId('hitung-total')).toHaveTextContent(/45\.000/);
+    const ids = testIdsInOrder();
+    expect(ids.indexOf('hitung-expected')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('hitung-jumlah')).toBeGreaterThan(ids.indexOf('hitung-expected'));
+
+    expect(screen.getByTestId('hitung-expected')).toHaveTextContent(/Kas yang seharusnya/);
+    expect(screen.getByTestId('hitung-expected')).toHaveTextContent(/45\.000/);
+    expect(screen.getByTestId('hitung-patokan')).toBeTruthy();
     expect(screen.getByTestId('simpan-hitung')).toBeTruthy();
   });
 });
 
 describe('Kas — Tutup Toko in portrait', () => {
-  it('keeps the expected cash and the total window above the save button while counting', async () => {
+  it('puts the expected cash window before the count field while counting', async () => {
     await seedSale(45_000);
     await openKasPortrait();
 
@@ -125,10 +148,12 @@ describe('Kas — Tutup Toko in portrait', () => {
     await act(async () => {});
     fireEvent(screen.getByTestId('hitung-jumlah'), 'focus');
 
-    expect(screen.getByTestId('hitung-expected')).toHaveTextContent('Kas yang seharusnya Rp 45.000');
-    const summary = screen.getByTestId('hitung-ringkasan');
-    expect(within(summary).getByTestId('hitung-expected')).toBeTruthy();
-    expect(within(summary).getByTestId('hitung-total')).toHaveTextContent(/45\.000/);
+    const ids = testIdsInOrder();
+    expect(ids.indexOf('hitung-expected')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('hitung-jumlah')).toBeGreaterThan(ids.indexOf('hitung-expected'));
+
+    expect(screen.getByTestId('hitung-expected')).toHaveTextContent(/Kas yang seharusnya/);
+    expect(screen.getByTestId('hitung-expected')).toHaveTextContent(/45\.000/);
     expect(screen.getByTestId('simpan-hitung')).toBeTruthy();
   });
 });

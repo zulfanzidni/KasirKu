@@ -84,32 +84,28 @@ export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
         </View>
       }
     >
-      {wide ? (
-        <SplitPane
-          testID="pelanggan-pecah"
-          detailTestID="pelanggan-pane"
-          list={<ScrollView contentContainerStyle={styles.content}>{list}</ScrollView>}
-          detail={
-            detail ? (
-              <ScrollView contentContainerStyle={styles.pane}>
-                <PelangganDetail
-                  pelanggan={detail}
-                  hutang={hutangOf(detail.id)}
-                  onClose={() => setDetailId(null)}
-                />
-              </ScrollView>
-            ) : (
-              <View style={styles.paneEmpty}>
-                <AppText typeRole="bodyMedium" tone="muted">
-                  Pilih pelanggan
-                </AppText>
-              </View>
-            )
-          }
-        />
-      ) : (
-        <ScrollView contentContainerStyle={styles.content}>{list}</ScrollView>
-      )}
+      <SplitPane
+        testID="pelanggan-pecah"
+        detailTestID="pelanggan-pane"
+        list={<ScrollView contentContainerStyle={styles.content}>{list}</ScrollView>}
+        detail={
+          detail ? (
+            <ScrollView contentContainerStyle={styles.pane}>
+              <PelangganDetail
+                pelanggan={detail}
+                hutang={hutangOf(detail.id)}
+                onClose={() => setDetailId(null)}
+              />
+            </ScrollView>
+          ) : (
+            <View style={styles.paneEmpty}>
+              <AppText typeRole="bodyMedium" tone="muted">
+                Pilih pelanggan
+              </AppText>
+            </View>
+          )
+        }
+      />
 
       <BottomSheet visible={adding} onClose={() => setAdding(false)} title="Tambah pelanggan" testID="form-pelanggan">
         <PelangganForm onDone={() => setAdding(false)} />

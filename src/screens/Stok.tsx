@@ -236,7 +236,7 @@ export function StokScreen() {
                         titip={titipOf(item.id)}
                         check={checks.get(item.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
                         bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
-                        selected={wide && selectedId === item.id}
+                        selected={wide ? selectedId === item.id : undefined}
                         onPress={() => pressRow(item.id)}
                         onCount={() => openSheet(item.id, 'hitung')}
                         onMinimum={() => openSheet(item.id, 'minimum')}
@@ -274,7 +274,7 @@ export function StokScreen() {
         </>
       }
     >
-      {wide ? <SplitPane list={list} detail={pane} detailTestID="stok-pane" /> : list}
+      <SplitPane list={list} detail={pane} detailTestID="stok-pane" />
 
       <BottomSheet visible={form === 'kategori'} onClose={close} title={teks.tambahKategori} testID="form-kategori">
         <KategoriForm onDone={close} />
@@ -407,13 +407,15 @@ function VarianLine({
   titip: number;
   check: LowCheck;
   bulk: BulkContext | null;
-  selected: boolean;
+  /** Undefined in portrait, where a row is never a selection. */
+  selected?: boolean;
   onPress: () => void;
   onCount: () => void;
   onMinimum: () => void;
   onHistory: () => void;
 }) {
   const negative = stock.kind === 'counted' && stock.qty < 0;
+  const low = check.kind === 'rendah';
   const reading = stock.kind === 'unknown' ? 'Stok belum dihitung' : `Stok ${formatQty(stock.qty)}`;
   const rule = varian.minimum != null ? `minimum ${formatQty(varian.minimum)}` : 'tanpa minimum';
 
@@ -422,7 +424,7 @@ function VarianLine({
       testID={`stok-baris-${varian.id}`}
       accessibilityRole="button"
       accessibilityLabel={`${varian.nama}, ${reading}`}
-      accessibilityState={{ selected }}
+      accessibilityState={selected === undefined ? undefined : { selected }}
       onPress={onPress}
       style={[styles.varianRow, negative ? styles.varianNegative : null, selected ? styles.varianSelected : null]}
     >
@@ -433,7 +435,7 @@ function VarianLine({
         <AppText typeRole="labelSmall" tone={negative ? 'owed' : 'muted'}>
           {`${formatRupiah(varian.harga)} · per ${varian.satuan} · ${rule}`}
         </AppText>
-        {check.kind === 'rendah' ? (
+        {low ? (
           <AppText
             typeRole="labelSmall"
             tone={negative ? 'owed' : 'default'}
@@ -442,7 +444,7 @@ function VarianLine({
             {lowReason(check.rule)}
           </AppText>
         ) : null}
-        {check.kind === 'rendah' && bulk ? (
+        {low && bulk ? (
           <AppText typeRole="labelSmall" tone="muted" testID={`sak-${varian.id}`}>
             {bulkCopy(bulk)}
           </AppText>
@@ -468,7 +470,7 @@ function VarianLine({
       <StockBadge
         qty={stock.kind === 'counted' ? stock.qty : null}
         minimum={varian.minimum ?? null}
-        low={check.kind === 'rendah'}
+        low={low}
         testID={`stok-angka-${varian.id}`}
       />
     </Pressable>
@@ -509,7 +511,7 @@ function StokPane({
         <AppText typeRole="titleMedium" numberOfLines={2}>
           {varian.nama}
         </AppText>
-        <AppText typeRole="labelSmall" tone={negative ? 'owed' : 'muted'}>
+        <AppText typeRole="numericSmall" tone={negative ? 'owed' : 'muted'}>
           {`${formatRupiah(varian.harga)} · per ${varian.satuan} · ${rule}`}
         </AppText>
       </View>

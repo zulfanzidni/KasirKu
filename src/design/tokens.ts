@@ -125,6 +125,14 @@ export const typography = {
     letterSpacing: 1.1,
     textTransform: 'uppercase' as const,
   },
+  /** A figure inside a small line: money or a quantity, never a heading. */
+  numericSmall: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.2,
+    fontVariant: tabular,
+  },
   numericLarge: {
     fontFamily: fontFamily.printSemibold,
     fontSize: 17,

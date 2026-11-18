@@ -76,6 +76,34 @@ export function PemasokScreen({ onBack }: { onBack?: () => void } = {}) {
 
   const selected = selectedId ? payables.find((entry) => entry.supplier.id === selectedId) ?? null : null;
 
+  const list = (
+    <ScrollView contentContainerStyle={styles.content}>
+      {payables.length === 0 ? <Note>Belum ada pemasok.</Note> : null}
+      {payables.map((entry) =>
+        wide ? (
+          <RuledRow
+            key={entry.supplier.id}
+            title={entry.supplier.nama}
+            value={entry.total > 0 ? `Utang Rp ${formatRupiah(entry.total)}` : 'Tidak ada utang'}
+            owed={entry.total > 0}
+            selected={entry.supplier.id === selectedId}
+            onPress={() => setSelectedId(entry.supplier.id)}
+            testID={`pemasok-baris-${entry.supplier.id}`}
+          />
+        ) : (
+          <SupplierRow
+            key={entry.supplier.id}
+            payable={entry}
+            titip={titipFor(entry.supplier.id)}
+            onNota={() => setSheet({ kind: 'nota', supplierId: entry.supplier.id })}
+            onBayar={() => setSheet({ kind: 'bayar', supplierId: entry.supplier.id })}
+            onKembali={() => setSheet({ kind: 'kembali', supplierId: entry.supplier.id })}
+          />
+        ),
+      )}
+    </ScrollView>
+  );
+
   return (
     <Screen
       title="Pemasok"
@@ -94,55 +122,24 @@ export function PemasokScreen({ onBack }: { onBack?: () => void } = {}) {
         </View>
       }
     >
-      {wide ? (
-        <SplitPane
-          testID="pemasok-pecah"
-          detailTestID="pemasok-pane"
-          list={
-            <ScrollView contentContainerStyle={styles.content}>
-              {payables.length === 0 ? <Note>Belum ada pemasok.</Note> : null}
-              {payables.map((entry) => (
-                <RuledRow
-                  key={entry.supplier.id}
-                  title={entry.supplier.nama}
-                  value={entry.total > 0 ? `Utang Rp ${formatRupiah(entry.total)}` : 'Tidak ada utang'}
-                  owed={entry.total > 0}
-                  selected={entry.supplier.id === selectedId}
-                  onPress={() => setSelectedId(entry.supplier.id)}
-                  testID={`pemasok-baris-${entry.supplier.id}`}
-                />
-              ))}
-            </ScrollView>
-          }
-          detail={
-            selected ? (
-              <SupplierPane
-                payable={selected}
-                titip={titipFor(selected.supplier.id)}
-                onNota={() => setSheet({ kind: 'nota', supplierId: selected.supplier.id })}
-                onBayar={() => setSheet({ kind: 'bayar', supplierId: selected.supplier.id })}
-                onKembali={() => setSheet({ kind: 'kembali', supplierId: selected.supplier.id })}
-              />
-            ) : (
-              <PaneEmpty label="Pilih pemasok" />
-            )
-          }
-        />
-      ) : (
-        <ScrollView contentContainerStyle={styles.content}>
-          {payables.length === 0 ? <Note>Belum ada pemasok.</Note> : null}
-          {payables.map((entry) => (
-            <SupplierRow
-              key={entry.supplier.id}
-              payable={entry}
-              titip={titipFor(entry.supplier.id)}
-              onNota={() => setSheet({ kind: 'nota', supplierId: entry.supplier.id })}
-              onBayar={() => setSheet({ kind: 'bayar', supplierId: entry.supplier.id })}
-              onKembali={() => setSheet({ kind: 'kembali', supplierId: entry.supplier.id })}
+      <SplitPane
+        testID="pemasok-pecah"
+        detailTestID="pemasok-pane"
+        list={list}
+        detail={
+          selected ? (
+            <SupplierPane
+              payable={selected}
+              titip={titipFor(selected.supplier.id)}
+              onNota={() => setSheet({ kind: 'nota', supplierId: selected.supplier.id })}
+              onBayar={() => setSheet({ kind: 'bayar', supplierId: selected.supplier.id })}
+              onKembali={() => setSheet({ kind: 'kembali', supplierId: selected.supplier.id })}
             />
-          ))}
-        </ScrollView>
-      )}
+          ) : (
+            <PaneEmpty label="Pilih pemasok" />
+          )
+        }
+      />
 
       <BottomSheet
         visible={sheet?.kind === 'pemasok'}
@@ -185,6 +182,64 @@ export function PemasokScreen({ onBack }: { onBack?: () => void } = {}) {
   );
 }
 
+type TitipLine = { varianId: string; nama: string; satuan: string; qty: number };
+
+/**
+ * The figures a supplier's record is made of, and the three actions on it.
+ *
+ * The portrait row and the landscape pane both render this, so the two can
+ * never drift; only the frame around it differs. `pane` selects the pane's
+ * testIDs and its slightly louder name, and nothing else.
+ */
+function SupplierRecord({
+  payable,
+  titip,
+  pane,
+  onNota,
+  onBayar,
+  onKembali,
+}: {
+  payable: SupplierPayable;
+  titip: TitipLine[];
+  pane: boolean;
+  onNota: () => void;
+  onBayar: () => void;
+  onKembali: () => void;
+}) {
+  const { supplier, tempo, titip: titipSold, paid, total } = payable;
+  const titipReading = titip.map((line) => `${formatQty(line.qty)} ${line.satuan}`).join(' · ');
+  const id = (name: string) => `${pane ? 'pane-' : ''}${name}-${supplier.id}`;
+
+  return (
+    <>
+      <AppText
+        typeRole={pane ? 'titleMedium' : 'bodyLarge'}
+        tone={pane ? 'primary' : 'default'}
+        numberOfLines={pane ? 2 : undefined}
+      >
+        {supplier.nama}
+      </AppText>
+      <AppText typeRole="titleMedium" tone={total > 0 ? 'default' : 'muted'} testID={id('utang')}>
+        {total > 0 ? `Utang Rp ${formatRupiah(total)}` : 'Tidak ada utang'}
+      </AppText>
+      <AppText typeRole="numericSmall" tone="muted" testID={id('rincian')}>
+        {`Tempo Rp ${formatRupiah(tempo)} · Titip terjual Rp ${formatRupiah(titipSold)} · Dibayar Rp ${formatRupiah(paid)}`}
+      </AppText>
+      {titip.length > 0 ? (
+        <AppText typeRole="numericSmall" tone="muted" testID={pane ? id('titip') : `titip-pemasok-${supplier.id}`}>
+          {`Titip di rak: ${titipReading}`}
+        </AppText>
+      ) : null}
+
+      <View style={pane ? styles.paneActions : styles.actions}>
+        <Button label="Catat nota" variant="outlined" onPress={onNota} testID={id('nota')} />
+        <Button label="Bayar" variant="text" onPress={onBayar} testID={id('bayar')} />
+        <Button label="Kembalikan titip" variant="text" onPress={onKembali} testID={id('kembali')} />
+      </View>
+    </>
+  );
+}
+
 function SupplierRow({
   payable,
   titip,
@@ -193,38 +248,21 @@ function SupplierRow({
   onKembali,
 }: {
   payable: SupplierPayable;
-  titip: { varianId: string; nama: string; satuan: string; qty: number }[];
+  titip: TitipLine[];
   onNota: () => void;
   onBayar: () => void;
   onKembali: () => void;
 }) {
-  const { supplier, tempo, titip: titipSold, paid, total } = payable;
-  const titipReading = titip.map((line) => `${formatQty(line.qty)} ${line.satuan}`).join(' · ');
-
   return (
-    <View testID={`pemasok-baris-${supplier.id}`} style={styles.supplier}>
-      <AppText typeRole="bodyLarge">{supplier.nama}</AppText>
-      <AppText
-        typeRole="titleMedium"
-        tone={total > 0 ? 'default' : 'muted'}
-        testID={`utang-${supplier.id}`}
-      >
-        {total > 0 ? `Utang Rp ${formatRupiah(total)}` : 'Tidak ada utang'}
-      </AppText>
-      <AppText typeRole="labelSmall" tone="muted" testID={`rincian-${supplier.id}`}>
-        {`Tempo Rp ${formatRupiah(tempo)} · Titip terjual Rp ${formatRupiah(titipSold)} · Dibayar Rp ${formatRupiah(paid)}`}
-      </AppText>
-      {titip.length > 0 ? (
-        <AppText typeRole="labelSmall" tone="muted" testID={`titip-pemasok-${supplier.id}`}>
-          {`Titip di rak: ${titipReading}`}
-        </AppText>
-      ) : null}
-
-      <View style={styles.actions}>
-        <Button label="Catat nota" variant="outlined" onPress={onNota} testID={`nota-${supplier.id}`} />
-        <Button label="Bayar" variant="text" onPress={onBayar} testID={`bayar-${supplier.id}`} />
-        <Button label="Kembalikan titip" variant="text" onPress={onKembali} testID={`kembali-${supplier.id}`} />
-      </View>
+    <View testID={`pemasok-baris-${payable.supplier.id}`} style={styles.supplier}>
+      <SupplierRecord
+        payable={payable}
+        titip={titip}
+        pane={false}
+        onNota={onNota}
+        onBayar={onBayar}
+        onKembali={onKembali}
+      />
     </View>
   );
 }
@@ -243,40 +281,21 @@ function SupplierPane({
   onKembali,
 }: {
   payable: SupplierPayable;
-  titip: { varianId: string; nama: string; satuan: string; qty: number }[];
+  titip: TitipLine[];
   onNota: () => void;
   onBayar: () => void;
   onKembali: () => void;
 }) {
-  const { supplier, tempo, titip: titipSold, paid, total } = payable;
-  const titipReading = titip.map((line) => `${formatQty(line.qty)} ${line.satuan}`).join(' · ');
-
   return (
-    <ScrollView contentContainerStyle={styles.pane} testID={`pemasok-pane-${supplier.id}`}>
-      <AppText typeRole="titleMedium" tone="primary" numberOfLines={2}>
-        {supplier.nama}
-      </AppText>
-      <AppText
-        typeRole="titleMedium"
-        tone={total > 0 ? 'default' : 'muted'}
-        testID={`pane-utang-${supplier.id}`}
-      >
-        {total > 0 ? `Utang Rp ${formatRupiah(total)}` : 'Tidak ada utang'}
-      </AppText>
-      <AppText typeRole="labelSmall" tone="muted" testID={`pane-rincian-${supplier.id}`}>
-        {`Tempo Rp ${formatRupiah(tempo)} · Titip terjual Rp ${formatRupiah(titipSold)} · Dibayar Rp ${formatRupiah(paid)}`}
-      </AppText>
-      {titip.length > 0 ? (
-        <AppText typeRole="labelSmall" tone="muted" testID={`pane-titip-${supplier.id}`}>
-          {`Titip di rak: ${titipReading}`}
-        </AppText>
-      ) : null}
-
-      <View style={styles.paneActions}>
-        <Button label="Catat nota" variant="outlined" onPress={onNota} testID={`pane-nota-${supplier.id}`} />
-        <Button label="Bayar" variant="text" onPress={onBayar} testID={`pane-bayar-${supplier.id}`} />
-        <Button label="Kembalikan titip" variant="text" onPress={onKembali} testID={`pane-kembali-${supplier.id}`} />
-      </View>
+    <ScrollView contentContainerStyle={styles.pane} testID={`pemasok-pane-${payable.supplier.id}`}>
+      <SupplierRecord
+        payable={payable}
+        titip={titip}
+        pane
+        onNota={onNota}
+        onBayar={onBayar}
+        onKembali={onKembali}
+      />
     </ScrollView>
   );
 }

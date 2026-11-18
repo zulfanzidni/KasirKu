@@ -167,7 +167,8 @@ export function setWindow(width: number, height: number) {
 /** The phone this app is built for, used to put a suite back after a landscape test. */
 export const PHONE_PORTRAIT = { width: 411, height: 891 } as const;
 
-export function wrap(node: ReactNode) {  return (
+export function wrap(node: ReactNode) {
+  return (
     <SafeAreaProvider initialMetrics={metrics}>
       <LedgerProvider>
         <Probe />
