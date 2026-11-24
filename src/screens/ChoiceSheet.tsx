@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { AppText, BottomSheet, Button, RuledRow, formatQty, formatRupiah, space } from '@/design';
+import { AppText, BottomSheet, Button, Card, CardRow, Icon, formatQty, formatRupiah, colors, space } from '@/design';
 import type { Varian } from '@/ledger';
 import type { TapOutcome } from '@/ledger/useLedger';
 
@@ -10,7 +10,6 @@ export interface ChoiceSheetProps {
   onAdd: (varianId: string, qty: number) => void;
 }
 
-type Choice = NonNullable<ChoiceSheetProps['choice']>;
 type Add = ChoiceSheetProps['onAdd'];
 
 /**
@@ -32,7 +31,7 @@ export function ChoiceSheet({ choice, onClose, onAdd }: ChoiceSheetProps) {
         <WeightChoices varian={choice.varian} pilihan={choice.pilihan} onAdd={onAdd} />
       ) : null}
       <View style={styles.footer}>
-        <Button label="Batal" variant="text" fullWidth={false} onPress={onClose} testID="batal-pilih" />
+        <Button label="Batal" variant="text" size="small" fullWidth={false} onPress={onClose} testID="batal-pilih" />
       </View>
     </BottomSheet>
   );
@@ -40,42 +39,66 @@ export function ChoiceSheet({ choice, onClose, onAdd }: ChoiceSheetProps) {
 
 function VariantChoices({ varian, onAdd }: { varian: Varian[]; onAdd: Add }) {
   return (
-    <View style={styles.flat}>
-      {varian.map((item) => (
-        <RuledRow
+    <Card>
+      {varian.map((item, index) => (
+        <CardRow
           key={item.id}
-          title={item.nama}
-          kode={item.kode ?? undefined}
-          value={formatRupiah(item.harga)}
+          divided={index > 0}
           onPress={() => onAdd(item.id, 1)}
           testID={`pilih-${item.id}`}
-        />
+          accessibilityLabel={`${item.nama}, ${formatRupiah(item.harga)}`}
+        >
+          <View style={styles.rowText}>
+            <AppText typeRole="titleSmall" numberOfLines={1}>
+              {item.nama}
+            </AppText>
+            {item.kode ? (
+              <AppText typeRole="bodySmall" tone="muted">
+                {item.kode}
+              </AppText>
+            ) : null}
+          </View>
+          <AppText typeRole="numericMedium" align="right">
+            {formatRupiah(item.harga)}
+          </AppText>
+          <Icon name="add" size={16} color={colors.primary} strokeWidth={2.2} />
+        </CardRow>
       ))}
-    </View>
+    </Card>
   );
 }
 
 function WeightChoices({ varian, pilihan, onAdd }: { varian: Varian; pilihan: number[]; onAdd: Add }) {
   return (
-    <View style={styles.flat}>
-      <AppText typeRole="bodyMedium" tone="muted" style={styles.note}>
+    <View style={styles.stack}>
+      <AppText typeRole="bodySmall" tone="muted">
         {`${varian.nama} · ${formatRupiah(varian.harga)} per ${varian.satuan}`}
       </AppText>
-      {pilihan.map((qty) => (
-        <RuledRow
-          key={qty}
-          title={`${formatQty(qty)} ${varian.satuan}`}
-          value={formatRupiah(Math.round(varian.harga * qty))}
-          onPress={() => onAdd(varian.id, qty)}
-          testID={`pilih-${varian.id}-${qty}`}
-        />
-      ))}
+      <Card>
+        {pilihan.map((qty, index) => (
+          <CardRow
+            key={qty}
+            divided={index > 0}
+            onPress={() => onAdd(varian.id, qty)}
+            testID={`pilih-${varian.id}-${qty}`}
+            accessibilityLabel={`${formatQty(qty)} ${varian.satuan}`}
+          >
+            <AppText typeRole="titleSmall" style={styles.rowText}>
+              {`${formatQty(qty)} ${varian.satuan}`}
+            </AppText>
+            <AppText typeRole="numericMedium" align="right">
+              {formatRupiah(Math.round(varian.harga * qty))}
+            </AppText>
+            <Icon name="add" size={16} color={colors.primary} strokeWidth={2.2} />
+          </CardRow>
+        ))}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flat: { marginHorizontal: -space.gutter },
-  footer: { paddingTop: space.sm, alignItems: 'flex-end' },
-  note: { paddingHorizontal: space.gutter, paddingBottom: space.sm },
+  stack: { gap: space.sm },
+  rowText: { flex: 1, gap: 1 },
+  footer: { paddingTop: space.md, alignItems: 'flex-end' },
 });

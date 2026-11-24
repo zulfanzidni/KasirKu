@@ -73,8 +73,8 @@ describe('Kasir', () => {
 
     expect(screen.getByText('KasirKu')).toBeTruthy();
     expect(screen.getByTestId('cari-barang').props.placeholder).toBe('Cari nama barang…');
-    expect(screen.getByText('Nota')).toBeTruthy();
-    expect(screen.getByText('Total')).toBeTruthy();
+    expect(screen.getByText('Nota kosong')).toBeTruthy();
+    expect(screen.getByText('Kasir')).toBeTruthy();
     expect(screen.getByText('Bayar')).toBeTruthy();
   });
 
@@ -85,7 +85,7 @@ describe('Kasir', () => {
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));
 
-    expect(screen.getByText('×3')).toBeTruthy();
+    expect(screen.getByTestId(`qty-${varianId}`)).toHaveTextContent("3");
     expect(app.cart).toEqual([expect.objectContaining({ varianId, qty: 3, jumlah: 10500 })]);
     expect(screen.getByText('10.500')).toBeTruthy();
   });
@@ -127,7 +127,7 @@ describe('Kasir', () => {
     fireEvent.press(screen.getByTestId(`pilih-${gula}-0.25`));
 
     expect(app.cart).toEqual([expect.objectContaining({ varianId: gula, qty: 0.25, jumlah: 4000 })]);
-    expect(screen.getByText('×0,25')).toBeTruthy();
+    expect(screen.getByTestId(`qty-${gula}`)).toHaveTextContent("0,25");
     expect(screen.getByText('4.000')).toBeTruthy();
   });
 
@@ -178,7 +178,7 @@ describe('Kasir', () => {
     await pay();
     await act(async () => {});
 
-    expect(screen.getByText('Tersimpan')).toBeTruthy();
+    expect(screen.getByText('Struk')).toBeTruthy();
     const shop = await phoneShop();
     expect(shop.sales).toHaveLength(1);
     expect(shop.sales[0].total).toBe(7000);
@@ -271,7 +271,7 @@ describe('Kasir', () => {
     await pay();
     await act(async () => {});
 
-    expect(screen.getByText('Tersimpan')).toBeTruthy();
+    expect(screen.getByText('Struk')).toBeTruthy();
     expect((await phoneShop()).sales[0].lines[0].qty).toBe(3);
   });
 });

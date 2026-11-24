@@ -163,7 +163,7 @@ describe('after paying — the nota', () => {
     fireEvent.press(screen.getByTestId('simpan-pembayaran'));
     await act(async () => {});
 
-    expect(screen.getByText('Tersimpan')).toBeTruthy();
+    expect(screen.getByText('Struk')).toBeTruthy();
     expect(screen.getByTestId('nota-nomor')).toHaveTextContent(/^No\. \d{8}-.{4}-\d{3}$/);
     expect(screen.getByTestId('nota-gross')).toHaveTextContent('30.500');
     expect(screen.getByTestId('nota-diskon')).toHaveTextContent('−1.200');

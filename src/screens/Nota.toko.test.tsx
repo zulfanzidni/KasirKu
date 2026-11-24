@@ -62,7 +62,7 @@ describe('the shop name the owner set appears on the nota', () => {
     await act(async () => {});
 
     // The nota on screen.
-    expect(screen.getByText('Warung Bu Sri')).toBeTruthy();
+    expect(screen.getByTestId('nota-toko')).toHaveTextContent('Warung Bu Sri');
     expect(screen.getByText('Jl. Melati 12')).toBeTruthy();
     expect(screen.getByTestId('nota-footer')).toHaveTextContent('Terima kasih, datang lagi ya.');
 

@@ -1,10 +1,11 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AppText,
   Button,
+  Card,
   Note,
-  RuledRow,
+  RowAvatar,
+  Screen,
   TotalBlock,
   colors,
   formatRupiah,
@@ -31,79 +32,96 @@ export interface ReceiptScreenProps {
  * what the customer gets cannot disagree.
  */
 export function ReceiptScreen({ sale, shop, onNewSale, onShare, sharing, shareError }: ReceiptScreenProps) {
-  const insets = useSafeAreaInsets();
   const nota = receiptOf(sale, shop);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, space.lg) }]}>
-      <View style={styles.header}>
-        <AppText typeRole="headlineSmall" tone="primary">
-          Tersimpan
-        </AppText>
-        <AppText typeRole="labelSmall" tone="muted">
-          Penjualan tercatat
-        </AppText>
-      </View>
-
+    <Screen
+      title="Struk"
+      role="Kasir"
+      subtitle={`Tersimpan · ${nota.number}`}
+      footer={
+        <View style={styles.footer}>
+          <Button
+            label={sharing ? 'Menyiapkan…' : 'Bagikan PDF'}
+            onPress={onShare}
+            disabled={sharing}
+            testID="bagikan-nota"
+          />
+          <Button label="Penjualan baru" variant="outlined" onPress={onNewSale} testID="nota-baru" />
+        </View>
+      }
+    >
       <ScrollView contentContainerStyle={styles.body}>
         <ReceiptPaper nota={nota} />
         {shareError ? <Note>{`Nota belum bisa dibagikan: ${shareError}`}</Note> : null}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <Button label="Nota baru" variant="outlined" onPress={onNewSale} testID="nota-baru" style={styles.back} />
-        <Button
-          label={sharing ? 'Menyiapkan…' : 'Bagikan nota'}
-          onPress={onShare}
-          disabled={sharing}
-          testID="bagikan-nota"
-          style={styles.grow}
-        />
-      </View>
-    </View>
+    </Screen>
   );
 }
 
 /** The paper itself: header, lines, the sums above the total window, footer. */
 export function ReceiptPaper({ nota }: { nota: ReceiptData }) {
+  const initial = nota.header.nama.trim().charAt(0).toUpperCase() || 'K';
+
   return (
-    <View style={styles.paper} testID="nota-kertas">
+    <Card padded style={styles.paper} testID="nota-kertas">
       <View style={styles.shop}>
-        <AppText typeRole="headlineSmall" tone="primary" align="center">
-          {nota.header.nama}
-        </AppText>
-        {nota.header.keterangan ? (
-          <AppText typeRole="bodyMedium" tone="muted" align="center">
-            {nota.header.keterangan}
+        <RowAvatar size={44} tone="action">
+          <AppText typeRole="titleLarge" tone="primary">
+            {initial}
           </AppText>
-        ) : null}
+        </RowAvatar>
+        <View style={styles.shopText}>
+          <AppText typeRole="titleLarge" numberOfLines={1} testID="nota-toko">
+            {nota.header.nama}
+          </AppText>
+          {nota.header.keterangan ? (
+            <AppText typeRole="bodySmall" tone="muted" numberOfLines={2}>
+              {nota.header.keterangan}
+            </AppText>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.meta}>
-        <AppText typeRole="bodyMedium" tone="muted" testID="nota-nomor">
+        <AppText typeRole="bodySmall" tone="muted" testID="nota-nomor">
           {`No. ${nota.number}`}
         </AppText>
-        <AppText typeRole="bodyMedium" tone="muted">
+        <AppText typeRole="bodySmall" tone="muted">
           {`${nota.tanggal} · ${nota.jam}`}
         </AppText>
       </View>
 
       {nota.voided ? (
         <View style={styles.void} testID="nota-batal">
-          <AppText typeRole="titleMedium" tone="owed" align="center">
+          <AppText typeRole="labelSmall" tone="owed">
             NOTA DIBATALKAN
           </AppText>
           {nota.voidReason ? (
-            <AppText typeRole="bodyMedium" tone="muted" align="center">
+            <AppText typeRole="bodySmall" tone="muted">
               {nota.voidReason}
             </AppText>
           ) : null}
         </View>
       ) : null}
 
-      {nota.lines.map((line, index) => (
-        <RuledRow key={`${line.label}-${index}`} title={line.label} qtyMark={line.qty} value={formatRupiah(line.amount)} />
-      ))}
+      <View style={styles.lines}>
+        {nota.lines.map((line, index) => (
+          <View key={`${line.label}-${index}`} style={styles.line}>
+            <View style={styles.lineMain}>
+              <AppText typeRole="titleSmall" numberOfLines={1}>
+                {line.label}
+              </AppText>
+              <AppText typeRole="bodySmall" tone="muted">
+                {line.qty}
+              </AppText>
+            </View>
+            <AppText typeRole="numericMedium" align="right">
+              {formatRupiah(line.amount)}
+            </AppText>
+          </View>
+        ))}
+      </View>
 
       <View style={styles.sums}>
         <SumRow label="Total barang" value={formatRupiah(nota.gross)} testID="nota-gross" />
@@ -131,21 +149,31 @@ export function ReceiptPaper({ nota }: { nota: ReceiptData }) {
       </View>
 
       <View style={styles.foot}>
-        <AppText typeRole="bodyMedium" tone="muted" align="center" testID="nota-footer">
+        <AppText typeRole="bodySmall" tone="muted" align="center" testID="nota-footer">
           {nota.footer}
         </AppText>
       </View>
-    </View>
+    </Card>
   );
 }
 
-function SumRow({ label, value, testID, emphasis }: { label: string; value: string; testID?: string; emphasis?: boolean }) {
+function SumRow({
+  label,
+  value,
+  testID,
+  emphasis,
+}: {
+  label: string;
+  value: string;
+  testID?: string;
+  emphasis?: boolean;
+}) {
   return (
     <View style={styles.sumRow}>
-      <AppText typeRole={emphasis ? 'titleMedium' : 'bodyLarge'} tone={emphasis ? 'primary' : 'default'} style={styles.sumLabel}>
+      <AppText typeRole="bodySmall" tone="muted" style={styles.sumLabel}>
         {label}
       </AppText>
-      <AppText typeRole="numericLarge" tone={emphasis ? 'primary' : 'default'} align="right" testID={testID}>
+      <AppText typeRole={emphasis ? 'numericMedium' : 'bodySmall'} tone={emphasis ? 'positive' : 'default'} align="right" testID={testID}>
         {value}
       </AppText>
     </View>
@@ -159,43 +187,31 @@ function signed(amount: number): string {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.surface },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    paddingTop: space.sm,
-    paddingBottom: space.sm,
-    minHeight: 56,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.primary,
-  },
-  body: { paddingBottom: space.lg },
-  paper: { backgroundColor: colors.surfaceContainerLowest, margin: space.md, paddingBottom: space.md },
-  shop: { paddingHorizontal: space.gutter, paddingTop: space.lg, gap: space.xs },
+  body: { paddingHorizontal: space.gutter, paddingBottom: space.lg },
+  paper: { gap: space.md, borderRadius: 20 },
+  shop: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  shopText: { flex: 1, gap: 1 },
   meta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    paddingVertical: space.sm,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.primary,
+    paddingBottom: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outline,
   },
   void: {
-    marginHorizontal: space.gutter,
-    marginTop: space.sm,
     paddingVertical: space.sm,
-    borderWidth: 1,
-    borderColor: colors.error,
-    gap: space.xs,
+    paddingHorizontal: space.md,
+    backgroundColor: colors.errorContainer,
+    borderRadius: 10,
+    gap: 2,
   },
-  sums: { paddingHorizontal: space.gutter, paddingTop: space.sm, gap: space.xs },
-  sumRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  lines: { gap: space.sm },
+  line: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
+  lineMain: { flex: 1 },
+  sums: { gap: space.xs },
+  sumRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.sm },
   sumLabel: { flex: 1 },
-  total: { paddingHorizontal: space.gutter, marginTop: space.sm },
-  foot: { paddingHorizontal: space.gutter, paddingTop: space.xl },
-  footer: { flexDirection: 'row', gap: space.sm, paddingHorizontal: space.gutter, paddingTop: space.md },
-  back: { width: 112 },
-  grow: { flex: 1 },
+  total: { marginTop: space.xs },
+  foot: { paddingTop: space.sm },
+  footer: { gap: space.sm },
 });

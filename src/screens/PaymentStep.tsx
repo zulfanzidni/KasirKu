@@ -1,19 +1,23 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   AppText,
   Button,
+  Card,
   Chip,
+  Field,
+  Icon,
+  RowAvatar,
+  Screen,
+  SectionHeading,
   TotalBlock,
   colors,
   computeTotals,
   formatRupiah,
   formatRupiahFull,
   parseRupiah,
+  shape,
   space,
-  typography,
-  fontFamily,
   type Discount,
 } from '@/design';
 import type { Cart, PaymentInput, Pelanggan } from '@/ledger';
@@ -48,7 +52,6 @@ export interface PaymentStepProps {
  * needs a customer (ticket 07).
  */
 export function PaymentStep({ cart, pelanggan, onPickCustomer, onBack, onPay, saving, error }: PaymentStepProps) {
-  const insets = useSafeAreaInsets();
   const [diskonCara, setDiskonCara] = useState<DiskonCara>('rupiah');
   const [diskonTeks, setDiskonTeks] = useState('');
   const [diterimaTeks, setDiterimaTeks] = useState('');
@@ -65,160 +68,193 @@ export function PaymentStep({ cart, pelanggan, onPickCustomer, onBack, onPay, sa
   );
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, space.lg) }]}>
-      <View style={styles.header}>
-        <AppText typeRole="headlineSmall" tone="primary">
-          Bayar
-        </AppText>
-        <AppText typeRole="labelSmall" tone="muted">
-          {`${cart.length} barang · tunai`}
-        </AppText>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <View style={styles.customer}>
-          <View style={styles.customerMain}>
-            <AppText typeRole="labelSmall" tone="muted">
-              Pelanggan
-            </AppText>
-            <AppText typeRole="bodyLarge" testID="bayar-pelanggan">
-              {pelanggan ? pelanggan.nama : 'Tanpa pelanggan (umum)'}
-            </AppText>
-          </View>
+    <Screen
+      title="Bayar"
+      role="Kasir"
+      subtitle={`${cart.length} barang · ${formatRupiah(gross)}`}
+      footer={
+        <View style={styles.footer}>
           <Button
-            label="Ganti"
+            label={saving ? 'Menyimpan…' : 'Simpan'}
+            onPress={() => onPay({ discount, tendered, pelangganId: pelanggan?.id })}
+            disabled={saving || (totals.hutang > 0 && !pelanggan) || totals.due <= 0}
+            testID="simpan-pembayaran"
+          />
+          <Button
+            label="Kembali ke nota"
             variant="text"
+            size="small"
             fullWidth={false}
-            onPress={onPickCustomer}
+            onPress={onBack}
             disabled={saving}
-            testID="ganti-pelanggan"
+            testID="kembali-dari-bayar"
           />
         </View>
-
-        {cart.map((line) => (
-          <View key={line.varianId} style={styles.item}>
-            <AppText typeRole="bodyLarge" numberOfLines={1} style={styles.itemName}>
-              {line.nama}
+      }
+    >
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <Card style={styles.customer}>
+          <RowAvatar size={36} tone="action">
+            <Icon name="user" size={18} color={colors.primary} />
+          </RowAvatar>
+          <View style={styles.customerMain}>
+            <AppText typeRole="titleSmall" testID="bayar-pelanggan">
+              {pelanggan ? pelanggan.nama : 'Umum'}
             </AppText>
-            <AppText typeRole="numericLarge" align="right">
-              {formatRupiah(line.jumlah)}
+            <AppText typeRole="bodySmall" tone="muted">
+              {pelanggan ? 'Punya hutang bisa dicatat' : 'Tanpa pelanggan'}
             </AppText>
           </View>
-        ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ganti pelanggan"
+            onPress={onPickCustomer}
+            disabled={saving}
+            hitSlop={8}
+            testID="ganti-pelanggan"
+          >
+            <AppText typeRole="labelMedium" tone="primary">
+              Ubah
+            </AppText>
+          </Pressable>
+        </Card>
 
-        <View style={styles.section}>
-          <AppText typeRole="labelSmall" tone="muted">
-            Potongan
-          </AppText>
-          <View style={styles.row}>
-            <AppText typeRole="bodyLarge" style={styles.rowLabel}>
+        <SectionHeading flush>Rincian</SectionHeading>
+        <Card padded style={styles.detail}>
+          <View style={styles.sumRow}>
+            <AppText typeRole="bodyMedium" tone="muted" style={styles.sumLabel}>
               Total barang
             </AppText>
-            <AppText typeRole="numericLarge" align="right" testID="bayar-gross">
+            <AppText typeRole="numericMedium" align="right" testID="bayar-gross">
               {formatRupiah(gross)}
             </AppText>
           </View>
-          <View style={styles.row}>
-            <AppText typeRole="bodyLarge" style={styles.rowLabel}>
+          <View style={styles.sumRow}>
+            <AppText typeRole="bodyMedium" tone="muted" style={styles.sumLabel}>
               Diskon
             </AppText>
-            <AppText typeRole="numericLarge" align="right" testID="bayar-diskon">
+            <AppText typeRole="numericMedium" align="right" testID="bayar-diskon">
               {formatRupiah(totals.discount)}
             </AppText>
           </View>
-          <View style={styles.chips}>
-            <Chip label="Rp" selected={diskonCara === 'rupiah'} onPress={() => setDiskonCara('rupiah')} testID="diskon-rupiah" />
-            <Chip label="%" selected={diskonCara === 'persen'} onPress={() => setDiskonCara('persen')} testID="diskon-persen" />
+          <View style={styles.discountRow}>
+            <Chip
+              label="Rp"
+              selected={diskonCara === 'rupiah'}
+              onPress={() => setDiskonCara('rupiah')}
+              testID="diskon-rupiah"
+            />
+            <Chip
+              label="%"
+              selected={diskonCara === 'persen'}
+              onPress={() => setDiskonCara('persen')}
+              testID="diskon-persen"
+            />
+            <View style={styles.discountField}>
+              <Field
+                testID="bayar-diskon-input"
+                label="Diskon"
+                keyboardType="number-pad"
+                value={diskonTeks}
+                onChangeText={setDiskonTeks}
+                placeholder={diskonCara === 'persen' ? 'Mis. 10' : 'Mis. 1.500'}
+              />
+            </View>
           </View>
-          <TextInput
-            testID="bayar-diskon-input"
-            accessibilityLabel="Diskon"
-            keyboardType="number-pad"
-            value={diskonTeks}
-            onChangeText={setDiskonTeks}
-            placeholder={diskonCara === 'persen' ? 'Mis. 10' : 'Mis. 1.500'}
-            placeholderTextColor={colors.onSurfaceVariant}
-            style={styles.input}
-          />
-          <AppText typeRole="bodyMedium" tone="muted" style={styles.hint}>
+          <AppText typeRole="bodySmall" tone="muted">
             {diskonCara === 'persen'
               ? `Diskon ${trimNumber(diskonTeks)}% dihitung dari total barang, lalu dibulatkan ke rupiah.`
               : 'Diskon dihitung dari total barang, tidak pernah melebihi totalnya.'}
           </AppText>
-
-          <View style={styles.row}>
-            <AppText typeRole="bodyLarge" style={styles.rowLabel}>
+          <View style={[styles.sumRow, styles.rule]}>
+            <AppText typeRole="bodyMedium" tone="muted" style={styles.sumLabel}>
               Pembulatan
             </AppText>
-            <AppText typeRole="numericLarge" align="right" testID="bayar-pembulatan">
+            <AppText typeRole="numericMedium" align="right" testID="bayar-pembulatan">
               {signed(totals.rounding)}
             </AppText>
           </View>
-        </View>
+        </Card>
 
         <TotalBlock label="Total" amount={totals.due} testID="bayar-total" style={styles.total} />
 
-        <View style={styles.section}>
-          <AppText typeRole="labelSmall" tone="muted">
-            Tunai
-          </AppText>
-          <TextInput
-            testID="uang-diterima"
-            accessibilityLabel="Uang diterima"
-            keyboardType="number-pad"
-            value={diterimaTeks}
-            onChangeText={setDiterimaTeks}
-            placeholder="Berapa uang yang diterima?"
-            placeholderTextColor={colors.onSurfaceVariant}
-            style={styles.input}
-          />
-          <View style={styles.row}>
-            <AppText typeRole="bodyLarge" style={styles.rowLabel}>
-              Diterima
-            </AppText>
-            <AppText typeRole="numericLarge" align="right" testID="bayar-diterima">
-              {formatRupiah(totals.tendered)}
-            </AppText>
-          </View>
-          <View style={[styles.row, styles.kembalian]}>
-            <AppText typeRole="titleMedium" tone="primary" style={styles.rowLabel}>
+        <Field
+          testID="uang-diterima"
+          label="Tunai diterima"
+          size="amount"
+          suffix="Rp"
+          keyboardType="number-pad"
+          value={diterimaTeks}
+          onChangeText={setDiterimaTeks}
+          placeholder="0"
+          style={styles.tunaiInput}
+        />
+
+        <View style={styles.quick}>
+          {[
+            { label: '50 rb', value: 50_000 },
+            { label: '100 rb', value: 100_000 },
+            { label: 'Pas', value: totals.due },
+          ].map((option) => (
+            <Pressable
+              key={option.label}
+              accessibilityRole="button"
+              accessibilityLabel={`Isi ${option.label}`}
+              onPress={() => setDiterimaTeks(String(option.value))}
+              android_ripple={{ color: colors.primaryContainer }}
+              style={styles.quickButton}
+            >
+              <AppText typeRole="bodySmall" tone="muted">
+                {option.label}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+
+        <Card padded style={styles.change}>
+          <View style={styles.changeCol}>
+            <AppText typeRole="bodySmall" tone="muted">
               Kembalian
             </AppText>
-            <AppText typeRole="numericLarge" tone="primary" align="right" testID="bayar-kembalian">
+            <AppText typeRole="headlineMedium" tone="positive" testID="bayar-kembalian">
               {formatRupiah(totals.kembalian)}
             </AppText>
           </View>
-          {totals.hutang > 0 ? (
-            pelanggan ? (
-              <AppText typeRole="bodyMedium" tone="owed" testID="bayar-hutang" style={styles.kurang}>
-                {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Sisanya dicatat sebagai hutang ${pelanggan.nama}.`}
-              </AppText>
-            ) : (
-              <AppText typeRole="bodyMedium" tone="owed" testID="bayar-kurang" style={styles.kurang}>
-                {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Penjualan dengan hutang membutuhkan pelanggan — pilih pelanggan dulu.`}
-              </AppText>
-            )
-          ) : null}
-        </View>
+          <View style={[styles.changeCol, styles.changeRight]}>
+            <AppText typeRole="bodySmall" tone="muted">
+              Hutang
+            </AppText>
+            <AppText typeRole="headlineMedium" testID="bayar-hutang-nilai">
+              {formatRupiah(totals.hutang)}
+            </AppText>
+          </View>
+        </Card>
+
+        {totals.hutang > 0 ? (
+          pelanggan ? (
+            <AppText typeRole="bodySmall" tone="owed" testID="bayar-hutang" style={styles.warning}>
+              {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Sisanya dicatat sebagai hutang ${pelanggan.nama}.`}
+            </AppText>
+          ) : (
+            <AppText typeRole="bodySmall" tone="owed" testID="bayar-kurang" style={styles.warning}>
+              {`Kurang ${formatRupiahFull(totals.hutang)} dari total. Penjualan dengan hutang membutuhkan pelanggan — pilih pelanggan dulu.`}
+            </AppText>
+          )
+        ) : null}
+
+        <Card padded style={styles.noteCard}>
+          <AppText typeRole="bodySmall" tone="muted">
+            Pembulatan ke Rp 500 diterapkan bila perlu.
+          </AppText>
+        </Card>
 
         {error ? (
-          <AppText typeRole="bodyMedium" tone="owed" style={styles.kurang}>
+          <AppText typeRole="bodySmall" tone="owed" style={styles.warning}>
             {error}
           </AppText>
         ) : null}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <Button label="Kembali" variant="outlined" onPress={onBack} disabled={saving} style={styles.back} />
-        <Button
-          label={saving ? 'Menyimpan…' : 'Simpan & nota'}
-          onPress={() => onPay({ discount, tendered, pelangganId: pelanggan?.id })}
-          disabled={saving || (totals.hutang > 0 && !pelanggan) || totals.due <= 0}
-          testID="simpan-pembayaran"
-          style={styles.grow}
-        />
-      </View>
-    </View>
+    </Screen>
   );
 }
 
@@ -242,66 +278,30 @@ function trimNumber(text: string): string {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.surface },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    paddingTop: space.sm,
-    paddingBottom: space.sm,
-    minHeight: 56,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.primary,
-  },
-  body: { paddingBottom: space.lg },
-  customer: {
-    flexDirection: 'row',
+  body: { paddingHorizontal: space.gutter, paddingBottom: space.xl, gap: space.sm },
+  customer: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderRadius: 16 },
+  customerMain: { flex: 1, gap: 1 },
+  detail: { gap: space.sm },
+  sumRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.sm },
+  sumLabel: { flex: 1 },
+  rule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.outline, paddingTop: space.sm },
+  discountRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  discountField: { flex: 1 },
+  total: { marginTop: space.sm },
+  tunaiInput: { paddingHorizontal: space.xs },
+  quick: { flexDirection: 'row', gap: space.sm },
+  quickButton: {
+    flex: 1,
+    height: 40,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    paddingTop: space.sm,
-    paddingBottom: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-  },
-  customerMain: { flex: 1 },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    gap: space.sm,
-    minHeight: 40,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-  },
-  itemName: { flex: 1 },
-  section: { paddingHorizontal: space.gutter, paddingTop: space.md, gap: space.sm },
-  row: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  rowLabel: { flex: 1 },
-  kembalian: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.outline,
-    paddingTop: space.sm,
-    marginTop: space.xs,
-  },
-  chips: { flexDirection: 'row', gap: space.sm },
-  input: {
-    minHeight: space.touch,
-    paddingHorizontal: space.md,
+    justifyContent: 'center',
     backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.outline,
-    borderRadius: 4,
-    color: colors.onSurface,
-    ...typography.bodyLarge,
-    fontFamily: fontFamily.print,
+    borderRadius: shape.md,
   },
-  hint: { marginTop: -space.xs },
-  total: { paddingHorizontal: space.gutter, marginTop: space.lg },
-  kurang: { paddingHorizontal: space.gutter, paddingTop: space.sm },
-  footer: { flexDirection: 'row', gap: space.sm, paddingHorizontal: space.gutter, paddingTop: space.md },
-  back: { width: 112 },
-  grow: { flex: 1 },
+  change: { flexDirection: 'row', gap: space.md },
+  changeCol: { flex: 1, gap: 2 },
+  changeRight: { alignItems: 'flex-end' },
+  warning: { paddingHorizontal: space.xs },
+  noteCard: { borderRadius: 16 },
+  footer: { gap: space.xs, alignItems: 'center' },
 });

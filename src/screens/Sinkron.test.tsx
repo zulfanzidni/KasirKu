@@ -126,7 +126,7 @@ describe('Sinkron — apa yang dilihat pemilik', () => {
     await act(async () => {});
 
     // Tersimpan tanpa menyentuh tempat bersama: satu penjualan, 7.000.
-    expect(screen.getByText('Tersimpan')).toBeTruthy();
+    expect(screen.getByText('Struk')).toBeTruthy();
     const shop: Shop = await phoneLedger().shop();
     expect(shop.sales).toHaveLength(1);
     expect(shop.sales[0].total).toBe(7_000);

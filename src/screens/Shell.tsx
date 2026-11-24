@@ -1,8 +1,19 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/ledger/useLedger';
-import { AppText, Note, RuledRow, colors, space, useFrame } from '@/design';
+import {
+  AppText,
+  Card,
+  CardRow,
+  Icon,
+  Note,
+  RowAvatar,
+  Screen,
+  colors,
+  space,
+  useFrame,
+} from '@/design';
 import { NavRail } from '@/design/components/NavRail';
 import { TabBar, type TabItem } from '@/design/components/TabBar';
 import { KasScreen } from '@/screens/Kas';
@@ -19,15 +30,15 @@ import { StokScreen } from '@/screens/Stok';
  * waiting for rather than pretending to work.
  */
 const TABS: readonly TabItem[] = [
-  { key: 'kasir', label: 'Kasir', icon: 'point-of-sale' },
-  { key: 'stok', label: 'Stok', icon: 'inventory-2' },
-  { key: 'orang', label: 'Orang', icon: 'groups' },
-  { key: 'lain', label: 'Lainnya', icon: 'more-horiz' },
+  { key: 'kasir', label: 'Kasir', icon: 'cart' },
+  { key: 'stok', label: 'Stok', icon: 'box' },
+  { key: 'orang', label: 'Orang', icon: 'people' },
+  { key: 'lain', label: 'Lainnya', icon: 'moreSquare' },
 ];
 
 export function Shell() {
   const [tab, setTab] = useState('kasir');
-  const [lainView, setLainView] = useState<'menu' | 'kas' | 'riwayat' | 'laporan'>('menu');
+  const [lainView, setLainView] = useState<'menu' | 'kas' | 'riwayat' | 'laporan' | 'pengaturan'>('menu');
   const { error } = useApp();
   const insets = useSafeAreaInsets();
   const { wide } = useFrame();
@@ -63,36 +74,78 @@ export function Shell() {
               <RiwayatScreen onBack={() => setLainView('menu')} />
             ) : lainView === 'laporan' ? (
               <LaporanScreen onBack={() => setLainView('menu')} />
+            ) : lainView === 'pengaturan' ? (
+              <PengaturanScreen onBack={() => setLainView('menu')} />
             ) : (
-              <View style={styles.lainScreen}>
-                <View style={styles.lainHeader}>
-                  <AppText typeRole="headlineSmall" tone="primary">
-                    Lainnya
-                  </AppText>
-                  <AppText typeRole="labelSmall" tone="muted">
-                    Kas, nota, dan cadangan
-                  </AppText>
-                </View>
-                <RuledRow
-                  title="Kas"
-                  value="Kas & Tutup Toko"
-                  onPress={() => setLainView('kas')}
-                  testID="buka-kas"
-                />
-                <RuledRow
-                  title="Riwayat"
-                  value="Nota & pembatalan"
-                  onPress={() => setLainView('riwayat')}
-                  testID="buka-riwayat"
-                />
-                <RuledRow
-                  title="Laporan"
-                  value="Penjualan & peringkat"
-                  onPress={() => setLainView('laporan')}
-                  testID="buka-laporan"
-                />
-                <PengaturanScreen />
-              </View>
+              <Screen title="Lainnya" role="Lainnya" subtitle="Kas, nota, dan cadangan">
+                <ScrollView contentContainerStyle={styles.lainContent}>
+                  <Card>
+                    <CardRow onPress={() => setLainView('kas')} testID="buka-kas" accessibilityLabel="Kas">
+                      <RowAvatar tone="action">
+                        <Icon name="wallet" size={20} color={colors.primary} />
+                      </RowAvatar>
+                      <View style={styles.rowText}>
+                        <AppText typeRole="titleSmall">Kas</AppText>
+                        <AppText typeRole="bodySmall" tone="muted">
+                          Kas & Tutup Toko
+                        </AppText>
+                      </View>
+                      <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+                    </CardRow>
+                    <CardRow
+                      divided
+                      onPress={() => setLainView('riwayat')}
+                      testID="buka-riwayat"
+                      accessibilityLabel="Riwayat"
+                    >
+                      <RowAvatar tone="action">
+                        <Icon name="receipt" size={20} color={colors.primary} />
+                      </RowAvatar>
+                      <View style={styles.rowText}>
+                        <AppText typeRole="titleSmall">Riwayat</AppText>
+                        <AppText typeRole="bodySmall" tone="muted">
+                          Nota & pembatalan
+                        </AppText>
+                      </View>
+                      <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+                    </CardRow>
+                    <CardRow
+                      divided
+                      onPress={() => setLainView('laporan')}
+                      testID="buka-laporan"
+                      accessibilityLabel="Laporan"
+                    >
+                      <RowAvatar tone="action">
+                        <Icon name="chart" size={20} color={colors.primary} />
+                      </RowAvatar>
+                      <View style={styles.rowText}>
+                        <AppText typeRole="titleSmall">Laporan</AppText>
+                        <AppText typeRole="bodySmall" tone="muted">
+                          Penjualan & peringkat
+                        </AppText>
+                      </View>
+                      <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+                    </CardRow>
+                    <CardRow
+                      divided
+                      onPress={() => setLainView('pengaturan')}
+                      testID="buka-pengaturan"
+                      accessibilityLabel="Pengaturan"
+                    >
+                      <RowAvatar tone="action">
+                        <Icon name="filter" size={20} color={colors.primary} />
+                      </RowAvatar>
+                      <View style={styles.rowText}>
+                        <AppText typeRole="titleSmall">Pengaturan</AppText>
+                        <AppText typeRole="bodySmall" tone="muted">
+                          Toko, struk, cadangan
+                        </AppText>
+                      </View>
+                      <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+                    </CardRow>
+                  </Card>
+                </ScrollView>
+              </Screen>
             )
           ) : null}
         </View>
@@ -107,13 +160,6 @@ const styles = StyleSheet.create({
   frame: { flex: 1, flexDirection: 'row' },
   body: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: space.gutter },
-  lainScreen: { flex: 1 },
-  lainHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    paddingTop: space.lg,
-    paddingBottom: space.sm,
-  },
+  lainContent: { paddingBottom: space.xxl },
+  rowText: { flex: 1, gap: 1 },
 });
