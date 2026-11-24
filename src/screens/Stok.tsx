@@ -4,6 +4,8 @@ import {
   AppText,
   BottomSheet,
   Button,
+  Card,
+  CardStack,
   Chip,
   ChipRow,
   Field,
@@ -91,6 +93,11 @@ export function StokScreen() {
   const editProduk = edit?.kind === 'produk' ? shop.produk.find((entry) => entry.id === edit.id) ?? null : null;
   /** The variants the setup pass still has a question about: nobody has counted them. */
   const belumDihitung = ranked.filter((row) => row.stock.kind === 'unknown').map((row) => row.varian);
+  /** What the shelf is asking about: a count gone negative, or a rule that fired. */
+  const perhatian = ranked.filter(
+    (row) =>
+      (row.stock.kind === 'counted' && row.stock.qty < 0) || checks.get(row.varian.id)?.kind === 'rendah',
+  ).length;
 
   /**
    * The varian the pane is about. It is one piece of screen state, so a search
@@ -172,80 +179,89 @@ export function StokScreen() {
           const produk = shop.produk.filter((entry) => !entry.archived && groupOf(entry) === group.id);
           return (
             <View key={group.id}>
-              <View style={styles.kategoriRow}>
-                <SectionHeading>{group.nama}</SectionHeading>
-                <View style={styles.kategoriActions}>
-                  {group.kategoriId ? (
-                    <IconButton
-                      name="edit"
-                      label={`Ubah kategori ${group.nama}`}
-                      onPress={() => setEdit({ kind: 'kategori', id: group.kategoriId as string })}
-                      testID={`ubah-kategori-${group.kategoriId}`}
-                    />
-                  ) : null}
-                  {group.kategoriId ? (
-                    <IconButton
-                      name="add-circle-outline"
-                      label={`Tambah produk di ${group.nama}`}
-                      onPress={() => {
-                        setKategoriId(group.kategoriId);
-                        setForm('produk');
-                      }}
-                      testID={`tambah-produk-${group.kategoriId}`}
-                    />
-                  ) : null}
-                </View>
-              </View>
+              <SectionHeading
+                flush
+                right={
+                  group.kategoriId ? (
+                    <View style={styles.kategoriActions}>
+                      <IconButton
+                        name="edit"
+                        size={18}
+                        label={`Ubah kategori ${group.nama}`}
+                        onPress={() => setEdit({ kind: 'kategori', id: group.kategoriId as string })}
+                        testID={`ubah-kategori-${group.kategoriId}`}
+                      />
+                      <IconButton
+                        name="addCircle"
+                        size={18}
+                        label={`Tambah produk di ${group.nama}`}
+                        onPress={() => {
+                          setKategoriId(group.kategoriId);
+                          setForm('produk');
+                        }}
+                        testID={`tambah-produk-${group.kategoriId}`}
+                      />
+                    </View>
+                  ) : null
+                }
+              >
+                {group.nama}
+              </SectionHeading>
               {produk.length === 0 ? (
-                <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
+                <AppText typeRole="bodySmall" tone="muted" style={styles.empty}>
                   {teks.belumAdaProduk}
                 </AppText>
               ) : null}
-              {produk.map((entry) => {
-                const varian = shop.varian
-                  .filter((item) => item.produkId === entry.id && !item.archived)
-                  .sort((a, b) => ordered(a) - ordered(b));
-                return (
-                  <View key={entry.id}>
-                    <View style={styles.produkRow}>
-                      <AppText typeRole="bodyLarge" style={styles.produkName} numberOfLines={1}>
-                        {entry.nama}
-                      </AppText>
-                      <IconButton
-                        name="edit"
-                        label={`Ubah produk ${entry.nama}`}
-                        onPress={() => setEdit({ kind: 'produk', id: entry.id })}
-                        testID={`ubah-produk-${entry.id}`}
-                      />
-                      <IconButton
-                        name="add"
-                        label={`Tambah varian di ${entry.nama}`}
-                        onPress={() => {
-                          setKategoriId(group.kategoriId);
-                          setProdukId(entry.id);
-                          setForm('varian');
-                        }}
-                        testID={`tambah-varian-${entry.id}`}
-                      />
-                    </View>
-                    {varian.map((item) => (
-                      <VarianLine
-                        key={item.id}
-                        varian={item}
-                        stock={stock.get(item.id) ?? { kind: 'unknown' }}
-                        titip={titipOf(item.id)}
-                        check={checks.get(item.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
-                        bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
-                        selected={wide ? selectedId === item.id : undefined}
-                        onPress={() => pressRow(item.id)}
-                        onCount={() => openSheet(item.id, 'hitung')}
-                        onMinimum={() => openSheet(item.id, 'minimum')}
-                        onHistory={() => openSheet(item.id, 'riwayat')}
-                      />
-                    ))}
-                  </View>
-                );
-              })}
+              <CardStack>
+                {produk.map((entry) => {
+                  const varian = shop.varian
+                    .filter((item) => item.produkId === entry.id && !item.archived)
+                    .sort((a, b) => ordered(a) - ordered(b));
+                  return (
+                    <Card key={entry.id}>
+                      <View style={styles.produkRow}>
+                        <AppText typeRole="titleSmall" style={styles.produkName} numberOfLines={1}>
+                          {entry.nama}
+                        </AppText>
+                        <IconButton
+                          name="edit"
+                          size={18}
+                          label={`Ubah produk ${entry.nama}`}
+                          onPress={() => setEdit({ kind: 'produk', id: entry.id })}
+                          testID={`ubah-produk-${entry.id}`}
+                        />
+                        <IconButton
+                          name="add"
+                          size={18}
+                          label={`Tambah varian di ${entry.nama}`}
+                          onPress={() => {
+                            setKategoriId(group.kategoriId);
+                            setProdukId(entry.id);
+                            setForm('varian');
+                          }}
+                          testID={`tambah-varian-${entry.id}`}
+                        />
+                      </View>
+                      {varian.map((item, index) => (
+                        <VarianLine
+                          key={item.id}
+                          varian={item}
+                          divided={index > 0}
+                          stock={stock.get(item.id) ?? { kind: 'unknown' }}
+                          titip={titipOf(item.id)}
+                          check={checks.get(item.id) ?? { kind: 'tidakTahu', sebab: 'belum-dihitung' }}
+                          bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
+                          selected={wide ? selectedId === item.id : undefined}
+                          onPress={() => pressRow(item.id)}
+                          onCount={() => openSheet(item.id, 'hitung')}
+                          onMinimum={() => openSheet(item.id, 'minimum')}
+                          onHistory={() => openSheet(item.id, 'riwayat')}
+                        />
+                      ))}
+                    </Card>
+                  );
+                })}
+              </CardStack>
             </View>
           );
           })}
@@ -255,22 +271,32 @@ export function StokScreen() {
   return (
     <Screen
       title="Barang"
-      overline="Stok"
+      subtitle={`${shop.varian.filter((entry) => !entry.archived).length} varian · ${perhatian} perlu perhatian`}
+      role="Stok"
       actions={
         <>
           <IconButton
-            name="inventory-2"
+            name="box"
+            size={20}
             label="Stok awal"
             onPress={() => setOpening(true)}
             testID="stok-awal"
           />
           <IconButton
-            name="upload-file"
+            name="importIcon"
+            size={20}
             label="Impor barang"
             onPress={() => setMode('impor')}
             testID="impor-barang"
           />
-          <IconButton name="add" label="Tambah barang" onPress={() => setForm('kategori')} testID="tambah-barang" />
+          <Button
+            label="Baru"
+            icon="add"
+            size="small"
+            fullWidth={false}
+            onPress={() => setForm('kategori')}
+            testID="tambah-barang"
+          />
         </>
       }
     >
@@ -386,9 +412,9 @@ function bulkCopy(bulk: BulkContext): string {
 }
 
 /**
- * One sellable size, on a ruled line: name, satuan, the count the log derives,
- * and its state in words beside the number so colour is never the only signal.
- * A negative count makes the whole row red and keeps the sign visible.
+ * One sellable size, on a row of its produk's card: name, satuan, the count the
+ * log derives, and its state in words beside the number so colour is never the
+ * only signal. A negative count reads red and keeps the sign visible.
  */
 function VarianLine({
   varian,
@@ -396,6 +422,7 @@ function VarianLine({
   titip,
   check,
   bulk,
+  divided,
   selected,
   onPress,
   onCount,
@@ -407,6 +434,8 @@ function VarianLine({
   titip: number;
   check: LowCheck;
   bulk: BulkContext | null;
+  /** A hairline above the row: every row but the first on its card. */
+  divided: boolean;
   /** Undefined in portrait, where a row is never a selection. */
   selected?: boolean;
   onPress: () => void;
@@ -417,7 +446,7 @@ function VarianLine({
   const negative = stock.kind === 'counted' && stock.qty < 0;
   const low = check.kind === 'rendah';
   const reading = stock.kind === 'unknown' ? 'Stok belum dihitung' : `Stok ${formatQty(stock.qty)}`;
-  const rule = varian.minimum != null ? `minimum ${formatQty(varian.minimum)}` : 'tanpa minimum';
+  const rule = varian.minimum != null ? `min ${formatQty(varian.minimum)}` : 'tanpa minimum';
 
   return (
     <Pressable
@@ -426,18 +455,18 @@ function VarianLine({
       accessibilityLabel={`${varian.nama}, ${reading}`}
       accessibilityState={selected === undefined ? undefined : { selected }}
       onPress={onPress}
-      style={[styles.varianRow, negative ? styles.varianNegative : null, selected ? styles.varianSelected : null]}
+      style={[styles.varianRow, divided && styles.varianDivided, selected && styles.varianSelected]}
     >
       <View style={styles.varianMain}>
-        <AppText typeRole="bodyLarge" numberOfLines={1} tone={negative ? 'owed' : 'default'}>
+        <AppText typeRole="titleSmall" numberOfLines={1} tone={negative ? 'owed' : 'default'}>
           {varian.nama}
         </AppText>
-        <AppText typeRole="labelSmall" tone={negative ? 'owed' : 'muted'}>
-          {`${formatRupiah(varian.harga)} · per ${varian.satuan} · ${rule}`}
+        <AppText typeRole="bodySmall" tone={negative ? 'owed' : 'muted'}>
+          {`${formatRupiah(varian.harga)} / ${varian.satuan} · ${rule}`}
         </AppText>
         {low ? (
           <AppText
-            typeRole="labelSmall"
+            typeRole="bodySmall"
             tone={negative ? 'owed' : 'default'}
             testID={`alasan-rendah-${varian.id}`}
           >
@@ -445,27 +474,22 @@ function VarianLine({
           </AppText>
         ) : null}
         {low && bulk ? (
-          <AppText typeRole="labelSmall" tone="muted" testID={`sak-${varian.id}`}>
+          <AppText typeRole="bodySmall" tone="muted" testID={`sak-${varian.id}`}>
             {bulkCopy(bulk)}
           </AppText>
         ) : null}
         {check.kind === 'tidakTahu' && check.sebab === 'riwayat-terlalu-sedikit' ? (
-          <AppText typeRole="labelSmall" tone="muted" testID={`alasan-tidak-tahu-${varian.id}`}>
+          <AppText typeRole="bodySmall" tone="muted" testID={`alasan-tidak-tahu-${varian.id}`}>
             Riwayat penjualan belum cukup untuk menilai. Atur minimum untuk peringatan.
           </AppText>
         ) : null}
         {/* Titip is the supplier's, so it is a separate line and never part of
             the owned number in the badge. */}
         {titip > 0 ? (
-          <AppText typeRole="labelSmall" tone="muted" testID={`titip-${varian.id}`}>
+          <AppText typeRole="bodySmall" tone="muted" testID={`titip-${varian.id}`}>
             {`Titip ${formatQty(titip)} ${varian.satuan} · bukan milik toko`}
           </AppText>
         ) : null}
-      </View>
-      <View style={styles.rowButtons}>
-        <IconButton name="add-circle-outline" label={`Hitung stok ${varian.nama}`} onPress={onCount} testID={`hitung-${varian.id}`} />
-        <IconButton name="tune" label={`Atur minimum ${varian.nama}`} onPress={onMinimum} testID={`minimum-${varian.id}`} />
-        <IconButton name="history" label={`Riwayat stok ${varian.nama}`} onPress={onHistory} testID={`riwayat-${varian.id}`} />
       </View>
       <StockBadge
         qty={stock.kind === 'counted' ? stock.qty : null}
@@ -473,6 +497,29 @@ function VarianLine({
         low={low}
         testID={`stok-angka-${varian.id}`}
       />
+      <View style={styles.rowButtons}>
+        <IconButton
+          name="addCircle"
+          size={18}
+          label={`Hitung stok ${varian.nama}`}
+          onPress={onCount}
+          testID={`hitung-${varian.id}`}
+        />
+        <IconButton
+          name="filter"
+          size={18}
+          label={`Atur minimum ${varian.nama}`}
+          onPress={onMinimum}
+          testID={`minimum-${varian.id}`}
+        />
+        <IconButton
+          name="clock"
+          size={18}
+          label={`Riwayat stok ${varian.nama}`}
+          onPress={onHistory}
+          testID={`riwayat-${varian.id}`}
+        />
+      </View>
     </Pressable>
   );
 }
@@ -553,7 +600,7 @@ function StokPane({
         <Button label="Atur minimum" variant="outlined" onPress={onMinimum} testID="pane-minimum" />
       </View>
 
-      <SectionHeading>Pergerakan</SectionHeading>
+      <SectionHeading flush>Pergerakan</SectionHeading>
       <HistoryList varian={varian} />
     </ScrollView>
   );
@@ -1004,32 +1051,29 @@ function VarianForm({ produkId, onDone }: { produkId: string; onDone: () => void
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.lg },
-  kategoriRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: space.md },
-  kategoriActions: { flexDirection: 'row', alignItems: 'center', paddingTop: space.lg },
-  empty: { paddingHorizontal: space.gutter, paddingVertical: space.xs },
+  content: { paddingBottom: space.xxl, paddingHorizontal: space.gutter, gap: space.sm },
+  kategoriActions: { flexDirection: 'row', alignItems: 'center' },
+  empty: { paddingBottom: space.sm },
   produkRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: space.gutter,
+    paddingLeft: space.lg,
     paddingRight: space.sm,
-    minHeight: 40,
-    backgroundColor: colors.surface,
+    minHeight: 48,
+    gap: space.xs,
   },
   produkName: { flex: 1 },
   varianRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: space.gutter + space.md,
-    paddingRight: space.gutter,
-    minHeight: space.row + 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
+    paddingLeft: space.lg,
+    paddingRight: space.sm,
+    paddingVertical: space.sm,
+    gap: space.xs,
+    minHeight: space.row + 12,
   },
-  varianMain: { flex: 1 },
-  // Red is a promise (DESIGN.md): a negative count is that promise broken, so
-  // it reads in the same ink as a debt, and it sits at the top of the list.
-  varianNegative: { borderLeftWidth: 3, borderLeftColor: colors.error, paddingLeft: space.gutter + space.md - 3 },
+  varianDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.outline },
+  varianMain: { flex: 1, gap: 1 },
   // The landscape pane's row: a wash, never a colour (DESIGN.md §Palette).
   varianSelected: { backgroundColor: colors.primaryContainer },
   rowButtons: { flexDirection: 'row', alignItems: 'center' },
