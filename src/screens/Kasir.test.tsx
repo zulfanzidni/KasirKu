@@ -115,6 +115,29 @@ describe('Kasir', () => {
     expect(screen.queryByText('Berapa kg?')).toBeNull();
   });
 
+  it('adds one more from the tile +, on its own target', async () => {
+    const varianId = await seedIndomie();
+
+    fireEvent.press(screen.getByTestId(`tambah-${varianId}`));
+
+    expect(app.cart).toEqual([expect.objectContaining({ varianId, qty: 1, jumlah: 3500 })]);
+    expect(screen.queryByText('Berapa kg?')).toBeNull();
+  });
+
+  it('repeats the last weight for a varian when its + is pressed', async () => {
+    const gula = await seedGula();
+
+    fireEvent.press(screen.getByTestId(`grid-${gula}`));
+    fireEvent.press(screen.getByTestId(`pilih-${gula}-0.5`));
+    expect(app.cart).toEqual([expect.objectContaining({ varianId: gula, qty: 0.5, jumlah: 8000 })]);
+
+    fireEvent.press(screen.getByTestId(`tambah-${gula}`));
+    fireEvent.press(screen.getByTestId(`tambah-${gula}`));
+
+    expect(app.cart).toEqual([expect.objectContaining({ varianId: gula, qty: 1.5, jumlah: 24000 })]);
+    expect(screen.queryByText('Berapa kg?')).toBeNull();
+  });
+
   it('offers 1/4, 1/2, 1 and 1.5 kg for a weight item and puts the chosen amount in the cart', async () => {
     const gula = await seedGula();
 

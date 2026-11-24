@@ -60,6 +60,8 @@ export function KasirScreen() {
   const [query, setQuery] = useState('');
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [choice, setChoice] = useState<Extract<TapOutcome, { kind: 'chooseWeight' }> | null>(null);
+  /** The last weight chosen from the sheet, per varian, for this nota only. */
+  const [lastWeight, setLastWeight] = useState<Record<string, number>>({});
   const [step, setStep] = useState<'nota' | 'pelanggan' | 'bayar'>('nota');
   const [notaOpen, setNotaOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -87,6 +89,25 @@ export function KasirScreen() {
   const notaHariIni = shop.sales.filter((sale) => sameDay(sale.createdAt, new Date()) && !sale.voided).length;
 
   function handleTap(item: Varian) {
+    const outcome = tapItem(item.id);
+    if (outcome.kind === 'chooseWeight') setChoice(outcome);
+  }
+
+  /**
+   * The tile's own `+`. A whole-unit varian adds one; a weight varian repeats
+   * the amount last chosen for it in this nota, or opens the sheet if there is
+   * no amount yet. It never falls through to the tile's tap.
+   */
+  function handleAdd(item: Varian) {
+    if (item.jualBy !== 'weight') {
+      addVarian(item.id, 1);
+      return;
+    }
+    const qty = lastWeight[item.id];
+    if (qty !== undefined) {
+      addVarian(item.id, qty);
+      return;
+    }
     const outcome = tapItem(item.id);
     if (outcome.kind === 'chooseWeight') setChoice(outcome);
   }
@@ -139,6 +160,7 @@ export function KasirScreen() {
             forgetLastSale();
             setStep('nota');
             setPelangganId(null);
+            setLastWeight({});
           }}
           onShare={() => handleShare(sale)}
           sharing={sharing}
@@ -240,7 +262,15 @@ export function KasirScreen() {
         }
         renderItem={({ item }) => {
           const line = cart.find((entry) => entry.varianId === item.id);
-          return <VarianTile varian={item} qty={line?.qty ?? 0} onPress={() => handleTap(item)} />;
+          return (
+            <VarianTile
+              varian={item}
+              qty={line?.qty ?? 0}
+              lastWeight={lastWeight[item.id]}
+              onPress={() => handleTap(item)}
+              onAdd={() => handleAdd(item)}
+            />
+          );
         }}
       />
     );
@@ -323,6 +353,7 @@ export function KasirScreen() {
               onPress={() => {
                 setConfirmCancel(false);
                 cancelCart();
+                setLastWeight({});
               }}
               testID="kosongkan-nota"
               style={styles.grow}
@@ -335,6 +366,7 @@ export function KasirScreen() {
         choice={choice}
         onClose={() => setChoice(null)}
         onAdd={(varianId, qty) => {
+          setLastWeight((weights) => ({ ...weights, [varianId]: qty }));
           addVarian(varianId, qty);
           setChoice(null);
         }}
@@ -347,8 +379,25 @@ export function KasirScreen() {
  * One tappable tile. The well at its top is the photo's shape — the shop has no
  * pictures yet, so it stays the ground's own grey. The blue mark says how many
  * of this variant the nota already holds; the blue circle adds one more.
+ *
+ * The circle is its own target, so a tap on it adds without opening the tile's
+ * own action. It sits centred in the footer row: the price and unit keep their
+ * shared baseline inside a nested row, and the 26 dp circle never borrows it.
  */
-function VarianTile({ varian, qty, onPress }: { varian: Varian; qty: number; onPress: () => void }) {
+function VarianTile({
+  varian,
+  qty,
+  lastWeight,
+  onPress,
+  onAdd,
+}: {
+  varian: Varian;
+  qty: number;
+  /** The weight last chosen for this varian in this nota, when there is one. */
+  lastWeight?: number;
+  onPress: () => void;
+  onAdd: () => void;
+}) {
   const inCart = qty > 0;
   return (
     <Pressable
@@ -375,13 +424,28 @@ function VarianTile({ varian, qty, onPress }: { varian: Varian; qty: number; onP
             {varian.nama}
           </AppText>
           <View style={styles.tileFoot}>
-            <AppText typeRole="titleSmall">{formatRupiah(varian.harga)}</AppText>
-            <AppText typeRole="bodySmall" tone="muted" numberOfLines={1}>
-              {`/${varian.satuan}`}
-            </AppText>
-            <View style={styles.add}>
-              <Icon name="add" size={14} color={colors.onPrimary} strokeWidth={2.2} />
+            <View style={styles.tilePrice}>
+              <AppText typeRole="titleSmall">{formatRupiah(varian.harga)}</AppText>
+              <AppText typeRole="bodySmall" tone="muted" numberOfLines={1}>
+                {`/${varian.satuan}`}
+              </AppText>
             </View>
+            <Pressable
+              testID={`tambah-${varian.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Tambah satu ${varian.nama}`}
+              accessibilityHint={
+                lastWeight !== undefined ? `Menambah ${formatQty(lastWeight)} ${varian.satuan} lagi` : undefined
+              }
+              hitSlop={11}
+              onPress={(event) => {
+                event?.stopPropagation?.();
+                onAdd();
+              }}
+              style={styles.add}
+            >
+              <Icon name="add" size={14} color={colors.onPrimary} strokeWidth={2.2} />
+            </Pressable>
           </View>
         </View>
       </Card>
@@ -429,9 +493,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileBody: { padding: space.sm, paddingHorizontal: space.md, gap: space.xs },
-  tileFoot: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  tileFoot: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  tilePrice: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 3 },
   add: {
-    marginLeft: 'auto',
     width: 26,
     height: 26,
     borderRadius: 13,

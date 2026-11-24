@@ -161,7 +161,11 @@ the owner recognises that a number is *the* number.
 
 A 4 dp base. List rows sit inside **cards** with `shape.md` corners and a soft
 shadow; a row is 48 dp tall within its card. Kasir's tiles are **124 dp** with a
-66 dp image well, because a tile is a target, not a line of text.
+66 dp image well, because a tile is a target, not a line of text. Each tile
+carries a 26 dp `+` circle at its lower right, fully inside the card: the circle
+is its own 48 dp target and adds one more of that varian without opening
+anything. Tapping the tile itself adds the varian it names; only a weight varian
+opens an amount control.
 
 | Token | dp | Use |
 |---|---|---|
