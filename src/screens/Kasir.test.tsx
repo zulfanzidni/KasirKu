@@ -207,6 +207,22 @@ describe('Kasir', () => {
     expect(shop.sales[0].total).toBe(7000);
   });
 
+  it('lets the next sale pay after a completed one', async () => {
+    const varianId = await seedIndomie();
+    fireEvent.press(screen.getByTestId(`grid-${varianId}`));
+    await pay();
+    await act(async () => {});
+    expect(screen.getByText('Struk')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('nota-baru'));
+    await act(async () => {});
+
+    fireEvent.press(screen.getByTestId(`grid-${varianId}`));
+    const bayar = screen.getByTestId('simpan-penjualan');
+    expect(bayar.props.accessibilityState).toMatchObject({ disabled: false });
+    expect(screen.getByText('Bayar')).toBeTruthy();
+  });
+
   it('records exactly one sale when Simpan & nota is tapped twice quickly', async () => {
     const varianId = await seedIndomie();
     fireEvent.press(screen.getByTestId(`grid-${varianId}`));

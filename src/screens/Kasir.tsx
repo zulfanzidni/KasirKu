@@ -161,6 +161,8 @@ export function KasirScreen() {
             setStep('nota');
             setPelangganId(null);
             setLastWeight({});
+            setSaving(false);
+            setSaveError(null);
           }}
           onShare={() => handleShare(sale)}
           sharing={sharing}
