@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { AppText, Button, Field, formatMoment, Note, SectionHeading, space, useFrame } from '@/design';
+import { AppText, Button, Card, colors, Field, formatMoment, Note, Screen, SectionHeading, space, useFrame } from '@/design';
 import { backupFiles, parseBackup, type BackupFile } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
@@ -24,7 +24,7 @@ import { useApp } from '@/ledger/useLedger';
  *
  * A section, not a full screen: it sits inside Lainnya, which owns the title.
  */
-export function PengaturanScreen() {
+export function PengaturanScreen({ onBack }: { onBack?: () => void } = {}) {
   const {
     shop,
     settings,
@@ -207,50 +207,47 @@ export function PengaturanScreen() {
 
   const bagianSinkron = (
     <>
-      <SectionHeading>Sinkron</SectionHeading>
-      <Note>
-        Dua ponsel bertukar catatan lewat satu tempat bersama, supaya stok dan uangnya sama. Menjual tetap bisa tanpa
-        internet; catatan yang belum terkirim menunggu sampai sambungannya ada.
-      </Note>
+      <SectionHeading flush>Sinkron</SectionHeading>
+      <Card padded style={styles.card}>
+        <View style={styles.sync} testID="sinkron-status">
+          <AppText typeRole="titleSmall" testID="sinkron-terakhir">
+            {lastSyncAt ? `Tersinkron terakhir ${formatMoment(lastSyncAt)}.` : 'Belum pernah sinkron.'}
+          </AppText>
+          <AppText typeRole="bodySmall" tone={unsentCount > 0 ? 'owed' : 'muted'} testID="sinkron-belum-terkirim">
+            {unsentCount > 0 ? `${unsentCount} catatan belum terkirim.` : 'Semua catatan sudah terkirim.'}
+          </AppText>
+        </View>
 
-      <View style={styles.sync} testID="sinkron-status">
-        <AppText typeRole="bodyMedium" testID="sinkron-terakhir">
-          {lastSyncAt ? `Tersinkron terakhir ${formatMoment(lastSyncAt)}.` : 'Belum pernah sinkron.'}
-        </AppText>
-        <AppText typeRole="bodyMedium" tone="muted" testID="sinkron-belum-terkirim">
-          {unsentCount > 0 ? `${unsentCount} catatan belum terkirim.` : 'Semua catatan sudah terkirim.'}
-        </AppText>
-      </View>
-
-      <View style={styles.syncActions}>
         <Button
           label={syncBusy ? 'Menyinkronkan…' : 'Sinkron sekarang'}
           onPress={sinkron}
           disabled={syncBusy}
           testID="sinkron-sekarang"
-          style={styles.grow}
+          style={styles.cardAction}
         />
-      </View>
 
-      {syncNotice ? (
-        <AppText typeRole="bodyMedium" tone="primary" style={styles.syncNote} testID="sinkron-pesan">
-          {syncNotice}
-        </AppText>
-      ) : null}
-      {syncError ? (
-        <AppText typeRole="bodyMedium" tone="owed" style={styles.syncNote} testID="sinkron-galat">
-          {syncError}
-        </AppText>
-      ) : null}
+        {syncNotice ? (
+          <AppText typeRole="bodySmall" tone="primary" testID="sinkron-pesan">
+            {syncNotice}
+          </AppText>
+        ) : null}
+        {syncError ? (
+          <AppText typeRole="bodySmall" tone="owed" testID="sinkron-galat">
+            {syncError}
+          </AppText>
+        ) : null}
+      </Card>
+      <Note flush>
+        Dua ponsel bertukar catatan lewat satu tempat bersama, supaya stok dan uangnya sama. Menjual tetap bisa tanpa
+        internet; catatan yang belum terkirim menunggu sampai sambungannya ada.
+      </Note>
     </>
   );
 
   const bagianNota = (
     <>
-      <SectionHeading>Nota</SectionHeading>
-      <Note>Ini yang tercetak di nota pelanggan. Ganti dengan nama dan ucapan toko Anda sendiri.</Note>
-
-      <View style={styles.form}>
+      <SectionHeading flush>Nota</SectionHeading>
+      <Card padded style={styles.card}>
         <Field
           label="Nama toko"
           testID="toko-nama"
@@ -276,165 +273,180 @@ export function PengaturanScreen() {
         />
 
         {saved ? (
-          <AppText typeRole="bodyMedium" tone="primary" testID="pengaturan-tersimpan">
+          <AppText typeRole="bodySmall" tone="positive" testID="pengaturan-tersimpan">
             Pengaturan nota tersimpan.
           </AppText>
         ) : null}
         {error && !namaKosong ? (
-          <AppText typeRole="bodyMedium" tone="owed">
+          <AppText typeRole="bodySmall" tone="owed">
             {error}
           </AppText>
         ) : null}
 
-        <View style={styles.actions}>
-          <Button label={saving ? 'Menyimpan…' : 'Simpan'} onPress={simpan} disabled={saving} testID="simpan-pengaturan" />
-        </View>
-      </View>
+        <Button
+          label={saving ? 'Menyimpan…' : 'Simpan'}
+          onPress={simpan}
+          disabled={saving}
+          testID="simpan-pengaturan"
+          style={styles.cardAction}
+        />
+      </Card>
+      <Note flush>Ini yang tercetak di nota pelanggan. Ganti dengan nama dan ucapan toko Anda sendiri.</Note>
     </>
   );
 
   const bagianCadangan = (
-    <View style={[styles.backup, wide && styles.backupWide]}>
-      <SectionHeading>Cadangan</SectionHeading>
-      <Note>
-        Simpan seluruh riwayat penjualan ke satu berkas, supaya ponsel yang rusak tidak menghapus buku toko. Simpan
-        berkasnya di tempat lain, bukan hanya di ponsel ini.
-      </Note>
-
-      {pending ? (
-        <View style={styles.warning} testID="peringatan-pulihkan">
-          <AppText typeRole="bodyMedium" tone="owed">
-            {`Ponsel ini sudah berisi riwayat. Memulihkan cadangan akan MENGGANTI seluruh riwayat di ponsel ini — termasuk penjualan yang sudah tercatat — dengan isi ${pending.name} (${pending.backup.events.length} catatan). Penjualan yang ada di sini akan hilang dan tidak bisa dikembalikan.`}
-          </AppText>
+    <View style={[styles.section, wide && styles.backupWide]}>
+      <SectionHeading flush>Cadangan</SectionHeading>
+      <Card padded style={styles.card}>
+        {pending ? (
+          <View style={styles.warning} testID="peringatan-pulihkan">
+            <AppText typeRole="bodySmall" tone="owed">
+              {`Ponsel ini sudah berisi riwayat. Memulihkan cadangan akan MENGGANTI seluruh riwayat di ponsel ini — termasuk penjualan yang sudah tercatat — dengan isi ${pending.name} (${pending.backup.events.length} catatan). Penjualan yang ada di sini akan hilang dan tidak bisa dikembalikan.`}
+            </AppText>
+            <View style={styles.actions}>
+              <Button
+                label="Batal"
+                variant="outlined"
+                size="medium"
+                onPress={() => setPending(null)}
+                testID="batal-pulihkan"
+                style={styles.cancel}
+              />
+              <Button
+                label="Ganti riwayat"
+                variant="destructive"
+                size="medium"
+                onPress={() => pulihkan(pending.backup)}
+                disabled={backupBusy === 'pulihkan'}
+                testID="konfirmasi-pulihkan"
+                style={styles.grow}
+              />
+            </View>
+          </View>
+        ) : (
           <View style={styles.actions}>
             <Button
-              label="Batal"
+              label={backupBusy === 'ekspor' ? 'Menyiapkan…' : 'Ekspor cadangan'}
               variant="outlined"
-              onPress={() => setPending(null)}
-              testID="batal-pulihkan"
-              style={styles.cancel}
+              size="medium"
+              onPress={ekspor}
+              disabled={backupBusy !== null}
+              testID="ekspor-cadangan"
+              style={styles.grow}
             />
             <Button
-              label="Ganti riwayat"
-              variant="destructive"
-              onPress={() => pulihkan(pending.backup)}
-              disabled={backupBusy === 'pulihkan'}
-              testID="konfirmasi-pulihkan"
+              label={backupBusy === 'pulihkan' ? 'Memulihkan…' : 'Pulihkan'}
+              size="medium"
+              onPress={pilihCadangan}
+              disabled={backupBusy !== null}
+              testID="pulihkan-cadangan"
               style={styles.grow}
             />
           </View>
-        </View>
-      ) : (
-        <View style={styles.actions}>
-          <Button
-            label={backupBusy === 'ekspor' ? 'Menyiapkan…' : 'Ekspor cadangan'}
-            variant="outlined"
-            onPress={ekspor}
-            disabled={backupBusy !== null}
-            testID="ekspor-cadangan"
-            style={styles.grow}
-          />
-          <Button
-            label={backupBusy === 'pulihkan' ? 'Memulihkan…' : 'Pulihkan'}
-            onPress={pilihCadangan}
-            disabled={backupBusy !== null}
-            testID="pulihkan-cadangan"
-            style={styles.grow}
-          />
-        </View>
-      )}
+        )}
 
-      {backupNotice ? (
-        <AppText typeRole="bodyMedium" tone="primary" testID="cadangan-pesan">
-          {backupNotice}
-        </AppText>
-      ) : null}
-      {backupError ? (
-        <AppText typeRole="bodyMedium" tone="owed" testID="cadangan-galat">
-          {backupError}
-        </AppText>
-      ) : null}
+        {backupNotice ? (
+          <AppText typeRole="bodySmall" tone="positive" testID="cadangan-pesan">
+            {backupNotice}
+          </AppText>
+        ) : null}
+        {backupError ? (
+          <AppText typeRole="bodySmall" tone="owed" testID="cadangan-galat">
+            {backupError}
+          </AppText>
+        ) : null}
+      </Card>
+      <Note flush>
+        Simpan seluruh riwayat penjualan ke satu berkas, supaya ponsel yang rusak tidak menghapus buku toko. Simpan
+        berkasnya di tempat lain, bukan hanya di ponsel ini.
+      </Note>
     </View>
   );
 
   const bagianAdopsi = (
-    <View style={styles.adoption}>
-      <SectionHeading>Identitas ponsel</SectionHeading>
-      <AppText typeRole="bodyMedium" tone="muted" style={styles.adoptNote} testID="adopsi-penjelasan">
+    <View style={styles.section}>
+      <SectionHeading flush>Identitas ponsel</SectionHeading>
+      <Card padded style={styles.card}>
+        <AppText typeRole="bodySmall" tone="muted" testID="adopsi-sekarang">
+          {`Ponsel ini memakai identitas ${deviceId || '…'}.`}
+        </AppText>
+
+        {adoptableIdentities.length === 0 ? (
+          <AppText typeRole="bodySmall" tone="muted" testID="adopsi-kosong">
+            Belum ada identitas ponsel lain di catatan ini. Sinkron dulu supaya identitas ponsel lama terlihat.
+          </AppText>
+        ) : (
+          <View style={styles.adoptList}>
+            {adoptableIdentities.map((identity) => (
+              <View key={identity.deviceId} style={styles.adoptRow}>
+                <View style={styles.adoptText}>
+                  <AppText typeRole="titleSmall">{identity.deviceId}</AppText>
+                  <AppText typeRole="bodySmall" tone="muted">
+                    {`${identity.events} catatan · nomor terakhir ${identity.lastSeq} · ${formatMoment(identity.lastAt)}`}
+                  </AppText>
+                </View>
+                <Button
+                  label="Adopsi"
+                  variant="outlined"
+                  size="small"
+                  fullWidth={false}
+                  onPress={() => {
+                    setAdoptPending(identity.deviceId);
+                    setAdoptNotice(null);
+                    setAdoptError(null);
+                  }}
+                  disabled={adoptBusy}
+                  testID={`adopsi-${identity.deviceId}`}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+
+        {adoptPending ? (
+          <View style={styles.warning} testID="peringatan-adopsi">
+            <AppText typeRole="bodySmall" tone="owed">
+              {`Ponsel ini akan memakai nama ${adoptPending} dan melanjutkan nomor urutnya. Lakukan hanya kalau ponsel lama benar-benar tidak akan dipakai lagi. Kalau masih ragu, pulihkan cadangan saja.`}
+            </AppText>
+            <View style={styles.actions}>
+              <Button
+                label="Batal"
+                variant="outlined"
+                size="medium"
+                onPress={() => setAdoptPending(null)}
+                testID="batal-adopsi"
+                style={styles.cancel}
+              />
+              <Button
+                label="Adopsi identitas"
+                variant="destructive"
+                size="medium"
+                onPress={() => adopsi(adoptPending)}
+                disabled={adoptBusy}
+                testID="konfirmasi-adopsi"
+                style={styles.grow}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {adoptNotice ? (
+          <AppText typeRole="bodySmall" tone="positive" testID="adopsi-pesan">
+            {adoptNotice}
+          </AppText>
+        ) : null}
+        {adoptError ? (
+          <AppText typeRole="bodySmall" tone="owed" testID="adopsi-galat">
+            {adoptError}
+          </AppText>
+        ) : null}
+      </Card>
+      <Note flush testID="adopsi-penjelasan">
         Kalau ponsel lama rusak dan tidak akan dipakai lagi, ponsel ini bisa memakai namanya supaya catatan yang belum
         terkirim tidak hilang. Ini berisiko: kalau ponsel lama ternyata masih menyinkron, dua ponsel memakai satu nama
         dan catatan bisa hilang. Jalan yang lebih aman adalah memulihkan cadangan di bagian Cadangan di atas.
-      </AppText>
-      <AppText typeRole="labelSmall" tone="muted" style={styles.adoptNote} testID="adopsi-sekarang">
-        {`Ponsel ini memakai identitas ${deviceId || '…'}.`}
-      </AppText>
-
-      {adoptableIdentities.length === 0 ? (
-        <AppText typeRole="bodyMedium" tone="muted" style={styles.adoptNote} testID="adopsi-kosong">
-          Belum ada identitas ponsel lain di catatan ini. Sinkron dulu supaya identitas ponsel lama terlihat.
-        </AppText>
-      ) : (
-        <View style={styles.adoptList}>
-          {adoptableIdentities.map((identity) => (
-            <View key={identity.deviceId} style={styles.adoptRow}>
-              <View style={styles.adoptText}>
-                <AppText typeRole="bodyMedium">{identity.deviceId}</AppText>
-                <AppText typeRole="labelSmall" tone="muted">
-                  {`${identity.events} catatan · nomor terakhir ${identity.lastSeq} · ${formatMoment(identity.lastAt)}`}
-                </AppText>
-              </View>
-              <Button
-                label="Adopsi"
-                variant="outlined"
-                onPress={() => {
-                  setAdoptPending(identity.deviceId);
-                  setAdoptNotice(null);
-                  setAdoptError(null);
-                }}
-                disabled={adoptBusy}
-                testID={`adopsi-${identity.deviceId}`}
-                style={styles.adoptButton}
-              />
-            </View>
-          ))}
-        </View>
-      )}
-
-      {adoptPending ? (
-        <View style={styles.warning} testID="peringatan-adopsi">
-          <AppText typeRole="bodyMedium" tone="owed">
-            {`Ponsel ini akan memakai nama ${adoptPending} dan melanjutkan nomor urutnya. Lakukan hanya kalau ponsel lama benar-benar tidak akan dipakai lagi. Kalau masih ragu, pulihkan cadangan saja.`}
-          </AppText>
-          <View style={styles.actions}>
-            <Button
-              label="Batal"
-              variant="outlined"
-              onPress={() => setAdoptPending(null)}
-              testID="batal-adopsi"
-              style={styles.cancel}
-            />
-            <Button
-              label="Adopsi identitas"
-              variant="destructive"
-              onPress={() => adopsi(adoptPending)}
-              disabled={adoptBusy}
-              testID="konfirmasi-adopsi"
-              style={styles.grow}
-            />
-          </View>
-        </View>
-      ) : null}
-
-      {adoptNotice ? (
-        <AppText typeRole="bodyMedium" tone="primary" style={styles.adoptNote} testID="adopsi-pesan">
-          {adoptNotice}
-        </AppText>
-      ) : null}
-      {adoptError ? (
-        <AppText typeRole="bodyMedium" tone="owed" style={styles.adoptNote} testID="adopsi-galat">
-          {adoptError}
-        </AppText>
-      ) : null}
+      </Note>
     </View>
   );
 
@@ -455,21 +467,28 @@ export function PengaturanScreen() {
   // restore warning still stands between the owner and the destructive button.
   if (wide) {
     return (
-      <ScrollView contentContainerStyle={[styles.body, styles.bodyWide]} keyboardShouldPersistTaps="handled">
-        <View style={styles.column} testID="pengaturan-kolom-kiri">
-          {sections.slice(0, 2)}
-        </View>
-        <View style={styles.column} testID="pengaturan-kolom-kanan">
-          {sections.slice(2)}
-        </View>
-      </ScrollView>
+      <Screen title="Pengaturan" subtitle="Sekali atur, jarang disentuh" role="Lainnya" onBack={onBack}>
+        <ScrollView
+          contentContainerStyle={[styles.body, styles.bodyWide]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.column} testID="pengaturan-kolom-kiri">
+            {sections.slice(0, 2)}
+          </View>
+          <View style={styles.column} testID="pengaturan-kolom-kanan">
+            {sections.slice(2)}
+          </View>
+        </ScrollView>
+      </Screen>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-      {sections}
-    </ScrollView>
+    <Screen title="Pengaturan" subtitle="Sekali atur, jarang disentuh" role="Lainnya" onBack={onBack}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        {sections}
+      </ScrollView>
+    </Screen>
   );
 }
 
@@ -484,24 +503,25 @@ function pesanDari(cause: unknown): string {
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: space.xxl },
-  bodyWide: { flexDirection: 'row', alignItems: 'flex-start' },
+  body: { paddingHorizontal: space.gutter, paddingBottom: space.xxl },
+  bodyWide: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xl },
   column: { flex: 1, minWidth: 0 },
-  form: { paddingHorizontal: space.gutter, paddingTop: space.xs },
-  actions: { paddingTop: space.md, flexDirection: 'row', gap: space.sm },
-  sync: { paddingHorizontal: space.gutter, gap: space.xs },
-  syncActions: { paddingTop: space.md, paddingHorizontal: space.gutter, flexDirection: 'row', gap: space.sm },
-  syncNote: { paddingHorizontal: space.gutter, paddingTop: space.sm },
-  backup: { paddingHorizontal: space.gutter, paddingTop: space.xxl },
+  section: {},
   /** First section of the right column: the heading already carries the top gap. */
-  backupWide: { paddingTop: 0 },
-  adoption: { paddingHorizontal: space.gutter, paddingTop: space.xxl },
-  adoptNote: { paddingTop: space.sm },
-  adoptList: { paddingTop: space.md, gap: space.sm },
+  backupWide: {},
+  card: { gap: space.sm },
+  cardAction: { marginTop: space.xs },
+  actions: { flexDirection: 'row', gap: space.sm },
+  sync: { gap: space.xs },
+  adoptList: { gap: space.sm },
   adoptRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  adoptText: { flex: 1, gap: 2 },
-  adoptButton: { width: 104 },
-  warning: { paddingTop: space.md, gap: space.xs },
+  adoptText: { flex: 1, gap: 1 },
+  warning: {
+    gap: space.sm,
+    padding: space.md,
+    borderRadius: 12,
+    backgroundColor: colors.errorContainer,
+  },
   cancel: { width: 96 },
   grow: { flex: 1 },
 });

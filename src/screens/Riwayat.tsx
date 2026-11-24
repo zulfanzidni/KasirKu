@@ -4,17 +4,21 @@ import {
   AppText,
   BottomSheet,
   Button,
+  Card,
+  CardStack,
+  Chip,
+  ChipScroller,
   Field,
   Note,
   Screen,
   SplitPane,
+  StatusPill,
   colors,
   formatMoment,
   formatRupiah,
   space,
   useFrame,
 } from '@/design';
-import { IconButton } from '@/design/components/Icons';
 import { liveSales, receiptOf, saleHistory, shareReceipt, type Sale } from '@/ledger';
 import { printer } from '@/ledger/printer';
 import { useApp } from '@/ledger/useLedger';
@@ -36,6 +40,7 @@ import { ReceiptPaper } from '@/screens/Receipt';
 export function RiwayatScreen({ onBack }: { onBack?: () => void } = {}) {
   const { shop } = useApp();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'semua' | 'batal'>('semua');
   const { wide } = useFrame();
 
   const sales = saleHistory(shop);
@@ -43,54 +48,66 @@ export function RiwayatScreen({ onBack }: { onBack?: () => void } = {}) {
   // What customers were charged on the sales that still count: the same net
   // figure the rows show and today's totals use.
   const revenue = live.reduce((sum, sale) => sum + totalOf(sale), 0);
+  const batal = sales.filter((sale) => sale.voided).length;
+  const shown = filter === 'batal' ? sales.filter((sale) => sale.voided) : sales;
   const detail = selectedId ? shop.sales.find((sale) => sale.id === selectedId) ?? null : null;
 
   return (
     <Screen
       title="Riwayat"
-      overline="Penjualan"
-      actions={
-        onBack ? <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-dari-riwayat" /> : undefined
-      }
+      subtitle="Nota lampau dan pembatalan"
+      role="Lainnya"
+      onBack={onBack}
     >
       <SplitPane
         testID="riwayat-pecah"
         detailTestID="riwayat-pane"
         list={
           <ScrollView contentContainerStyle={styles.content}>
-            <View style={styles.summary} testID="riwayat-ringkasan">
-              <View>
-                <AppText typeRole="labelSmall" tone="muted">
-                  Penjualan yang dihitung
-                </AppText>
-                <AppText typeRole="titleMedium" tone="primary">
-                  {`${live.length} transaksi`}
-                </AppText>
+            <Card padded testID="riwayat-ringkasan" style={styles.summary}>
+              <AppText typeRole="labelSmall" tone="muted">
+                Jualan
+              </AppText>
+              <AppText typeRole="headlineMedium">{formatRupiah(revenue)}</AppText>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryCell}>
+                  <AppText typeRole="bodySmall" tone="muted">
+                    Nota
+                  </AppText>
+                  <AppText typeRole="numericMedium">{`${live.length} transaksi`}</AppText>
+                </View>
+                <View style={styles.summaryCell}>
+                  <AppText typeRole="bodySmall" tone="muted">
+                    Dibatalkan
+                  </AppText>
+                  <AppText typeRole="numericMedium" tone={batal > 0 ? 'owed' : 'default'}>
+                    {batal}
+                  </AppText>
+                </View>
               </View>
-              <AppText typeRole="numericLarge" align="right">
-                {`Rp ${formatRupiah(revenue)}`}
-              </AppText>
-            </View>
+            </Card>
 
-            <Note>
-              Penjualan yang dibatalkan tetap ada di sini, ditandai. Nomor nota yang dipegang pelanggan selalu bisa
-              dilacak.
+            <ChipScroller>
+              <Chip label="Semua" selected={filter === 'semua'} onPress={() => setFilter('semua')} testID="riwayat-filter-semua" />
+              <Chip label="Dibatalkan" selected={filter === 'batal'} onPress={() => setFilter('batal')} testID="riwayat-filter-batal" />
+            </ChipScroller>
+
+            {sales.length === 0 ? <Note flush>Belum ada penjualan.</Note> : null}
+
+            <CardStack>
+              {shown.map((sale) => (
+                <SaleRow
+                  key={sale.id}
+                  sale={sale}
+                  selected={wide && selectedId === sale.id}
+                  onPress={() => setSelectedId(sale.id)}
+                />
+              ))}
+            </CardStack>
+
+            <Note flush>
+              Ketuk nota untuk rincian, batalkan, atau jual ulang. Nota yang dibatalkan tetap bisa dilacak nomornya.
             </Note>
-
-            {sales.length === 0 ? (
-              <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
-                Belum ada penjualan.
-              </AppText>
-            ) : null}
-
-            {sales.map((sale) => (
-              <SaleRow
-                key={sale.id}
-                sale={sale}
-                selected={wide && selectedId === sale.id}
-                onPress={() => setSelectedId(sale.id)}
-              />
-            ))}
           </ScrollView>
         }
         detail={
@@ -129,24 +146,26 @@ function SaleRow({ sale, selected, onPress }: { sale: Sale; selected: boolean; o
       accessibilityState={{ selected }}
       android_ripple={{ color: colors.primaryContainer }}
       onPress={onPress}
-      style={[styles.row, selected && styles.rowSelected]}
+      style={styles.press}
     >
-      <View style={styles.rowMain}>
-        <AppText typeRole="bodyLarge" numberOfLines={1} testID={`riwayat-nomor-${sale.id}`}>
-          {`No. ${sale.number}`}
+      <Card style={[styles.row, selected && styles.rowSelected]}>
+        <View style={styles.rowMain}>
+          <AppText typeRole="titleSmall" numberOfLines={1} testID={`riwayat-nomor-${sale.id}`}>
+            {`No. ${sale.number}`}
+          </AppText>
+          <AppText typeRole="bodySmall" tone="muted" numberOfLines={1}>
+            {`${formatMoment(sale.createdAt, { withYear: false })} · ${sale.lines.length} barang · Tunai${
+              sale.pelangganNama ? ` · ${sale.pelangganNama}` : ''
+            }`}
+          </AppText>
+        </View>
+        {sale.voided ? (
+          <StatusPill label="Dibatalkan" tone="owed" testID={`riwayat-status-${sale.id}`} />
+        ) : null}
+        <AppText typeRole="numericLarge" tone={sale.voided ? 'muted' : 'default'} align="right">
+          {formatRupiah(totalOf(sale))}
         </AppText>
-        <AppText typeRole="labelSmall" tone="muted">
-          {`${formatMoment(sale.createdAt, { withYear: false })}${sale.pelangganNama ? ` · ${sale.pelangganNama}` : ''}`}
-        </AppText>
-      </View>
-      {sale.voided ? (
-        <AppText typeRole="labelSmall" tone="muted" testID={`riwayat-status-${sale.id}`}>
-          Dibatalkan
-        </AppText>
-      ) : null}
-      <AppText typeRole="numericLarge" tone={sale.voided ? 'muted' : 'default'} align="right" style={styles.amount}>
-        {formatRupiah(totalOf(sale))}
-      </AppText>
+      </Card>
     </Pressable>
   );
 }
@@ -203,7 +222,7 @@ function SaleDetail({ sale }: { sale: Sale }) {
             testID="riwayat-alasan"
           />
           {error ? (
-            <AppText typeRole="bodyMedium" tone="owed" testID="riwayat-galat" style={styles.error}>
+            <AppText typeRole="bodySmall" tone="owed" testID="riwayat-galat" style={styles.error}>
               {error}
             </AppText>
           ) : null}
@@ -227,6 +246,7 @@ function SaleDetail({ sale }: { sale: Sale }) {
           <Button
             label={sharing ? 'Menyiapkan…' : 'Bagikan nota'}
             variant="outlined"
+            size="medium"
             onPress={share}
             disabled={sharing}
             testID="riwayat-bagikan"
@@ -234,8 +254,9 @@ function SaleDetail({ sale }: { sale: Sale }) {
           />
           {sale.voided ? null : (
             <Button
-              label="Batalkan penjualan"
+              label="Batalkan"
               variant="destructive"
+              size="medium"
               onPress={() => {
                 setError(null);
                 setMode('batal');
@@ -256,32 +277,24 @@ function totalOf(sale: Sale): number {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.xxl },
-  summary: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
-    paddingVertical: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-  },
+  content: { paddingHorizontal: space.gutter, paddingBottom: space.xxl, gap: space.sm },
+  summary: { gap: space.xs },
+  summaryRow: { flexDirection: 'row', gap: space.xl, marginTop: space.xs },
+  summaryCell: { gap: 1 },
   empty: { paddingHorizontal: space.gutter, paddingVertical: space.md },
+  press: { borderRadius: 16 },
   row: {
-    minHeight: space.row,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    paddingHorizontal: space.gutter,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-    overflow: 'hidden',
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
   },
-  rowMain: { flex: 1 },
+  rowMain: { flex: 1, gap: 1 },
   rowSelected: { backgroundColor: colors.primaryContainer },
-  amount: { minWidth: 88 },
   paneScroll: { flex: 1 },
-  paneContent: { paddingBottom: space.xxl },
+  paneContent: { paddingBottom: space.xxl, gap: space.sm },
   paneEmpty: { paddingTop: space.md },
   actions: { flexDirection: 'row', gap: space.sm, paddingTop: space.md },
   back: { width: 96 },

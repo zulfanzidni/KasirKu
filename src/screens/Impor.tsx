@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { AppText, Button, Field, Note, Screen, SectionHeading, formatRupiah, space } from '@/design';
-import { IconButton } from '@/design/components/Icons';
+import { AppText, Button, Card, Field, Note, Screen, SectionHeading, formatRupiah, space } from '@/design';
 import { importFiles, planImport, type ImportPlan } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
@@ -64,18 +63,14 @@ export function ImporScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <Screen
-      title="Impor barang"
-      overline="Stok"
-      actions={<IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="impor-kembali" />}
-    >
+    <Screen title="Impor barang" subtitle="Satu baris, satu varian" role="Stok" onBack={onBack}>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Note>
+        <Note flush>
           Tempel baris dari spreadsheet, atau pilih berkasnya. Satu baris satu varian, kolomnya: kategori, produk,
           varian, satuan, harga, kode, stok awal. Pemisahnya tab atau titik koma.
         </Note>
 
-        <View style={styles.form}>
+        <Card padded style={styles.form}>
           <Field
             label="Baris barang"
             value={teks}
@@ -87,15 +82,15 @@ export function ImporScreen({ onBack }: { onBack: () => void }) {
           />
           <Button label="Pilih berkas" variant="outlined" onPress={pilihBerkas} testID="impor-berkas" />
           <Button label="Pratinjau" onPress={pratinjau} testID="impor-pratinjau" />
-        </View>
+        </Card>
 
         {error ? (
-          <AppText typeRole="bodyMedium" tone="owed" testID="impor-galat">
+          <AppText typeRole="bodySmall" tone="owed" testID="impor-galat">
             {error}
           </AppText>
         ) : null}
         {pesan ? (
-          <AppText typeRole="bodyMedium" tone="primary" testID="impor-pesan">
+          <AppText typeRole="bodySmall" tone="positive" testID="impor-pesan">
             {pesan}
           </AppText>
         ) : null}
@@ -117,55 +112,63 @@ function Pratinjau({ plan, busy, onSimpan }: { plan: ImportPlan; busy: boolean; 
   return (
     <View style={styles.preview}>
       {adaGalat ? (
-        <View testID="impor-galat-daftar">
-          <SectionHeading>{`Baris yang harus diperbaiki (${plan.errors.length})`}</SectionHeading>
-          {plan.errors.map((entry) => (
-            <AppText
-              key={`${entry.baris}-${entry.pesan}`}
-              typeRole="bodyMedium"
-              tone="owed"
-              testID={`impor-galat-${entry.baris}`}
-            >
-              {entry.pesan}
-            </AppText>
-          ))}
+        <View testID="impor-galat-daftar" style={styles.block}>
+          <SectionHeading flush>{`Baris yang harus diperbaiki (${plan.errors.length})`}</SectionHeading>
+          <Card padded style={styles.list}>
+            {plan.errors.map((entry) => (
+              <AppText
+                key={`${entry.baris}-${entry.pesan}`}
+                typeRole="bodySmall"
+                tone="owed"
+                testID={`impor-galat-${entry.baris}`}
+              >
+                {entry.pesan}
+              </AppText>
+            ))}
+          </Card>
         </View>
       ) : null}
 
       {plan.kategori.length > 0 ? (
-        <View testID="impor-kategori">
-          <SectionHeading>{`Kategori baru (${plan.kategori.length})`}</SectionHeading>
-          {plan.kategori.map((entry) => (
-            <AppText key={entry.nama} typeRole="bodyMedium">
-              {entry.nama}
-            </AppText>
-          ))}
+        <View testID="impor-kategori" style={styles.block}>
+          <SectionHeading flush>{`Kategori baru (${plan.kategori.length})`}</SectionHeading>
+          <Card padded style={styles.list}>
+            {plan.kategori.map((entry) => (
+              <AppText key={entry.nama} typeRole="bodySmall">
+                {entry.nama}
+              </AppText>
+            ))}
+          </Card>
         </View>
       ) : null}
 
       {plan.produk.length > 0 ? (
-        <View testID="impor-produk">
-          <SectionHeading>{`Produk baru (${plan.produk.length})`}</SectionHeading>
-          {plan.produk.map((entry) => (
-            <AppText key={entry.nama} typeRole="bodyMedium">
-              {`${entry.nama} · ${entry.kategori}`}
-            </AppText>
-          ))}
+        <View testID="impor-produk" style={styles.block}>
+          <SectionHeading flush>{`Produk baru (${plan.produk.length})`}</SectionHeading>
+          <Card padded style={styles.list}>
+            {plan.produk.map((entry) => (
+              <AppText key={entry.nama} typeRole="bodySmall">
+                {`${entry.nama} · ${entry.kategori}`}
+              </AppText>
+            ))}
+          </Card>
         </View>
       ) : null}
 
       {plan.varian.length > 0 ? (
-        <View testID="impor-varian">
-          <SectionHeading>{`Varian baru (${plan.varian.length})`}</SectionHeading>
-          {plan.varian.map((entry) => (
-            <AppText key={`${entry.produk}-${entry.nama}`} typeRole="bodyMedium">
-              {`${entry.nama} · ${entry.satuan} · Rp ${formatRupiah(entry.harga)}`}
-            </AppText>
-          ))}
+        <View testID="impor-varian" style={styles.block}>
+          <SectionHeading flush>{`Varian baru (${plan.varian.length})`}</SectionHeading>
+          <Card padded style={styles.list}>
+            {plan.varian.map((entry) => (
+              <AppText key={`${entry.produk}-${entry.nama}`} typeRole="bodySmall">
+                {`${entry.nama} · ${entry.satuan} · Rp ${formatRupiah(entry.harga)}`}
+              </AppText>
+            ))}
+          </Card>
         </View>
       ) : null}
 
-      {plan.varian.length === 0 && !adaGalat ? <Note>Tidak ada baris yang bisa diimpor.</Note> : null}
+      {plan.varian.length === 0 && !adaGalat ? <Note flush>Tidak ada baris yang bisa diimpor.</Note> : null}
 
       <View style={styles.actions}>
         <Button
@@ -180,8 +183,10 @@ function Pratinjau({ plan, busy, onSimpan }: { plan: ImportPlan; busy: boolean; 
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: space.xxl },
-  form: { paddingHorizontal: space.gutter, paddingTop: space.xs, gap: space.sm },
-  preview: { paddingTop: space.md },
-  actions: { paddingHorizontal: space.gutter, paddingTop: space.lg },
+  body: { paddingHorizontal: space.gutter, paddingBottom: space.xxl, gap: space.sm },
+  form: { gap: space.sm },
+  preview: { gap: space.sm },
+  block: { gap: space.sm },
+  list: { gap: space.xs },
+  actions: { paddingTop: space.lg },
 });

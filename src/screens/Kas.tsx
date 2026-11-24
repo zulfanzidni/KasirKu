@@ -4,9 +4,9 @@ import {
   AppText,
   BottomSheet,
   Button,
+  Card,
   Field,
   Note,
-  RuledRow,
   Screen,
   SectionHeading,
   TotalBlock,
@@ -17,7 +17,6 @@ import {
   space,
   useFrame,
 } from '@/design';
-import { IconButton } from '@/design/components/Icons';
 import { baselineKindLabel, baselineLabel, selisihLabel, type CashCount } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
@@ -47,22 +46,22 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
   const summary = (
     <View style={styles.block}>
       <TotalBlock amount={drawer.expected} label="Kas yang seharusnya" testID="kas-expected" />
-      <AppText typeRole="bodyMedium" tone="muted" testID="kas-patokan">
+      <AppText typeRole="bodySmall" tone="muted" testID="kas-patokan">
         {baselineLabel(drawer.baseline)}
       </AppText>
     </View>
   );
 
   const movements = (
-    <View style={styles.rows}>
+    <Card>
       <CashRow title="Penjualan tunai" amount={drawer.penjualan} testID="kas-penjualan" />
-      <CashRow title="Penjualan dibatalkan" amount={-drawer.pembatalan} testID="kas-pembatalan" />
-      <CashRow title="Pembayaran hutang" amount={drawer.hutang} testID="kas-hutang" />
-      <CashRow title="Setor uang" amount={drawer.setor} testID="kas-setor" />
-      <CashRow title="Bayar pemasok" amount={-drawer.pemasok} testID="kas-pemasok" />
-      <CashRow title="Pengeluaran" amount={-drawer.pengeluaran} testID="kas-pengeluaran" />
-      <CashRow title="Tarik uang" amount={-drawer.tarik} testID="kas-tarik" />
-    </View>
+      <CashRow title="Penjualan dibatalkan" amount={-drawer.pembatalan} testID="kas-pembatalan" divided />
+      <CashRow title="Pembayaran hutang" amount={drawer.hutang} testID="kas-hutang" divided />
+      <CashRow title="Setor uang" amount={drawer.setor} testID="kas-setor" divided />
+      <CashRow title="Bayar pemasok" amount={-drawer.pemasok} testID="kas-pemasok" divided />
+      <CashRow title="Pengeluaran" amount={-drawer.pengeluaran} testID="kas-pengeluaran" divided />
+      <CashRow title="Tarik uang" amount={-drawer.tarik} testID="kas-tarik" divided />
+    </Card>
   );
 
   const actions = (
@@ -111,46 +110,38 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
 
   const tutupToko = (
     <>
-      <SectionHeading>Tutup Toko</SectionHeading>
-      <Note>
+      <SectionHeading flush>Tutup Toko</SectionHeading>
+      <Card>
+        <CashRow title="Penjualan hari ini" amount={today.penjualan} testID="tutup-penjualan" />
+        <CashRow title="Diskon hari ini" amount={today.diskon} testID="tutup-diskon" divided />
+        <CashRow title="Kas yang seharusnya" amount={drawer.expected} testID="tutup-expected" divided />
+      </Card>
+      <Note flush>
         Tutup toko hanya mencatat. Tidak ada yang dikunci: penjualan berikutnya tetap bisa dicatat.
       </Note>
-      <View style={styles.rows}>
-        <RuledRow title="Penjualan hari ini" value={`Rp ${formatRupiah(today.penjualan)}`} testID="tutup-penjualan" />
-        <RuledRow title="Diskon hari ini" value={`Rp ${formatRupiah(today.diskon)}`} testID="tutup-diskon" />
-        <RuledRow
-          title="Kas yang seharusnya"
-          value={`Rp ${formatRupiah(drawer.expected)}`}
-          testID="tutup-expected"
-        />
-      </View>
       <View style={styles.actions}>
-        <Button label="Hitung kas sekarang" onPress={() => setSheet('hitung')} testID="tutup-hitung" />
+        <Button label="Tutup toko" onPress={() => setSheet('hitung')} testID="tutup-hitung" />
       </View>
     </>
   );
 
   const history = (
     <>
-      <SectionHeading>Riwayat hitung kas</SectionHeading>
+      <SectionHeading flush>Riwayat hitung kas</SectionHeading>
       {counts.length === 0 ? (
-        <Note>Belum ada hitung kas. Hitung laci supaya selisihnya ketahuan.</Note>
+        <Note flush>Belum ada hitung kas. Hitung laci supaya selisihnya ketahuan.</Note>
       ) : (
-        counts.map((count, index) => <CountRow key={count.eventId} count={count} index={index} />)
+        <Card>
+          {counts.map((count, index) => (
+            <CountRow key={count.eventId} count={count} index={index} divided={index > 0} />
+          ))}
+        </Card>
       )}
     </>
   );
 
   return (
-    <Screen
-      title="Kas"
-      overline="Kas & Tutup Toko"
-      actions={
-        onBack ? (
-          <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-dari-kas" />
-        ) : undefined
-      }
-    >
+    <Screen title="Kas" subtitle="Laci tunai hari ini" role="Lainnya" onBack={onBack}>
       {wide ? (
         // Landscape: the drawer's own readings on the left, the things that
         // change them on the right. Both columns scroll on their own, so
@@ -227,24 +218,43 @@ export function KasScreen({ onBack }: { onBack?: () => void } = {}) {
   );
 }
 
-function CashRow({ title, amount, testID }: { title: string; amount: number; testID: string }) {
+function CashRow({
+  title,
+  amount,
+  testID,
+  divided = false,
+}: {
+  title: string;
+  amount: number;
+  testID: string;
+  divided?: boolean;
+}) {
   const value = amount === 0 ? 'Rp 0' : amount < 0 ? `−Rp ${formatRupiah(-amount)}` : `Rp ${formatRupiah(amount)}`;
   // A refund or an outflow is information, not money owed: the sign says which
   // way the cash went, and red is kept for what someone still owes.
-  return <RuledRow title={title} value={value} testID={testID} />;
+  return (
+    <View style={[styles.cashRow, divided && styles.cashRowDivided]} testID={testID}>
+      <AppText typeRole="bodyMedium" style={styles.cashLabel}>
+        {title}
+      </AppText>
+      <AppText typeRole="numericMedium" align="right">
+        {value}
+      </AppText>
+    </View>
+  );
 }
 
-function CountRow({ count, index }: { count: CashCount; index: number }) {
+function CountRow({ count, index, divided }: { count: CashCount; index: number; divided: boolean }) {
   return (
-    <View style={styles.history} testID={`hitung-baris-${index}`}>
-      <AppText typeRole="bodyLarge">{formatMoment(count.at)}</AppText>
-      <AppText typeRole="labelSmall" tone="muted">
+    <View style={[styles.history, divided && styles.cashRowDivided]} testID={`hitung-baris-${index}`}>
+      <AppText typeRole="titleSmall">{formatMoment(count.at)}</AppText>
+      <AppText typeRole="bodySmall" tone="muted">
         {`Seharusnya Rp ${formatRupiah(count.expected)} · Dihitung Rp ${formatRupiah(count.counted)} · ${selisihLabel(
           count.difference,
         )} · ${baselineKindLabel(count.baseline)}`}
       </AppText>
       {count.catatan ? (
-        <AppText typeRole="bodyMedium" tone="muted">
+        <AppText typeRole="bodySmall" tone="muted">
           {count.catatan}
         </AppText>
       ) : null}
@@ -425,20 +435,27 @@ function CountForm({ onDone }: { onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.xxl },
+  content: { paddingHorizontal: space.gutter, paddingBottom: space.xxl, gap: space.sm },
   columns: { flex: 1, flexDirection: 'row', minHeight: 0 },
   column: { flex: 1, minWidth: 0 },
   columnRule: { width: StyleSheet.hairlineWidth, backgroundColor: colors.outline },
-  block: { paddingHorizontal: space.gutter, paddingTop: space.lg },
-  rows: { paddingTop: space.sm },
-  actions: { flexDirection: 'row', gap: space.sm, paddingHorizontal: space.gutter, paddingTop: space.sm },
+  block: { paddingTop: space.lg, gap: space.xs },
+  actions: { flexDirection: 'row', gap: space.sm, paddingTop: space.sm },
   grow: { flex: 1 },
   countSummary: { paddingTop: space.sm, paddingBottom: space.md, gap: space.xs },
+  cashRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space.sm,
+    minHeight: 44,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  cashRowDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.outline },
+  cashLabel: { flex: 1 },
   history: {
-    paddingHorizontal: space.gutter,
+    paddingHorizontal: space.lg,
     paddingVertical: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
     gap: space.xs,
   },
 });

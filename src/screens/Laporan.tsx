@@ -3,11 +3,14 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import {
   AppText,
   BottomSheet,
+  Card,
+  CardRow,
   Chip,
   ChipRow,
+  ChipScroller,
   Field,
   Note,
-  RuledRow,
+  RowAvatar,
   Screen,
   SectionHeading,
   colors,
@@ -17,7 +20,6 @@ import {
   space,
   useFrame,
 } from '@/design';
-import { IconButton } from '@/design/components/Icons';
 import { sellableVarian } from '@/ledger/queries';
 import {
   defaultFilter,
@@ -86,43 +88,43 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
    */
   const angka = (
     <>
-      <SectionHeading>Dasar laporan</SectionHeading>
+      <Card padded testID="laporan-total" style={styles.total}>
+        <AppText typeRole="labelSmall" tone="muted">
+          Penjualan
+        </AppText>
+        <AppText typeRole="headlineSmall">{`Rp ${formatRupiah(report.penjualan)}`}</AppText>
+        <AppText typeRole="bodySmall" tone="muted">
+          {`${report.transaksi} transaksi`}
+        </AppText>
+      </Card>
+
+      <Card padded style={styles.banding} testID="laporan-banding">
+        <AppText typeRole="bodySmall" tone="muted">
+          {`Periode sebelumnya (${labelRentang(report.rentangSebelumnya)})`}
+        </AppText>
+        <AppText typeRole="numericMedium">{`Rp ${formatRupiah(report.sebelumnya.penjualan)}`}</AppText>
+        <AppText typeRole="bodySmall" tone={bandingTone(report.penjualan, report.sebelumnya.penjualan)}>
+          {bandingLabel(report.penjualan, report.sebelumnya.penjualan)}
+        </AppText>
+        <AppText typeRole="bodySmall" tone="muted">
+          {`${report.sebelumnya.transaksi} transaksi`}
+        </AppText>
+      </Card>
+
       <View style={styles.basis}>
-        <AppText typeRole="bodyMedium" tone="muted" testID="laporan-dasar-hari">
+        <AppText typeRole="bodySmall" tone="muted" testID="laporan-dasar-hari">
           {report.dasar.hari}
         </AppText>
-        <AppText typeRole="bodyMedium" tone="muted" testID="laporan-dasar-sinkron">
+        <AppText typeRole="bodySmall" tone="muted" testID="laporan-dasar-sinkron">
           {report.dasar.lastSyncAt ? `Tersinkron terakhir ${formatMoment(report.dasar.lastSyncAt)}.` : 'Belum pernah sinkron.'}
         </AppText>
-        <AppText typeRole="bodyMedium" tone="muted" testID="laporan-dasar-belum-terkirim">
+        <AppText typeRole="bodySmall" tone="muted" testID="laporan-dasar-belum-terkirim">
           {report.dasar.unsentCount > 0
             ? `${report.dasar.unsentCount} catatan belum terkirim.`
             : 'Semua catatan sudah terkirim.'}
         </AppText>
       </View>
 
-      <View style={styles.total} testID="laporan-total">
-        <AppText typeRole="labelSmall" tone="muted">
-          Penjualan
-        </AppText>
-        <AppText typeRole="numericLarge">{`Rp ${formatRupiah(report.penjualan)}`}</AppText>
-        <AppText typeRole="bodyMedium" tone="muted">
-          {`${report.transaksi} transaksi`}
-        </AppText>
-      </View>
-
-      <View style={styles.banding} testID="laporan-banding">
-        <AppText typeRole="bodyMedium" tone="muted">
-          {`Periode sebelumnya (${labelRentang(report.rentangSebelumnya)}): Rp ${formatRupiah(
-            report.sebelumnya.penjualan,
-          )} · ${report.sebelumnya.transaksi} transaksi`}
-        </AppText>
-        <AppText typeRole="bodyMedium" tone={bandingTone(report.penjualan, report.sebelumnya.penjualan)}>
-          {bandingLabel(report.penjualan, report.sebelumnya.penjualan)}
-        </AppText>
-      </View>
-
-      <SectionHeading>Penjualan dari hari ke hari</SectionHeading>
       <View style={styles.toggle}>
         <ChipRow>
           <Chip label="Per hari" selected={tampilan === 'hari'} onPress={() => setTampilan('hari')} testID="tampilan-hari" />
@@ -135,96 +137,123 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
         </ChipRow>
       </View>
 
-      {tampilan === 'hari'
-        ? report.perHari.map((titik) => (
-            <TitikRow key={titik.kunci} label={tanggalPendek(titik.kunci)} titik={titik} testID={`laporan-hari-${titik.kunci}`} />
-          ))
-        : report.perMinggu.map((titik) => (
-            <TitikRow
-              key={titik.kunci}
-              label={`${tanggalPendek(titik.kunci)}–${tanggalPendek(titik.sampai)}`}
-              titik={titik}
-              testID={`laporan-minggu-${titik.kunci}`}
-            />
-          ))}
+      <SectionHeading flush>Penjualan dari hari ke hari</SectionHeading>
+      <Card>
+        {tampilan === 'hari'
+          ? report.perHari.map((titik, index) => (
+              <TitikRow
+                key={titik.kunci}
+                label={tanggalPendek(titik.kunci)}
+                titik={titik}
+                divided={index > 0}
+                testID={`laporan-hari-${titik.kunci}`}
+              />
+            ))
+          : report.perMinggu.map((titik, index) => (
+              <TitikRow
+                key={titik.kunci}
+                label={`${tanggalPendek(titik.kunci)}–${tanggalPendek(titik.sampai)}`}
+                titik={titik}
+                divided={index > 0}
+                testID={`laporan-minggu-${titik.kunci}`}
+              />
+            ))}
+      </Card>
     </>
   );
 
   /** The rankings, beside the figures in landscape and below them in portrait. */
   const peringkat = (
     <>
-      <SectionHeading>Produk terlaris</SectionHeading>
+      <SectionHeading flush>Produk terlaris</SectionHeading>
       {report.produk.kind === 'cukup' ? (
-        report.produk.rows.map((row, index) => (
-          <View key={row.id} style={styles.peringkat} testID={`laporan-produk-${row.id}`}>
-            <AppText typeRole="bodyLarge" style={styles.peringkatNama}>
-              {`${index + 1}. ${row.nama}`}
-            </AppText>
-            <AppText typeRole="numericLarge">{`Rp ${formatRupiah(row.penjualan)}`}</AppText>
-          </View>
-        ))
+        <Card>
+          {report.produk.rows.map((row, index) => (
+            <View
+              key={row.id}
+              style={[styles.peringkat, index > 0 && styles.peringkatDivided]}
+              testID={`laporan-produk-${row.id}`}
+            >
+              <RowAvatar size={28} tone="action">
+                <AppText typeRole="tabLabel" tone="primary">
+                  {index + 1}
+                </AppText>
+              </RowAvatar>
+              <AppText typeRole="titleSmall" style={styles.peringkatNama}>
+                {`${index + 1}. ${row.nama}`}
+              </AppText>
+              <AppText typeRole="numericMedium">{`Rp ${formatRupiah(row.penjualan)}`}</AppText>
+            </View>
+          ))}
+        </Card>
       ) : (
-        <AppText typeRole="bodyMedium" tone="muted" style={styles.kurang} testID="laporan-produk-kurang">
+        <AppText typeRole="bodySmall" tone="muted" style={styles.kurang} testID="laporan-produk-kurang">
           {pesanKurang(report.produk)}
         </AppText>
       )}
 
-      <SectionHeading>Peringkat per satuan</SectionHeading>
-      <Note>Kilogram tidak pernah diadu dengan bungkus. Setiap satuan punya peringkatnya sendiri.</Note>
+      <SectionHeading flush>Peringkat per satuan</SectionHeading>
+      <Note flush>Kilogram tidak pernah diadu dengan bungkus. Setiap satuan punya peringkatnya sendiri.</Note>
       {report.satuan.kind === 'cukup' ? (
         report.satuan.groups.map((group) => (
-          <View key={group.satuan} testID={`laporan-satuan-${group.satuan}`}>
-            <AppText typeRole="titleMedium" tone="primary" style={styles.grupJudul}>
+          <View key={group.satuan} testID={`laporan-satuan-${group.satuan}`} style={styles.grup}>
+            <AppText typeRole="labelSmall" tone="muted" style={styles.grupJudul}>
               {`Peringkat per ${group.satuan}`}
             </AppText>
-            {group.rows.map((row, index) => (
-              <View key={row.id} style={styles.peringkat} testID={`laporan-satuan-${group.satuan}-${row.id}`}>
-                <AppText typeRole="bodyLarge" style={styles.peringkatNama}>
-                  {`${index + 1}. ${row.nama}`}
-                </AppText>
-                <AppText typeRole="numericMedium">
-                  {`${formatQty(row.qty ?? 0)} ${group.satuan} · Rp ${formatRupiah(row.penjualan)}`}
-                </AppText>
-              </View>
-            ))}
+            <Card>
+              {group.rows.map((row, index) => (
+                <View
+                  key={row.id}
+                  style={[styles.peringkat, index > 0 && styles.peringkatDivided]}
+                  testID={`laporan-satuan-${group.satuan}-${row.id}`}
+                >
+                  <AppText typeRole="titleSmall" style={styles.peringkatNama}>
+                    {`${index + 1}. ${row.nama}`}
+                  </AppText>
+                  <AppText typeRole="numericMedium">
+                    {`${formatQty(row.qty ?? 0)} ${group.satuan} · Rp ${formatRupiah(row.penjualan)}`}
+                  </AppText>
+                </View>
+              ))}
+            </Card>
           </View>
         ))
       ) : (
-        <AppText typeRole="bodyMedium" tone="muted" style={styles.kurang} testID="laporan-satuan-kurang">
+        <AppText typeRole="bodySmall" tone="muted" style={styles.kurang} testID="laporan-satuan-kurang">
           {pesanKurang(report.satuan)}
         </AppText>
       )}
 
-      <SectionHeading>Total per kategori</SectionHeading>
-      <Note>Total kategori menjumlahkan semua produk di dalamnya. Total satu produk adalah angka lain, dan keduanya ditulis terpisah.</Note>
+      <SectionHeading flush>Total per kategori</SectionHeading>
+      <Note flush>Total kategori menjumlahkan semua produk di dalamnya. Total satu produk adalah angka lain, dan keduanya ditulis terpisah.</Note>
       {report.kategori.length === 0 ? (
-        <AppText typeRole="bodyMedium" tone="muted" style={styles.kurang} testID="laporan-kategori-kosong">
+        <AppText typeRole="bodySmall" tone="muted" style={styles.kurang} testID="laporan-kategori-kosong">
           Belum ada penjualan di rentang ini.
         </AppText>
       ) : (
-        report.kategori.map((row) => (
-          <View key={row.id} style={styles.peringkat} testID={`laporan-kategori-${row.id}`}>
-            <AppText typeRole="bodyLarge" style={styles.peringkatNama}>
-              {row.nama}
-            </AppText>
-            <AppText typeRole="numericLarge">{`Rp ${formatRupiah(row.penjualan)}`}</AppText>
-          </View>
-        ))
+        <Card>
+          {report.kategori.map((row, index) => (
+            <View
+              key={row.id}
+              style={[styles.peringkat, index > 0 && styles.peringkatDivided]}
+              testID={`laporan-kategori-${row.id}`}
+            >
+              <AppText typeRole="titleSmall" style={styles.peringkatNama}>
+                {row.nama}
+              </AppText>
+              <AppText typeRole="numericMedium">{`Rp ${formatRupiah(row.penjualan)}`}</AppText>
+            </View>
+          ))}
+        </Card>
       )}
     </>
   );
 
   return (
-    <Screen
-      title="Laporan"
-      overline="Penjualan"
-      actions={
-        onBack ? <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-dari-laporan" /> : undefined
-      }
-    >
+    <Screen title="Laporan" subtitle="Angka yang menjelaskan diri" role="Lainnya" onBack={onBack}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.filters}>
-          <ChipRow>
+          <ChipScroller>
             <Chip label="Hari ini" selected={filter.preset === 'hari'} onPress={() => pilihPreset('hari')} testID="filter-hari" />
             <Chip
               label="Minggu ini"
@@ -244,10 +273,10 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
               onPress={pilihKustom}
               testID="filter-kustom"
             />
-          </ChipRow>
+          </ChipScroller>
 
           {filter.preset === 'kustom' ? (
-            <View style={styles.kustom}>
+            <Card padded style={styles.kustom}>
               <Field
                 label="Dari tanggal"
                 value={draftDari}
@@ -264,10 +293,10 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
                 testID="kustom-sampai"
               />
               <Chip label="Terapkan rentang" selected={false} onPress={terapkanKustom} testID="terapkan-kustom" />
-            </View>
+            </Card>
           ) : null}
 
-          <ChipRow>
+          <ChipScroller>
             <Chip
               label="Semua kategori"
               selected={filter.kategoriId === null}
@@ -283,7 +312,7 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
                 testID={`filter-kategori-${entry.id}`}
               />
             ))}
-          </ChipRow>
+          </ChipScroller>
 
           <ChipRow>
             <Chip
@@ -303,12 +332,12 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
           </ChipRow>
         </View>
 
-        <View style={styles.applied} testID="laporan-filter">
-          <AppText typeRole="bodyMedium">{report.tampilanFilter.rentang}</AppText>
-          <AppText typeRole="labelSmall" tone="muted">
+        <Card padded style={styles.applied} testID="laporan-filter">
+          <AppText typeRole="titleSmall">{report.tampilanFilter.rentang}</AppText>
+          <AppText typeRole="bodySmall" tone="muted">
             {`${report.tampilanFilter.kategori} · ${report.tampilanFilter.varian}`}
           </AppText>
-        </View>
+        </Card>
 
         {wide ? (
           <View style={styles.columns} testID="laporan-kolom">
@@ -326,7 +355,7 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
           </>
         )}
 
-        <Note>
+        <Note flush>
           Angka di laporan ini adalah nilai barang yang terjual, sebelum diskon. Kas dan Riwayat menampilkan yang
           dibayar pelanggan.
         </Note>
@@ -339,26 +368,35 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
         testID="sheet-barang"
       >
         <ScrollView>
-          <RuledRow
-            title="Semua varian"
-            onPress={() => {
-              setFilter((current) => ({ ...current, varianId: null }));
-              setPilihVarian(false);
-            }}
-            testID="filter-barang-semua"
-          />
-          {barang.map((entry) => (
-            <RuledRow
-              key={entry.id}
-              title={entry.nama}
-              value={entry.satuan}
+          <Card>
+            <CardRow
               onPress={() => {
-                setFilter((current) => ({ ...current, varianId: entry.id }));
+                setFilter((current) => ({ ...current, varianId: null }));
                 setPilihVarian(false);
               }}
-              testID={`filter-barang-${entry.id}`}
-            />
-          ))}
+              testID="filter-barang-semua"
+            >
+              <AppText typeRole="titleSmall">Semua varian</AppText>
+            </CardRow>
+            {barang.map((entry, index) => (
+              <CardRow
+                key={entry.id}
+                divided={index > 0}
+                onPress={() => {
+                  setFilter((current) => ({ ...current, varianId: entry.id }));
+                  setPilihVarian(false);
+                }}
+                testID={`filter-barang-${entry.id}`}
+              >
+                <AppText typeRole="titleSmall" style={styles.peringkatNama} numberOfLines={1}>
+                  {entry.nama}
+                </AppText>
+                <AppText typeRole="bodySmall" tone="muted">
+                  {entry.satuan}
+                </AppText>
+              </CardRow>
+            ))}
+          </Card>
         </ScrollView>
       </BottomSheet>
     </Screen>
@@ -366,10 +404,22 @@ export function LaporanScreen({ onBack }: { onBack?: () => void } = {}) {
 }
 
 /** One day or week of the sales-over-time view. */
-function TitikRow({ label, titik, testID }: { label: string; titik: LaporanTitik; testID: string }) {
+function TitikRow({
+  label,
+  titik,
+  testID,
+  divided,
+}: {
+  label: string;
+  titik: LaporanTitik;
+  testID: string;
+  divided: boolean;
+}) {
   return (
-    <View style={styles.titik} testID={testID}>
-      <AppText typeRole="bodyMedium">{label}</AppText>
+    <View style={[styles.titik, divided && styles.peringkatDivided]} testID={testID}>
+      <AppText typeRole="bodySmall" tone="muted">
+        {label}
+      </AppText>
       <AppText typeRole="numericMedium" tone={titik.penjualan === 0 ? 'muted' : 'default'}>
         {`Rp ${formatRupiah(titik.penjualan)} · ${titik.transaksi} transaksi`}
       </AppText>
@@ -401,53 +451,35 @@ function bandingTone(kini: number, lalu: number): 'primary' | 'muted' {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.xxl },
+  content: { paddingHorizontal: space.gutter, paddingBottom: space.xxl, gap: space.sm },
   columns: { flexDirection: 'row', alignItems: 'flex-start', gap: space.xl },
-  column: { flex: 1, minWidth: 0 },
-  filters: { paddingHorizontal: space.gutter, paddingTop: space.md },
-  applied: {
-    paddingHorizontal: space.gutter,
-    paddingVertical: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-    gap: 2,
-  },
-  total: {
-    paddingHorizontal: space.gutter,
-    paddingVertical: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-    gap: space.xs,
-  },
-  basis: { paddingHorizontal: space.gutter, gap: space.xs },
-  banding: {
-    paddingHorizontal: space.gutter,
-    paddingVertical: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-    gap: 2,
-  },
-  kustom: { paddingBottom: space.sm },
-  toggle: { paddingHorizontal: space.gutter },
+  column: { flex: 1, minWidth: 0, gap: space.sm },
+  filters: { gap: space.sm },
+  applied: { gap: 1 },
+  total: { gap: space.xs },
+  basis: { gap: 2, paddingTop: space.xs },
+  banding: { gap: 2 },
+  kustom: { gap: space.sm },
+  toggle: { paddingTop: space.sm },
   titik: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
+    gap: space.sm,
+    paddingHorizontal: space.lg,
     paddingVertical: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
   },
   peringkat: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: space.gutter,
+    gap: space.sm,
+    paddingHorizontal: space.lg,
     paddingVertical: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
   },
+  peringkatDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.outline },
   peringkatNama: { flex: 1, paddingRight: space.sm },
-  kurang: { paddingHorizontal: space.gutter, paddingVertical: space.sm },
-  grupJudul: { paddingHorizontal: space.gutter, paddingTop: space.md, paddingBottom: space.xs },
+  kurang: { paddingVertical: space.xs },
+  grup: { gap: space.xs },
+  grupJudul: { letterSpacing: 0.9 },
 });
