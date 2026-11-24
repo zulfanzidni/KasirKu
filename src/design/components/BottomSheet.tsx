@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } fr
 import { Animated, Modal, Pressable, StyleSheet, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '@/design/components/AppText';
+import { CloseButton } from '@/design/components/Icons';
 import { colors, motion, shape, space } from '@/design/tokens';
 
 export interface BottomSheetHandle {
@@ -56,9 +57,12 @@ export const BottomSheet = forwardRef<BottomSheetHandle, BottomSheetProps>(funct
           ]}
         >
           <View style={styles.grip} />
-          <AppText typeRole="titleMedium" tone="primary" style={styles.title}>
-            {title}
-          </AppText>
+          <View style={styles.titleRow}>
+            <AppText typeRole="titleLarge" style={styles.title} numberOfLines={2}>
+              {title}
+            </AppText>
+            <CloseButton onPress={onClose} />
+          </View>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
@@ -72,8 +76,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim },
   sheet: {
     backgroundColor: colors.surfaceContainerLowest,
-    borderTopLeftRadius: shape.sheetTop,
-    borderTopRightRadius: shape.sheetTop,
+    borderTopLeftRadius: shape.xl,
+    borderTopRightRadius: shape.xl,
     paddingHorizontal: space.gutter,
     paddingTop: space.sm,
     maxHeight: '85%',
@@ -86,7 +90,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.outline,
     marginBottom: space.md,
   },
-  title: { paddingBottom: space.sm },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingBottom: space.sm },
+  title: { flex: 1 },
   body: { flexGrow: 0 },
   bodyContent: { paddingBottom: space.sm },
 });

@@ -1,25 +1,43 @@
-import { StyleSheet } from 'react-native';
+import type { ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { AppText } from './AppText';
 import { space } from '../tokens';
 
-/** Section headings and the quiet notes used under a screen title. */
-export function SectionHeading({ children }: { children: string }) {
+/**
+ * A section's name above its cards: caps, tracked, quiet. It is a label, not a
+ * heading — the figures inside the cards are what the eye should land on.
+ */
+export function SectionHeading({ children, right, flush = false }: { children: string; right?: ReactNode; flush?: boolean }) {
   return (
-    <AppText typeRole="titleMedium" tone="primary" style={styles.section}>
-      {children}
-    </AppText>
+    <View style={[styles.row, flush && styles.flush]}>
+      <AppText typeRole="labelSmall" tone="muted" style={styles.section}>
+        {children}
+      </AppText>
+      {right}
+    </View>
   );
 }
 
-export function Note({ children }: { children: string }) {
+/** One quiet line under a card or a list: how a figure was read, or what to do. */
+export function Note({ children, flush = false, testID }: { children: string; flush?: boolean; testID?: string }) {
   return (
-    <AppText typeRole="bodyMedium" tone="muted" style={styles.note}>
+    <AppText testID={testID} typeRole="bodySmall" tone="muted" style={[styles.note, flush && styles.flush]}>
       {children}
     </AppText>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { paddingHorizontal: space.gutter, paddingTop: space.xl, paddingBottom: space.xs },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.gutter,
+    paddingTop: space.xl,
+    paddingBottom: space.sm,
+    gap: space.sm,
+  },
+  section: { flexShrink: 1 },
+  flush: { paddingHorizontal: 0 },
   note: { paddingHorizontal: space.gutter, paddingVertical: space.md },
 });

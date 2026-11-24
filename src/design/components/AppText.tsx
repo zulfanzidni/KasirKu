@@ -1,13 +1,15 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 import { colors, typography, type TypeRole } from '../tokens';
 
-type Tone = 'default' | 'primary' | 'muted' | 'owed' | 'onPrimary' | 'onPrimaryMuted';
+type Tone = 'default' | 'primary' | 'muted' | 'owed' | 'positive' | 'onPrimary' | 'onPrimaryMuted';
 
 const toneColor: Record<Tone, string> = {
   default: colors.onSurface,
   primary: colors.primary,
   muted: colors.onSurfaceVariant,
   owed: colors.error,
+  /** Money arriving: kembalian, uang masuk, a lunas row. */
+  positive: colors.positive,
   onPrimary: colors.onPrimary,
   /** A label inside the dark total window. */
   onPrimaryMuted: 'rgba(255, 255, 255, 0.62)',

@@ -1,12 +1,12 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { AppText } from './AppText';
+import { Icon, type IconName } from './Icon';
 import { colors, shape, space } from '../tokens';
 
 export interface TabItem {
   key: string;
   label: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon: IconName;
 }
 
 export interface TabBarProps {
@@ -16,8 +16,11 @@ export interface TabBarProps {
 }
 
 /**
- * Material 3 navigation bar, four destinations, in the shop's own words
- * (DESIGN.md §Navigation). Icons are one weight, never emoji.
+ * The app's four destinations, along the bottom (DESIGN.md Navigation).
+ *
+ * One blue pill marks where you are; every other icon is quiet. The pill is the
+ * blue wash rather than a filled blue button, because the tab is a place, not
+ * an action.
  */
 export function TabBar({ tabs, active, onChange }: TabBarProps) {
   return (
@@ -35,9 +38,9 @@ export function TabBar({ tabs, active, onChange }: TabBarProps) {
             style={styles.tab}
           >
             <View style={[styles.pill, selected && styles.pillActive]}>
-              <MaterialIcons name={tab.icon} size={22} color={selected ? colors.onPrimary : colors.onSurfaceVariant} />
+              <Icon name={tab.icon} size={20} color={selected ? colors.primary : colors.onSurfaceVariant} />
             </View>
-            <AppText typeRole="labelLarge" tone={selected ? 'primary' : 'muted'} style={styles.label}>
+            <AppText typeRole="tabLabel" tone={selected ? 'primary' : 'muted'} style={styles.label}>
               {tab.label}
             </AppText>
           </Pressable>
@@ -55,14 +58,14 @@ const styles = StyleSheet.create({
     borderTopColor: colors.outline,
     paddingBottom: space.sm,
   },
-  tab: { flex: 1, alignItems: 'center', minHeight: space.touch, paddingTop: space.sm },
+  tab: { flex: 1, alignItems: 'center', minHeight: space.touch, paddingTop: 6 },
   pill: {
-    width: 64,
-    height: 32,
+    width: 56,
+    height: 30,
     borderRadius: shape.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillActive: { backgroundColor: colors.primary },
-  label: { fontSize: 12, lineHeight: 16, paddingTop: 2 },
+  pillActive: { backgroundColor: colors.primaryContainer },
+  label: { paddingTop: 2 },
 });

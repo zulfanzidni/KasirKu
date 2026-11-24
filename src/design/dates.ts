@@ -20,3 +20,28 @@ export function formatMoment(at: string, options: { withYear?: boolean } = {}): 
   const time = `${pad(moment.getHours())}.${pad(moment.getMinutes())}`;
   return options.withYear === false ? `${day} ${time}` : `${day}/${moment.getFullYear()} ${time}`;
 }
+
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as const;
+const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'] as const;
+
+/**
+ * The day the way a shop says it: `Selasa, 24 Nov`. The header carries it under
+ * the shop's name, because which day the till is having decides what the owner
+ * expects to see on it.
+ */
+export function formatDay(at: string | Date = new Date()): string {
+  const moment = typeof at === 'string' ? new Date(at) : at;
+  return `${HARI[moment.getDay()]}, ${moment.getDate()} ${BULAN[moment.getMonth()]}`;
+}
+
+/** The day without its weekday: `24 Nov`. */
+export function formatShortDay(at: string | Date): string {
+  const moment = typeof at === 'string' ? new Date(at) : at;
+  return `${moment.getDate()} ${BULAN[moment.getMonth()]}`;
+}
+
+/** The clock alone: `14.20`, as every rupiah in the app writes its time. */
+export function formatClock(at: string | Date): string {
+  const moment = typeof at === 'string' ? new Date(at) : at;
+  return `${String(moment.getHours()).padStart(2, '0')}.${String(moment.getMinutes()).padStart(2, '0')}`;
+}

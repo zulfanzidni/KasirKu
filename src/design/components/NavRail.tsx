@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { AppText } from './AppText';
+import { Icon } from './Icon';
 import { colors, layout, shape, space } from '../tokens';
 import type { TabItem } from './TabBar';
 
@@ -11,13 +11,9 @@ export interface NavRailProps {
 }
 
 /**
- * Material 3 navigation rail: the four destinations of DESIGN.md, laid down the
- * left edge. In landscape the screen is wider than it is tall, so a bar along
- * the bottom would eat the rows the till needs; the rail spends width instead,
- * which landscape has to spare.
- *
- * Same destinations, same words, same active state as `TabBar` — the two are
- * one navigation, cut to fit the shape of the screen.
+ * The four destinations laid down the left edge in landscape, where width is
+ * the thing the screen has to spare and height is not. Same words, same wash
+ * pill, same one blue as the bar it replaces.
  */
 export function NavRail({ tabs, active, onChange }: NavRailProps) {
   return (
@@ -36,13 +32,9 @@ export function NavRail({ tabs, active, onChange }: NavRailProps) {
             style={styles.item}
           >
             <View style={[styles.pill, selected && styles.pillActive]}>
-              <MaterialIcons
-                name={tab.icon}
-                size={22}
-                color={selected ? colors.onPrimary : colors.onSurfaceVariant}
-              />
+              <Icon name={tab.icon} size={20} color={selected ? colors.primary : colors.onSurfaceVariant} />
             </View>
-            <AppText typeRole="labelSmall" tone={selected ? 'primary' : 'muted'} style={styles.label}>
+            <AppText typeRole="tabLabel" tone={selected ? 'primary' : 'muted'} style={styles.label}>
               {tab.label}
             </AppText>
           </Pressable>
@@ -65,11 +57,11 @@ const styles = StyleSheet.create({
   item: { alignItems: 'center', gap: 2, paddingVertical: space.xs },
   pill: {
     width: 56,
-    height: 32,
+    height: 30,
     borderRadius: shape.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillActive: { backgroundColor: colors.primary },
+  pillActive: { backgroundColor: colors.primaryContainer },
   label: { fontSize: 10, lineHeight: 14, letterSpacing: 0.4 },
 });

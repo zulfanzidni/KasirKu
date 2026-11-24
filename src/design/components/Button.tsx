@@ -1,13 +1,18 @@
-import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, type ViewStyle } from 'react-native';
 import { AppText } from './AppText';
-import { borderWidth, colors, shape, space } from '../tokens';
+import { Icon, type IconName } from './Icon';
+import { colors, shape, space } from '../tokens';
 
 type Variant = 'filled' | 'outlined' | 'text' | 'destructive';
+type Size = 'large' | 'medium' | 'small';
 
 export interface ButtonProps {
   label: string;
   onPress: () => void;
   variant?: Variant;
+  size?: Size;
+  /** A leading glyph, e.g. the `+` on `+ Baru`. */
+  icon?: IconName;
   disabled?: boolean;
   /** Stretch to the container width. Default true — till buttons are wide. */
   fullWidth?: boolean;
@@ -16,22 +21,26 @@ export interface ButtonProps {
 }
 
 /**
- * Material 3 buttons, themed by Jendela kasir.
+ * The one button family in the world.
  *
- * The disabled state is not a fade: it drops to the `disabled` fill, because a
- * faded ink button still reads as tappable across a counter. That matters most
- * on Kasir's Bayar, which must look inert the instant it is pressed.
+ * Blue is the only action colour: a filled button is blue on white, a secondary
+ * one is a white card with a hairline, and red only where the action destroys
+ * something. The disabled state is not a fade — it drops to the disabled fill,
+ * because a faded ink button still reads as tappable across a counter.
  */
 export function Button({
   label,
   onPress,
   variant = 'filled',
+  size = 'large',
+  icon,
   disabled = false,
   fullWidth = true,
   style,
   testID,
 }: ButtonProps) {
   const v = variantStyles[variant][disabled ? 'disabled' : 'enabled'];
+  const height = size === 'large' ? 52 : size === 'medium' ? 44 : 34;
 
   return (
     <Pressable
@@ -44,48 +53,35 @@ export function Button({
       android_ripple={disabled ? undefined : { color: v.ripple, borderless: false }}
       style={({ pressed }) => [
         styles.base,
+        { height, minHeight: height },
+        size === 'small' && styles.small,
         fullWidth && styles.fullWidth,
         v.container,
         pressed && !disabled && styles.pressed,
         style,
       ]}
     >
-      <AppText typeRole="labelLarge" style={v.text}>
+      {icon ? <Icon name={icon} size={size === 'small' ? 16 : 20} color={v.iconColor} /> : null}
+      <AppText typeRole={size === 'small' ? 'labelMedium' : 'labelLarge'} style={v.text}>
         {label}
       </AppText>
     </Pressable>
   );
 }
 
-/** The double rule above a total — the accountant's line under a written sum. */
-export function TotalRule({ width = borderWidth.rule }: { width?: number }) {
-  return (
-    <View
-      accessibilityElementsHidden
-      importantForAccessibility="no"
-      style={[styles.doubleRule, { borderTopWidth: width }]}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   base: {
-    height: space.touch,
-    minHeight: space.touch,
+    flexDirection: 'row',
+    gap: space.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: shape.md,
+    paddingHorizontal: space.lg,
     overflow: 'hidden',
   },
+  small: { borderRadius: shape.sm, paddingHorizontal: space.md },
   fullWidth: { alignSelf: 'stretch' },
   pressed: { opacity: Platform.OS === 'android' ? 1 : 0.85 },
-  doubleRule: {
-    borderTopColor: colors.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primary,
-    paddingTop: 2,
-    marginBottom: space.sm,
-  },
 });
 
 const variantStyles = {
@@ -93,23 +89,27 @@ const variantStyles = {
     enabled: {
       container: { backgroundColor: colors.primary },
       text: { color: colors.onPrimary },
+      iconColor: colors.onPrimary,
       ripple: colors.onPrimary,
     },
     disabled: {
       container: { backgroundColor: colors.disabled },
       text: { color: colors.disabledContent },
+      iconColor: colors.disabledContent,
       ripple: 'transparent',
     },
   },
   outlined: {
     enabled: {
-      container: { borderWidth: 1.5, borderColor: colors.outline, backgroundColor: 'transparent' },
+      container: { borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surfaceContainerLowest },
       text: { color: colors.onSurface },
+      iconColor: colors.onSurface,
       ripple: colors.primaryContainer,
     },
     disabled: {
-      container: { borderWidth: 1.5, borderColor: colors.disabled, backgroundColor: 'transparent' },
+      container: { borderWidth: 1, borderColor: colors.disabled, backgroundColor: colors.surfaceContainerLowest },
       text: { color: colors.disabledContent },
+      iconColor: colors.disabledContent,
       ripple: 'transparent',
     },
   },
@@ -117,23 +117,27 @@ const variantStyles = {
     enabled: {
       container: { backgroundColor: 'transparent' },
       text: { color: colors.primary },
+      iconColor: colors.primary,
       ripple: colors.primaryContainer,
     },
     disabled: {
       container: { backgroundColor: 'transparent' },
       text: { color: colors.disabledContent },
+      iconColor: colors.disabledContent,
       ripple: 'transparent',
     },
   },
   destructive: {
     enabled: {
-      container: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.error },
+      container: { backgroundColor: colors.surfaceContainerLowest, borderWidth: 1, borderColor: colors.error },
       text: { color: colors.error },
-      ripple: 'rgba(168,35,31,0.12)',
+      iconColor: colors.error,
+      ripple: colors.errorContainer,
     },
     disabled: {
-      container: { borderWidth: 1.5, borderColor: colors.disabled, backgroundColor: 'transparent' },
+      container: { borderWidth: 1, borderColor: colors.disabled, backgroundColor: colors.surfaceContainerLowest },
       text: { color: colors.disabledContent },
+      iconColor: colors.disabledContent,
       ripple: 'transparent',
     },
   },

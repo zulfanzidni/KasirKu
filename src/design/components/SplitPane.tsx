@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   list: { flex: 1, minWidth: 0 },
   detail: {
     flexShrink: 0,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.surface,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: colors.outline,
     paddingHorizontal: space.lg,

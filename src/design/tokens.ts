@@ -51,10 +51,20 @@ export const colors = {
 
   /** Money arriving: kembalian, uang masuk, a lunas row. Never an action. */
   positive: '#00C9B1',
+  /** The wash behind a word like `tunai` or `lunas`. Never a filled control. */
+  positiveContainer: 'rgba(0, 201, 177, 0.12)',
 
   /** Only money still owed, negative stock, expenses, and a destructive confirm. */
   error: '#FF5555',
   onError: '#FFFFFF',
+  /** The wash behind a word like `tempo` or `batal`. */
+  errorContainer: 'rgba(255, 85, 85, 0.12)',
+
+  /**
+   * The well a tile's photograph sits in. Nothing in v1 fills it: a tile is a
+   * target, and the well is the shape a picture will take.
+   */
+  imageWell: '#DDE5EE',
 
   disabled: '#EFF3F8',
   disabledContent: '#94A3B8',
@@ -128,6 +138,20 @@ export const typography = {
     lineHeight: 20,
     letterSpacing: 0,
   },
+  /** A card's own title, and the shop's name in the header. */
+  titleLarge: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: 0,
+  },
+  /** An item's name in a tile or a row: the default name size. */
+  titleSmall: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 14,
+    lineHeight: 18,
+    letterSpacing: 0,
+  },
   bodyLarge: {
     fontFamily: fontFamily.print,
     fontSize: 15,
@@ -140,11 +164,32 @@ export const typography = {
     lineHeight: 18,
     letterSpacing: 0,
   },
+  /** Timestamps, units, a row's second line. */
+  bodySmall: {
+    fontFamily: fontFamily.print,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0,
+  },
   labelLarge: {
     fontFamily: fontFamily.printSemibold,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 20,
     letterSpacing: 0.1,
+  },
+  /** A chip, a small control's word. */
+  labelMedium: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0,
+  },
+  /** The word under a navigation icon, and nowhere else. */
+  tabLabel: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0,
   },
   labelSmall: {
     fontFamily: fontFamily.printSemibold,
@@ -173,6 +218,14 @@ export const typography = {
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: 0,
+    fontVariant: tabular,
+  },
+  /** A figure that stands alone in a card: the cart bar's total, a metric. */
+  numericDisplay: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.2,
     fontVariant: tabular,
   },
 } as const;

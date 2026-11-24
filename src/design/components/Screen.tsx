@@ -2,43 +2,70 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from './AppText';
-import { HeaderAction } from './Icons';
+import { AppHeader } from './AppHeader';
+import { BackButton } from './Icons';
 import { colors, space } from '../tokens';
 
 export interface ScreenProps {
   title: string;
-  /** A caps word under the title: which screen this is. */
+  /** One quiet line under the title: what this screen holds, or how much. */
+  subtitle?: string;
+  /** @deprecated The old name for `subtitle`; still honoured while screens move. */
   overline?: string;
-  /** Actions pinned to the right of the header, e.g. the add button. */
+  /** Which part of the shop the header names. */
+  role?: string;
+  /** Actions pinned to the right of the title, e.g. `+ Baru`. */
   actions?: ReactNode;
-  /** A ruled area pinned to the bottom, above the system inset. */
+  /** A control pinned to the bottom, on the ground rather than in a white bar. */
   footer?: ReactNode;
+  /** A nested screen: the header's mark becomes a back control. */
+  onBack?: () => void;
+  /** Hide the shop bar, e.g. a full-screen receipt. */
+  bare?: boolean;
   children: ReactNode;
 }
 
 /**
- * The frame every screen composes: a header with the screen's title and a
- * hairline beneath, the 20 dp gutter DESIGN.md fixes, and nothing else. Screens
- * compose it rather than re-declaring a background or an inset.
+ * The frame every screen composes: the shop's bar, the screen's own title, the
+ * 20 dp gutter DESIGN.md fixes, and the ground showing between the cards.
+ *
+ * There is no rule under the header. Elevation and type size do the separating,
+ * which is what makes the screens read as sheets on a counter rather than a
+ * ruled ledger.
  */
-export function Screen({ title, overline, actions, footer, children }: ScreenProps) {
+export function Screen({
+  title,
+  subtitle,
+  overline,
+  role = 'Lainnya',
+  actions,
+  footer,
+  onBack,
+  bare = false,
+  children,
+}: ScreenProps) {
   const insets = useSafeAreaInsets();
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <AppText typeRole="headlineSmall" tone="primary" numberOfLines={1}>
+      {bare ? null : <AppHeader role={role} leading={onBack ? <BackButton onPress={onBack} /> : undefined} />}
+
+      <View style={styles.titleRow}>
+        <View style={styles.titleText}>
+          <AppText typeRole="headlineSmall" numberOfLines={1}>
             {title}
           </AppText>
-          {overline ? (
-            <AppText typeRole="labelSmall" tone="muted">
-              {overline}
+          {subtitle || overline ? (
+            <AppText typeRole="bodyMedium" tone="muted" numberOfLines={2}>
+              {subtitle ?? overline}
             </AppText>
           ) : null}
         </View>
-        {actions ? <HeaderAction>{actions}</HeaderAction> : null}
+        {actions ? <View style={styles.actions}>{actions}</View> : null}
       </View>
+
       <View style={styles.body}>{children}</View>
+
       {footer ? (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, space.md) }]}>{footer}</View>
       ) : null}
@@ -48,24 +75,17 @@ export function Screen({ title, overline, actions, footer, children }: ScreenPro
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
-  header: {
+  titleRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
+    gap: space.sm,
     paddingHorizontal: space.gutter,
     paddingTop: space.sm,
-    paddingBottom: space.sm,
-    minHeight: 56,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
+    paddingBottom: space.md,
   },
-  headerText: { flex: 1 },
+  titleText: { flex: 1, gap: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   body: { flex: 1 },
-  footer: {
-    backgroundColor: colors.surfaceContainerLowest,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.outline,
-    paddingHorizontal: space.gutter,
-    paddingTop: space.md,
-  },
+  footer: { paddingHorizontal: space.gutter, paddingTop: space.md },
 });
