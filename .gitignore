@@ -54,6 +54,7 @@ scratch/
 
 # Local agent scratch workspace
 .scratch/
+.agents/
 
 # Impeccable design tooling state and sketches
 .impeccable/
