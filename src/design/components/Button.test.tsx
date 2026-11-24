@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { Button } from './Button';
 import { TotalBlock } from './TotalBlock';
+import { colors } from '../tokens';
 
 describe('Button', () => {
   it('fires once per tap', () => {
@@ -22,7 +24,21 @@ describe('Button', () => {
     expect(screen.getByTestId('bayar').props.accessibilityState).toEqual({ disabled: true });
     expect(screen.getByTestId('bayar').props.accessibilityRole).toBe('button');
   });
+
+  it('repaints its fill when it goes from disabled to enabled', () => {
+    const { rerender } = render(<Button label="Bayar" onPress={jest.fn()} disabled testID="bayar" />);
+    expect(fillColor('bayar')).toBe(colors.disabled);
+
+    rerender(<Button label="Bayar" onPress={jest.fn()} testID="bayar" />);
+
+    expect(fillColor('bayar')).toBe(colors.primary);
+  });
 });
+
+function fillColor(testID: string): string | undefined {
+  const fill = screen.getByTestId(`${testID}-fill`);
+  return StyleSheet.flatten(fill.props.style).backgroundColor;
+}
 
 describe('TotalBlock', () => {
   it('prints the amount the way the shop writes it', () => {
