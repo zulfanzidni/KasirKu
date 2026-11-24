@@ -59,7 +59,14 @@ describe('creating master data', () => {
   it('offers no way to change a satuan after creation', () => {
     const catalog = createCatalog(async () => 'evt');
 
-    expect(Object.keys(catalog).filter((name) => /varian/i.test(name))).toEqual(['createVarian']);
+    // Archiving and restoring a varian are not edits to it: they flip a flag.
+    // Nothing here can rewrite the satuan, the price's unit, or the jualBy.
+    expect(Object.keys(catalog).filter((name) => /satuan|updateVarian/i.test(name))).toEqual([]);
+    expect(Object.keys(catalog).filter((name) => /varian/i.test(name))).toEqual([
+      'createVarian',
+      'archiveVarian',
+      'restoreVarian',
+    ]);
   });
 });
 
@@ -124,6 +131,40 @@ describe('editing master data', () => {
     await createCatalog(append).archiveProduk('prd-1');
 
     expect(drafts).toEqual([{ type: 'produk.archived', payload: { produkId: 'prd-1', archived: true } }]);
+  });
+
+  it('archives a varian as its own fact, so the log keeps it', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).archiveVarian('var-1');
+
+    expect(drafts).toEqual([{ type: 'varian.archived', payload: { varianId: 'var-1', archived: true } }]);
+  });
+});
+
+describe('restoring master data', () => {
+  it('restores a kategori by writing the same fact with archived false', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).restoreKategori('kat-1');
+
+    expect(drafts).toEqual([{ type: 'kategori.archived', payload: { kategoriId: 'kat-1', archived: false } }]);
+  });
+
+  it('restores a produk by writing the same fact with archived false', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).restoreProduk('prd-1');
+
+    expect(drafts).toEqual([{ type: 'produk.archived', payload: { produkId: 'prd-1', archived: false } }]);
+  });
+
+  it('restores a varian by writing the same fact with archived false', async () => {
+    const { drafts, append } = writer();
+
+    await createCatalog(append).restoreVarian('var-1');
+
+    expect(drafts).toEqual([{ type: 'varian.archived', payload: { varianId: 'var-1', archived: false } }]);
   });
 });
 

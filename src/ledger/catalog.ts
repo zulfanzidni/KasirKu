@@ -47,6 +47,17 @@ export interface Catalog {
   archiveKategori(kategoriId: string): Promise<string>;
   /** Hides a produk and its varian from the till; history still reads it. */
   archiveProduk(produkId: string): Promise<string>;
+  /** Hides a varian from the list and the till; its stock and history stay. */
+  archiveVarian(varianId: string): Promise<string>;
+  /** Brings an archived kategori back into the working list. */
+  restoreKategori(kategoriId: string): Promise<string>;
+  /** Brings an archived produk back; its live varian return with it. */
+  restoreProduk(produkId: string): Promise<string>;
+  /**
+   * Brings an archived varian back. It is only sellable again once its produk
+   * is live too, so restoring a varian never silently reopens a hidden produk.
+   */
+  restoreVarian(varianId: string): Promise<string>;
   /**
    * The owner's low-stock rule for one varian: "tell me below N" (user story
    * 41). Writes one stamped field, so an edit on the other phone to a different
@@ -127,6 +138,22 @@ export function createCatalog(append: (type: string, payload: unknown) => Promis
 
     async archiveProduk(produkId) {
       return append('produk.archived', { produkId, archived: true });
+    },
+
+    async archiveVarian(varianId) {
+      return append('varian.archived', { varianId, archived: true });
+    },
+
+    async restoreKategori(kategoriId) {
+      return append('kategori.archived', { kategoriId, archived: false });
+    },
+
+    async restoreProduk(produkId) {
+      return append('produk.archived', { produkId, archived: false });
+    },
+
+    async restoreVarian(varianId) {
+      return append('varian.archived', { varianId, archived: false });
     },
 
     async setMinimum(varianId, minimum) {

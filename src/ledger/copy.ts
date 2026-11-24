@@ -46,6 +46,8 @@ export const teks = {
   ubahKategori: 'Ubah kategori',
   ubahProduk: 'Ubah produk',
   arsipkan: 'Arsipkan',
+  pulihkan: 'Pulihkan',
+  arsip: 'Arsip',
   tanpaKategori: 'Tanpa kategori',
   pindahKategori: 'Pindah kategori',
   belumAdaKategori: 'Belum ada kategori. Buat kategori dulu.',

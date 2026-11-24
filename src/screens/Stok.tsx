@@ -5,11 +5,14 @@ import {
   BottomSheet,
   Button,
   Card,
+  CardRow,
   CardStack,
   Chip,
   ChipRow,
   Field,
+  Icon,
   Note,
+  RowAvatar,
   Screen,
   SectionHeading,
   SplitPane,
@@ -65,6 +68,10 @@ export function StokScreen() {
   const [edit, setEdit] = useState<{ kind: 'kategori' | 'produk'; id: string } | null>(null);
   const [opening, setOpening] = useState(false);
   const [mode, setMode] = useState<'daftar' | 'impor'>('daftar');
+  /** The varian whose long-press menu is open. */
+  const [menuId, setMenuId] = useState<string | null>(null);
+  /** The archive sheet: what has been taken out of the list, and can come back. */
+  const [arsipOpen, setArsipOpen] = useState(false);
   /** The varian the landscape pane is about; portrait never shows it. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { wide } = useFrame();
@@ -98,6 +105,24 @@ export function StokScreen() {
     (row) =>
       (row.stock.kind === 'counted' && row.stock.qty < 0) || checks.get(row.varian.id)?.kind === 'rendah',
   ).length;
+
+  /**
+   * The archive: records the owner took out of the working list, by level. A
+   * produk's varian are hidden with it but are not archived themselves, so a
+   * restore of the produk brings them back; a varian archived on its own stays
+   * archived until it is restored itself.
+   */
+  const menuVarian = menuId ? shop.varian.find((entry) => entry.id === menuId) ?? null : null;
+  const arsipKategori = shop.kategori.filter((entry) => entry.archived);
+  const arsipProduk = shop.produk.filter((entry) => entry.archived);
+  const arsipVarian = shop.varian.filter((entry) => entry.archived);
+  const arsipRingkas = [
+    arsipKategori.length > 0 ? `${arsipKategori.length} kategori` : null,
+    arsipProduk.length > 0 ? `${arsipProduk.length} produk` : null,
+    arsipVarian.length > 0 ? `${arsipVarian.length} varian` : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
 
   /**
    * The varian the pane is about. It is one piece of screen state, so a search
@@ -253,6 +278,7 @@ export function StokScreen() {
                           bulk={bulkOf(shop, item, (id) => stock.get(id) ?? { kind: 'unknown' })}
                           selected={wide ? selectedId === item.id : undefined}
                           onPress={() => pressRow(item.id)}
+                          onLongPress={() => setMenuId(item.id)}
                           onCount={() => openSheet(item.id, 'hitung')}
                           onMinimum={() => openSheet(item.id, 'minimum')}
                           onHistory={() => openSheet(item.id, 'riwayat')}
@@ -265,6 +291,27 @@ export function StokScreen() {
             </View>
           );
           })}
+
+        {arsipKategori.length + arsipProduk.length + arsipVarian.length > 0 ? (
+          <Card>
+            <CardRow
+              onPress={() => setArsipOpen(true)}
+              testID="buka-arsip"
+              accessibilityLabel={`${teks.arsip}, ${arsipRingkas}`}
+            >
+              <RowAvatar tone="muted">
+                <Icon name="folder" size={20} color={colors.onSurfaceVariant} />
+              </RowAvatar>
+              <View style={styles.rowText}>
+                <AppText typeRole="titleSmall">{teks.arsip}</AppText>
+                <AppText typeRole="bodySmall" tone="muted">
+                  {arsipRingkas}
+                </AppText>
+              </View>
+              <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+            </CardRow>
+          </Card>
+        ) : null}
     </ScrollView>
   );
 
@@ -377,6 +424,30 @@ export function StokScreen() {
       >
         <OpeningForm varian={belumDihitung} onDone={() => setOpening(false)} />
       </BottomSheet>
+
+      <BottomSheet
+        visible={menuVarian !== null}
+        onClose={() => setMenuId(null)}
+        title={teks.varian}
+        testID="menu-varian"
+      >
+        {menuVarian ? (
+          <VarianMenu
+            varian={menuVarian}
+            produk={shop.produk.find((entry) => entry.id === menuVarian.produkId) ?? null}
+            stock={stock.get(menuVarian.id) ?? { kind: 'unknown' }}
+            titip={titipOf(menuVarian.id)}
+            onArchived={() => {
+              if (selectedId === menuVarian.id) setSelectedId(null);
+              setMenuId(null);
+            }}
+          />
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet visible={arsipOpen} onClose={() => setArsipOpen(false)} title={teks.arsip} testID="arsip">
+        <ArsipList kategori={arsipKategori} produk={arsipProduk} varian={arsipVarian} />
+      </BottomSheet>
     </Screen>
   );
 }
@@ -425,6 +496,7 @@ function VarianLine({
   divided,
   selected,
   onPress,
+  onLongPress,
   onCount,
   onMinimum,
   onHistory,
@@ -439,6 +511,8 @@ function VarianLine({
   /** Undefined in portrait, where a row is never a selection. */
   selected?: boolean;
   onPress: () => void;
+  /** The long-press menu: the varian's facts and the way to archive it. */
+  onLongPress: () => void;
   onCount: () => void;
   onMinimum: () => void;
   onHistory: () => void;
@@ -453,8 +527,15 @@ function VarianLine({
       testID={`stok-baris-${varian.id}`}
       accessibilityRole="button"
       accessibilityLabel={`${varian.nama}, ${reading}`}
+      accessibilityHint="Tekan lama untuk membuka pilihan varian."
+      accessibilityActions={[{ name: 'menu', label: 'Buka pilihan varian' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'menu') onLongPress();
+      }}
       accessibilityState={selected === undefined ? undefined : { selected }}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       style={[styles.varianRow, divided && styles.varianDivided, selected && styles.varianSelected]}
     >
       <View style={styles.varianMain}>
@@ -603,6 +684,249 @@ function StokPane({
       <SectionHeading flush>Pergerakan</SectionHeading>
       <HistoryList varian={varian} />
     </ScrollView>
+  );
+}
+
+/**
+ * The long-press menu for one varian: what it is, what is on its shelf, and the
+ * one act that takes it out of the list.
+ *
+ * Archiving is never a delete, so the sheet says what stays behind — the stock
+ * and the sales that named it. A varian with stock left, or one nobody has
+ * counted, asks first: the number it leaves behind is the owner's to know
+ * before it leaves the till.
+ */
+function VarianMenu({
+  varian,
+  produk,
+  stock,
+  titip,
+  onArchived,
+}: {
+  varian: Varian;
+  produk: Produk | null;
+  stock: StockState;
+  titip: number;
+  onArchived: () => void;
+}) {
+  const { catalog } = useApp();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const counted = stock.kind === 'counted' ? stock.qty : null;
+  const asks = counted === null || counted !== 0;
+
+  async function archive() {
+    if (!catalog) return;
+    setError(null);
+    try {
+      await catalog.archiveVarian(varian.id);
+      onArchived();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  return (
+    <>
+      <Card padded style={styles.menuFacts}>
+        <AppText typeRole="titleSmall" numberOfLines={2}>
+          {varian.nama}
+        </AppText>
+        <AppText typeRole="bodySmall" tone="muted">
+          {produk ? `${produk.nama} · ` : ''}
+          {`${formatRupiah(varian.harga)} / ${varian.satuan}`}
+        </AppText>
+        <AppText typeRole="bodySmall" tone="muted">
+          {counted === null ? 'Stok belum dihitung' : `Stok ${formatQty(counted)} ${varian.satuan}`}
+          {titip > 0 ? ` · titip ${formatQty(titip)} ${varian.satuan}` : ''}
+        </AppText>
+      </Card>
+
+      {confirming ? (
+        <>
+          <Note>{arsipWarning(varian, stock, titip)}</Note>
+          <Button
+            label="Arsipkan varian"
+            variant="destructive"
+            onPress={archive}
+            testID="konfirmasi-arsip-varian"
+          />
+          <Button
+            label="Batal"
+            variant="text"
+            onPress={() => setConfirming(false)}
+            testID="batal-arsip-varian"
+          />
+        </>
+      ) : (
+        <Button
+          label="Arsipkan varian"
+          variant="destructive"
+          onPress={() => {
+            setError(null);
+            if (asks) setConfirming(true);
+            else void archive();
+          }}
+          testID="arsipkan-varian"
+        />
+      )}
+
+      {error ? (
+        <AppText typeRole="bodySmall" tone="owed" style={styles.formError}>
+          {error}
+        </AppText>
+      ) : null}
+    </>
+  );
+}
+
+/** What archiving a varian leaves behind, in the owner's words. */
+function arsipWarning(varian: Varian, stock: StockState, titip: number): string {
+  const titipNote =
+    titip > 0 ? ` Titip ${formatQty(titip)} ${varian.satuan} juga tetap tercatat dan tetap milik pemasok.` : '';
+  const tail = 'Varian ini hilang dari daftar dan kasir, tetapi stok dan penjualan lamanya tetap ada di riwayat.';
+  if (stock.kind !== 'counted') {
+    return `Stok varian ini belum pernah dihitung, jadi sisanya tidak diketahui. ${tail}${titipNote}`;
+  }
+  return `Stok tercatat ${formatQty(stock.qty)} ${varian.satuan}. ${tail}${titipNote}`;
+}
+
+type ArsipLevel = 'kategori' | 'produk' | 'varian';
+
+/**
+ * What has been archived, by level, and the way back.
+ *
+ * Restoring is a decision per record: a produk brings its live varian with it,
+ * while a varian archived on its own stays archived until it is restored
+ * itself — so a varian under an archived produk can come back to the list only
+ * once the produk does.
+ */
+function ArsipList({ kategori, produk, varian }: { kategori: Kategori[]; produk: Produk[]; varian: Varian[] }) {
+  const { catalog, shop } = useApp();
+  const [error, setError] = useState<string | null>(null);
+  const kosong = kategori.length === 0 && produk.length === 0 && varian.length === 0;
+
+  async function pulihkan(level: ArsipLevel, id: string) {
+    if (!catalog) return;
+    setError(null);
+    try {
+      if (level === 'kategori') await catalog.restoreKategori(id);
+      else if (level === 'produk') await catalog.restoreProduk(id);
+      else await catalog.restoreVarian(id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }
+
+  const restoreButton = (level: ArsipLevel, id: string) => (
+    <Button
+      label={teks.pulihkan}
+      size="small"
+      variant="outlined"
+      fullWidth={false}
+      onPress={() => pulihkan(level, id)}
+      testID={`pulihkan-${level}-${id}`}
+    />
+  );
+
+  return (
+    <>
+      <Note flush>
+        Yang diarsipkan tidak dihapus. Pulihkan untuk memakainya lagi; stok dan penjualan lamanya tidak berubah.
+      </Note>
+
+      {kosong ? <Note flush>Arsip kosong.</Note> : null}
+
+      {kategori.length > 0 ? (
+        <>
+          <SectionHeading flush>Kategori</SectionHeading>
+          <Card>
+            {kategori.map((entry, index) => (
+              <CardRow key={entry.id} divided={index > 0} minHeight={56} testID={`arsip-kategori-${entry.id}`}>
+                <View style={styles.rowText}>
+                  <AppText typeRole="titleSmall" numberOfLines={1}>
+                    {entry.nama}
+                  </AppText>
+                </View>
+                {restoreButton('kategori', entry.id)}
+              </CardRow>
+            ))}
+          </Card>
+        </>
+      ) : null}
+
+      {produk.length > 0 ? (
+        <>
+          <SectionHeading flush>Produk</SectionHeading>
+          <Card>
+            {produk.map((entry, index) => {
+              const induk = entry.kategoriId
+                ? shop.kategori.find((item) => item.id === entry.kategoriId)?.nama ?? null
+                : null;
+              const varianHidup = shop.varian.filter(
+                (item) => item.produkId === entry.id && !item.archived,
+              ).length;
+              const sub = [
+                induk ?? teks.tanpaKategori,
+                varianHidup === 0 ? 'tanpa varian' : `${varianHidup} varian ikut tersembunyi`,
+              ].join(' · ');
+              return (
+                <CardRow key={entry.id} divided={index > 0} minHeight={56} testID={`arsip-produk-${entry.id}`}>
+                  <View style={styles.rowText}>
+                    <AppText typeRole="titleSmall" numberOfLines={1}>
+                      {entry.nama}
+                    </AppText>
+                    <AppText typeRole="bodySmall" tone="muted" numberOfLines={2}>
+                      {sub}
+                    </AppText>
+                  </View>
+                  {restoreButton('produk', entry.id)}
+                </CardRow>
+              );
+            })}
+          </Card>
+        </>
+      ) : null}
+
+      {varian.length > 0 ? (
+        <>
+          <SectionHeading flush>Varian</SectionHeading>
+          <Card>
+            {varian.map((entry, index) => {
+              const induk = shop.produk.find((item) => item.id === entry.produkId) ?? null;
+              return (
+                <CardRow key={entry.id} divided={index > 0} minHeight={56} testID={`arsip-varian-${entry.id}`}>
+                  <View style={styles.rowText}>
+                    <AppText typeRole="titleSmall" numberOfLines={1}>
+                      {entry.nama}
+                    </AppText>
+                    <AppText typeRole="bodySmall" tone="muted" numberOfLines={2}>
+                      {`${induk ? induk.nama : teks.produk} · ${formatRupiah(entry.harga)} / ${entry.satuan}`}
+                    </AppText>
+                    {induk?.archived ? (
+                      <AppText
+                        typeRole="bodySmall"
+                        tone="muted"
+                        testID={`arsip-varian-terkunci-${entry.id}`}
+                      >
+                        Produknya masih diarsipkan, jadi varian ini belum kembali ke kasir.
+                      </AppText>
+                    ) : null}
+                  </View>
+                  {restoreButton('varian', entry.id)}
+                </CardRow>
+              );
+            })}
+          </Card>
+        </>
+      ) : null}
+
+      {error ? (
+        <AppText typeRole="bodySmall" tone="owed" style={styles.formError}>
+          {error}
+        </AppText>
+      ) : null}
+    </>
   );
 }
 
@@ -1085,6 +1409,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.outline,
   },
   pickLabel: { paddingBottom: space.xs },
+  rowText: { flex: 1, gap: 1 },
+  menuFacts: { gap: space.xs },
+  formError: { paddingTop: space.sm },
   pane: { flex: 1, minHeight: 0 },
   paneContent: { paddingBottom: space.lg, gap: space.sm },
   paneBucket: {

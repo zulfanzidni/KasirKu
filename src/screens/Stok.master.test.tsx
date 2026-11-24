@@ -127,8 +127,9 @@ describe('Stok — archiving a kategori', () => {
     // …but its produk is still there, now under "Tanpa kategori".
     expect(screen.getByText('Tanpa kategori')).toBeTruthy();
     expect(screen.getByText('Tepung terigu')).toBeTruthy();
+    // The reference is kept, so restoring the kategori puts the produk back.
     expect((await phoneShop()).produk[0]).toEqual(
-      expect.objectContaining({ nama: 'Tepung terigu', kategoriId: null }),
+      expect.objectContaining({ nama: 'Tepung terigu', kategoriId }),
     );
   });
 });

@@ -107,7 +107,7 @@ describe('the ledger as the shop sees it', () => {
     expect(shop.produk[0].nama).toBe('Tepung terigu');
   });
 
-  it('archives a kategori and leaves its produk in place, uncategorised', () => {
+  it('archives a kategori and leaves its produk in place, still pointing at it', () => {
     const shop = foldEvents([
       kategori(),
       produk(),
@@ -122,9 +122,39 @@ describe('the ledger as the shop sees it', () => {
     ]);
 
     expect(shop.kategori[0].archived).toBe(true);
-    // The produk is not deleted and not renamed: it simply has no kategori now.
+    // The produk is not deleted and not renamed. It keeps the reference, so a
+    // restore of the kategori puts it back; the screens hide the group while
+    // the kategori is archived, which is what "uncategorised" looks like.
     expect(shop.produk).toHaveLength(1);
-    expect(shop.produk[0]).toEqual(expect.objectContaining({ nama: 'Tepung terigu', kategoriId: null }));
+    expect(shop.produk[0]).toEqual(
+      expect.objectContaining({ nama: 'Tepung terigu', kategoriId: ids.kategori }),
+    );
+  });
+
+  it('restores a kategori with its produk still inside it', () => {
+    const shop = foldEvents([
+      kategori(),
+      produk(),
+      {
+        id: 'evt-kat-archive',
+        deviceId: 'gawai-1',
+        seq: 4,
+        createdAt: '2026-10-31T08:03:00.000Z',
+        type: 'kategori.archived',
+        payload: { kategoriId: ids.kategori, archived: true },
+      },
+      {
+        id: 'evt-kat-restore',
+        deviceId: 'gawai-1',
+        seq: 5,
+        createdAt: '2026-10-31T09:00:00.000Z',
+        type: 'kategori.archived',
+        payload: { kategoriId: ids.kategori, archived: false },
+      },
+    ]);
+
+    expect(shop.kategori[0].archived).toBe(false);
+    expect(shop.produk[0].kategoriId).toBe(ids.kategori);
   });
 
   it('moves a produk to another kategori without touching its name', () => {

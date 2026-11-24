@@ -209,14 +209,11 @@ export function foldEvents(events: readonly LedgerEvent[]): Shop {
     sale.voidReason = voided.alasan;
   }
 
-  // A produk whose kategori is archived is not deleted: it stays in the list,
-  // uncategorised (ticket 13). Derived here, so the rule holds however the
-  // events arrived and whichever phone wrote them.
-  const archivedKategori = new Set(shop.kategori.filter((entry) => entry.archived).map((entry) => entry.id));
-  for (const produk of shop.produk) {
-    if (produk.kategoriId !== null && archivedKategori.has(produk.kategoriId)) produk.kategoriId = null;
-  }
-
+  // A produk whose kategori is archived is not deleted and not re-pointed: it
+  // keeps the reference, and every screen reads an archived kategori as "no
+  // kategori", so it shows under "Tanpa kategori" while the kategori is away
+  // (ticket 13). Keeping the reference is what lets a restore put the produk
+  // back where it was.
   return shop;
 }
 

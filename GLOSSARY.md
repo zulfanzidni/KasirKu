@@ -60,6 +60,19 @@ matters; and treating variants as one product whose stock is pooled.
 
 ---
 
+## Arsip (archived)
+
+**Definition:** a **kategori**, **produk** or **varian** the owner has taken
+out of the working list without deleting it. An archived **produk** hides its
+varian from the till; an archived **kategori** leaves its produk visible but
+uncategorised. Nothing is erased: history still reads the record, its stock
+does not move, and every archived record can be restored on its own.
+
+_Avoid_: "hapus" for archiving. A delete would break every sale that named the
+record; the log keeps them.
+
+---
+
 ## Satuan (unit)
 
 **Definition:** the unit a varian is counted in: `bungkus`, `kg`, `pcs`, `sak`,
