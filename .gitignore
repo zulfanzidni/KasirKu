@@ -58,3 +58,6 @@ scratch/
 
 # Impeccable design tooling state and sketches
 .impeccable/
+
+# Design reference files — too large for the remote, kept on disk only
+*.figcraft
