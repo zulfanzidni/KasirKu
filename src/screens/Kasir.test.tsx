@@ -124,6 +124,15 @@ describe('Kasir', () => {
     expect(screen.queryByText('Berapa kg?')).toBeNull();
   });
 
+  it('opens the weight sheet from the tile + until a weight is chosen', async () => {
+    const gula = await seedGula();
+
+    fireEvent.press(screen.getByTestId(`tambah-${gula}`));
+
+    expect(screen.getByText('Berapa kg?')).toBeTruthy();
+    expect(app.cart).toEqual([]);
+  });
+
   it('repeats the last weight for a varian when its + is pressed', async () => {
     const gula = await seedGula();
 
