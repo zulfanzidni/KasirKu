@@ -1,7 +1,7 @@
 import type { TextStyle } from 'react-native';
 
 /**
- * Jendela kasir — design tokens.
+ * Boose — design tokens.
  *
  * Single source of truth for every colour, type size, spacing and shape value
  * in the app. Nothing outside this folder may declare a raw hex value, a font
@@ -11,6 +11,11 @@ import type { TextStyle } from 'react-native';
  *
  * Every screen reads these roles, never a value, so this file is the whole
  * visual world: change the tokens and all fifteen screens change with them.
+ *
+ * The world is Boose (the Sado Brew admin in `UI.figcraft`): white cards on a
+ * cool ground, one blue that means "do this", and money that reads as money.
+ * The typeface stays IBM Plex Sans — Boose sets Nunito, which has no tabular
+ * figures, and a till is mostly numbers in columns.
  */
 
 // ---------------------------------------------------------------------------
@@ -18,40 +23,43 @@ import type { TextStyle } from 'react-native';
 // ---------------------------------------------------------------------------
 
 /**
- * Two grounds and one ink. The screen is the counter (a cool, neutral paper
- * grey), a panel is a sheet laid on it (white), and everything you read or press
- * is near-black ink. Red is not an accent: it is money someone still owes.
+ * A cool ground, white cards, one blue, one near-black ink. Red is not an
+ * accent: it is money someone still owes or money leaving the drawer. Teal is
+ * money arriving, never an action.
  *
  * Exposed as Material 3 colour roles so a future dark theme resolves through
  * the same keys rather than through raw hex at the call site.
  */
 export const colors = {
-  /** The till's own display: the total, and every primary action. */
-  primary: '#101418',
+  /** Every primary action, the total block, the active tab. */
+  primary: '#007AFF',
   onPrimary: '#FFFFFF',
-  /** Selection wash and Android ripple. */
-  primaryContainer: '#E6E6E0',
-  onPrimaryContainer: '#101418',
+  /** Active-tab pill, quiet selected rows, an icon tint. */
+  primaryContainer: '#E6F0FF',
+  onPrimaryContainer: '#0B1220',
 
   /** The counter the app sits on. */
-  surface: '#F1F1EE',
-  onSurface: '#101418',
+  surface: '#F1F5F9',
+  onSurface: '#0B1220',
   /** Panels and lists: a sheet laid on the counter. */
   surfaceContainerLowest: '#FFFFFF',
-  /** Labels, units, timestamps. 5.0:1 on the counter, 4.6:1 on a panel. */
-  onSurfaceVariant: '#64645D',
+  /** Labels, units, timestamps. 4.8:1 on a panel, 4.6:1 on the counter. */
+  onSurfaceVariant: '#64748B',
 
-  outline: '#E2E2DC',
-  outlineVariant: '#EFEFEA',
+  outline: '#E2E8F0',
+  outlineVariant: '#EFF3F8',
 
-  /** Only money still owed, negative stock, and a destructive confirm. */
-  error: '#A8231F',
+  /** Money arriving: kembalian, uang masuk, a lunas row. Never an action. */
+  positive: '#00C9B1',
+
+  /** Only money still owed, negative stock, expenses, and a destructive confirm. */
+  error: '#FF5555',
   onError: '#FFFFFF',
 
-  disabled: '#E9E9E4',
-  disabledContent: '#9A9A92',
+  disabled: '#EFF3F8',
+  disabledContent: '#94A3B8',
 
-  scrim: 'rgba(16, 20, 24, 0.40)',
+  scrim: 'rgba(11, 18, 32, 0.40)',
 } as const;
 
 export type ColorToken = keyof typeof colors;
@@ -64,6 +72,10 @@ export type ColorToken = keyof typeof colors;
  * One voice. The till is an instrument, and an instrument has one legible face:
  * IBM Plex Sans. It carries real tabular figures, which is what a column of
  * rupiah needs. There is no second, decorative face in the app.
+ *
+ * Boose sets Nunito; this app does not, because Nunito has no tabular figures
+ * and a column of money that shimmers cannot be read at a glance. See
+ * DESIGN.md §Why Plex and not Boose's Nunito.
  */
 export const fontFamily = {
   print: 'PlexSans_400Regular',
@@ -89,9 +101,25 @@ export const typography = {
   },
   headlineSmall: {
     fontFamily: fontFamily.printSemibold,
-    fontSize: 19,
-    lineHeight: 24,
-    letterSpacing: -0.2,
+    fontSize: 28,
+    lineHeight: 34,
+    letterSpacing: -0.4,
+    fontVariant: tabular,
+  },
+  /** A stat's figure, a large card number. */
+  headlineMedium: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.3,
+    fontVariant: tabular,
+  },
+  /** A figure that leads a screen. */
+  headlineLarge: {
+    fontFamily: fontFamily.printSemibold,
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.4,
     fontVariant: tabular,
   },
   titleMedium: {
@@ -192,12 +220,16 @@ export const layout = {
 // Shape
 // ---------------------------------------------------------------------------
 
-/** A machined corner, not a pill. */
+/** A card corner, not a pill. Boose's generous rounding. */
 export const shape = {
   none: 0,
-  sm: 4,
-  md: 6,
-  lg: 8,
+  sm: 8,
+  /** Buttons, inputs, small chips. */
+  md: 12,
+  /** Cards and tiles. */
+  lg: 16,
+  /** The receipt sheet. */
+  xl: 20,
   /** Bottom-sheet top corners only. */
   sheetTop: 16,
   full: 999,
@@ -231,6 +263,11 @@ export const motion = {
 // Elevation — tonal plus one soft shadow
 // ---------------------------------------------------------------------------
 
+/**
+ * Boose separates surfaces by lifting them, not by drawing lines. A card sits on
+ * the ground with one soft shadow below it; a sheet that floats over content
+ * gets a larger one.
+ */
 export const elevation = {
   none: {
     shadowColor: 'transparent',
@@ -239,20 +276,28 @@ export const elevation = {
     shadowOffset: { width: 0, height: 0 },
     elevation: 0,
   },
-  /** Sticky totals and panels that sit above the counter. */
+  /** Every card and tile: the default surface. */
   raised: {
-    shadowColor: colors.onSurface,
-    shadowOpacity: 0.05,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  /** The search field and small controls that sit on a card. */
+  subtle: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   /** Bottom sheets and dialogs. */
   overlay: {
-    shadowColor: colors.onSurface,
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 6,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 8,
   },
 } as const;
