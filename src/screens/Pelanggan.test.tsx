@@ -52,10 +52,11 @@ async function openCustomer(pelangganId: string) {
 
 describe('Pelanggan — hutang, payments and write-offs', () => {
   it('adds a customer and lists what they owe', async () => {
-    await seedDebt();
+    const { pelangganId } = await seedDebt();
 
     expect(screen.getByText('Bu Ani')).toBeTruthy();
-    expect(screen.getByText('Hutang 10.000')).toBeTruthy();
+    expect(screen.getByTestId(`pelanggan-baris-${pelangganId}`)).toHaveTextContent(/Hutang/);
+    expect(screen.getByTestId(`pelanggan-baris-${pelangganId}`)).toHaveTextContent(/10\.000/);
   });
 
   it('records a payment, reducing the balance and joining the history', async () => {

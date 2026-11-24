@@ -4,11 +4,16 @@ import {
   AppText,
   BottomSheet,
   Button,
+  Card,
+  CardRow,
+  CardStack,
   Chip,
   ChipRow,
   Field,
+  Icon,
+  MetricCard,
   Note,
-  RuledRow,
+  RowAvatar,
   Screen,
   SplitPane,
   colors,
@@ -19,7 +24,6 @@ import {
   space,
   useFrame,
 } from '@/design';
-import { IconButton } from '@/design/components/Icons';
 import { sellableVarian, type Settlement, type SupplierPayable } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 
@@ -75,51 +79,78 @@ export function PemasokScreen({ onBack }: { onBack?: () => void } = {}) {
       });
 
   const selected = selectedId ? payables.find((entry) => entry.supplier.id === selectedId) ?? null : null;
+  const totalUtang = payables.reduce((sum, entry) => sum + entry.total, 0);
 
   const list = (
     <ScrollView contentContainerStyle={styles.content}>
-      {payables.length === 0 ? <Note>Belum ada pemasok.</Note> : null}
-      {payables.map((entry) =>
-        wide ? (
-          <RuledRow
-            key={entry.supplier.id}
-            title={entry.supplier.nama}
-            value={entry.total > 0 ? `Utang Rp ${formatRupiah(entry.total)}` : 'Tidak ada utang'}
-            owed={entry.total > 0}
-            selected={entry.supplier.id === selectedId}
-            onPress={() => setSelectedId(entry.supplier.id)}
-            testID={`pemasok-baris-${entry.supplier.id}`}
-          />
-        ) : (
-          <SupplierRow
-            key={entry.supplier.id}
-            payable={entry}
-            titip={titipFor(entry.supplier.id)}
-            onNota={() => setSheet({ kind: 'nota', supplierId: entry.supplier.id })}
-            onBayar={() => setSheet({ kind: 'bayar', supplierId: entry.supplier.id })}
-            onKembali={() => setSheet({ kind: 'kembali', supplierId: entry.supplier.id })}
-          />
-        ),
-      )}
+      <MetricCard
+        label="Total utang dagang"
+        value={formatRupiah(totalUtang)}
+        tone={totalUtang > 0 ? 'owed' : 'default'}
+        note={
+          totalUtang > 0
+            ? `${payables.filter((entry) => entry.total > 0).length} pemasok belum lunas`
+            : 'Tidak ada yang perlu dibayar'
+        }
+        testID="pemasok-total"
+      />
+      {payables.length === 0 ? <Note flush>Belum ada pemasok.</Note> : null}
+      <CardStack>
+        {payables.map((entry) =>
+          wide ? (
+            <Card key={entry.supplier.id}>
+              <CardRow
+                testID={`pemasok-baris-${entry.supplier.id}`}
+                accessibilityLabel={entry.supplier.nama}
+                onPress={() => setSelectedId(entry.supplier.id)}
+                style={entry.supplier.id === selectedId ? styles.picked : undefined}
+              >
+                <RowAvatar size={36}>
+                  <AppText typeRole="titleSmall" tone="primary">
+                    {entry.supplier.nama.trim().charAt(0).toUpperCase()}
+                  </AppText>
+                </RowAvatar>
+                <View style={styles.rowText}>
+                  <AppText typeRole="titleSmall" numberOfLines={1}>
+                    {entry.supplier.nama}
+                  </AppText>
+                  <AppText typeRole="bodySmall" tone="muted">
+                    {entry.total > 0 ? `Utang Rp ${formatRupiah(entry.total)}` : 'Tidak ada utang'}
+                  </AppText>
+                </View>
+                <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+              </CardRow>
+            </Card>
+          ) : (
+            <SupplierRow
+              key={entry.supplier.id}
+              payable={entry}
+              titip={titipFor(entry.supplier.id)}
+              onNota={() => setSheet({ kind: 'nota', supplierId: entry.supplier.id })}
+              onBayar={() => setSheet({ kind: 'bayar', supplierId: entry.supplier.id })}
+              onKembali={() => setSheet({ kind: 'kembali', supplierId: entry.supplier.id })}
+            />
+          ),
+        )}
+      </CardStack>
     </ScrollView>
   );
 
   return (
     <Screen
       title="Pemasok"
-      overline="Orang"
+      subtitle={`${payables.length} pemasok · utang dagang dan titip`}
+      role="Orang"
+      onBack={onBack}
       actions={
-        <View style={styles.headerActions}>
-          {onBack ? (
-            <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-ke-orang" />
-          ) : null}
-          <IconButton
-            name="add"
-            label="Tambah pemasok"
-            onPress={() => setSheet({ kind: 'pemasok' })}
-            testID="tambah-pemasok"
-          />
-        </View>
+        <Button
+          label="Baru"
+          icon="add"
+          size="small"
+          fullWidth={false}
+          onPress={() => setSheet({ kind: 'pemasok' })}
+          testID="tambah-pemasok"
+        />
       }
     >
       <SplitPane
@@ -212,29 +243,65 @@ function SupplierRecord({
 
   return (
     <>
-      <AppText
-        typeRole={pane ? 'titleMedium' : 'bodyLarge'}
-        tone={pane ? 'primary' : 'default'}
-        numberOfLines={pane ? 2 : undefined}
-      >
-        {supplier.nama}
-      </AppText>
-      <AppText typeRole="titleMedium" tone={total > 0 ? 'default' : 'muted'} testID={id('utang')}>
-        {total > 0 ? `Utang Rp ${formatRupiah(total)}` : 'Tidak ada utang'}
-      </AppText>
-      <AppText typeRole="numericSmall" tone="muted" testID={id('rincian')}>
+      <View style={styles.recordHead}>
+        <View style={styles.recordWho}>
+          <AppText typeRole="titleSmall" numberOfLines={pane ? 2 : 1}>
+            {supplier.nama}
+          </AppText>
+          <AppText typeRole="bodySmall" tone="muted">
+            {titip.length > 0 ? 'Titip di rak' : tempo > 0 ? 'Tempo' : 'Tunai'}
+          </AppText>
+        </View>
+        <View style={styles.recordFigure}>
+          <AppText
+            typeRole="numericLarge"
+            tone={total > 0 ? 'owed' : 'muted'}
+            align="right"
+            testID={id('utang')}
+          >
+            {total > 0 ? `Utang Rp ${formatRupiah(total)}` : 'Tidak ada utang'}
+          </AppText>
+          <AppText typeRole="bodySmall" tone="muted" align="right">
+            {total > 0 ? 'belum dibayar' : 'lunas'}
+          </AppText>
+        </View>
+      </View>
+      <AppText typeRole="bodySmall" tone="muted" testID={id('rincian')}>
         {`Tempo Rp ${formatRupiah(tempo)} · Titip terjual Rp ${formatRupiah(titipSold)} · Dibayar Rp ${formatRupiah(paid)}`}
       </AppText>
       {titip.length > 0 ? (
-        <AppText typeRole="numericSmall" tone="muted" testID={pane ? id('titip') : `titip-pemasok-${supplier.id}`}>
+        <AppText typeRole="bodySmall" tone="muted" testID={pane ? id('titip') : `titip-pemasok-${supplier.id}`}>
           {`Titip di rak: ${titipReading}`}
         </AppText>
       ) : null}
 
       <View style={pane ? styles.paneActions : styles.actions}>
-        <Button label="Catat nota" variant="outlined" onPress={onNota} testID={id('nota')} />
-        <Button label="Bayar" variant="text" onPress={onBayar} testID={id('bayar')} />
-        <Button label="Kembalikan titip" variant="text" onPress={onKembali} testID={id('kembali')} />
+        <Button
+          label="Catat nota"
+          variant="outlined"
+          size="small"
+          fullWidth={false}
+          onPress={onNota}
+          testID={id('nota')}
+        />
+        <Button
+          label="Bayar"
+          variant="text"
+          size="small"
+          fullWidth={false}
+          disabled={total <= 0}
+          onPress={onBayar}
+          testID={id('bayar')}
+        />
+        <Button
+          label="Kembalikan titip"
+          variant="text"
+          size="small"
+          fullWidth={false}
+          disabled={titip.length === 0}
+          onPress={onKembali}
+          testID={id('kembali')}
+        />
       </View>
     </>
   );
@@ -254,7 +321,7 @@ function SupplierRow({
   onKembali: () => void;
 }) {
   return (
-    <View testID={`pemasok-baris-${payable.supplier.id}`} style={styles.supplier}>
+    <Card testID={`pemasok-baris-${payable.supplier.id}`} style={styles.supplier}>
       <SupplierRecord
         payable={payable}
         titip={titip}
@@ -263,7 +330,7 @@ function SupplierRow({
         onBayar={onBayar}
         onKembali={onKembali}
       />
-    </View>
+    </Card>
   );
 }
 
@@ -597,18 +664,17 @@ function ReturnForm({ supplierId, onDone }: { supplierId: string; onDone: () => 
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.lg },
+  content: { paddingHorizontal: space.gutter, paddingBottom: space.xl, gap: space.sm },
   headerActions: { flexDirection: 'row', alignItems: 'center' },
-  supplier: {
-    paddingHorizontal: space.gutter,
-    paddingVertical: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-    gap: space.xs,
-  },
-  actions: { paddingTop: space.sm, gap: space.sm },
+  rowText: { flex: 1, gap: 1 },
+  picked: { backgroundColor: colors.primaryContainer },
+  supplier: { padding: space.md, gap: space.xs },
+  recordHead: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  recordWho: { flex: 1, gap: 1 },
+  recordFigure: { alignItems: 'flex-end', gap: 1 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.xs, paddingTop: space.sm },
   pane: { paddingBottom: space.lg, gap: space.xs },
-  paneActions: { paddingTop: space.md, gap: space.sm },
+  paneActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, paddingTop: space.md },
   paneEmpty: { paddingTop: space.sm },
   pickLabel: { paddingBottom: space.xs },
   draftLine: {

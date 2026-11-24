@@ -4,10 +4,15 @@ import {
   AppText,
   BottomSheet,
   Button,
+  Card,
+  CardRow,
   Field,
+  Icon,
+  MetricCard,
   Note,
-  RuledRow,
+  RowAvatar,
   Screen,
+  SectionHeading,
   SplitPane,
   colors,
   formatMoment,
@@ -16,7 +21,6 @@ import {
   space,
   useFrame,
 } from '@/design';
-import { IconButton } from '@/design/components/Icons';
 import type { HutangEntry, HutangLedger, Pelanggan } from '@/ledger';
 import { useApp } from '@/ledger/useLedger';
 import { hutangLabel } from '@/screens/hutangLabel';
@@ -38,50 +42,99 @@ export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
     .filter((entry) => !entry.archived)
     .sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
   const detail = detailId ? shop.pelanggan.find((entry) => entry.id === detailId) ?? null : null;
+  const saldoOf = (entry: Pelanggan) => hutangOf(entry.id).state;
+  const totalHutang = live.reduce((sum, entry) => {
+    const state = saldoOf(entry);
+    return state.kind === 'hutang' ? sum + state.jumlah : sum;
+  }, 0);
+  const belumLunas = live.filter((entry) => saldoOf(entry).kind === 'hutang');
+  const lunas = live.filter((entry) => saldoOf(entry).kind !== 'hutang');
+
+  const row = (entry: Pelanggan, divided: boolean) => {
+    const state = saldoOf(entry);
+    const owed = state.kind === 'hutang';
+    const kredit = state.kind === 'kredit';
+    return (
+      <CardRow
+        key={entry.id}
+        divided={divided}
+        onPress={() => setDetailId(entry.id)}
+        testID={`pelanggan-baris-${entry.id}`}
+        accessibilityLabel={`${entry.nama}, ${hutangLabel(state)}`}
+        style={wide && entry.id === detailId ? styles.picked : undefined}
+      >
+        <RowAvatar size={40} tone={owed ? 'owed' : kredit ? 'positive' : 'muted'}>
+          <AppText typeRole="titleSmall" tone={owed ? 'owed' : kredit ? 'positive' : 'muted'}>
+            {entry.nama.trim().charAt(0).toUpperCase()}
+          </AppText>
+        </RowAvatar>
+        <View style={styles.rowText}>
+          <AppText typeRole="titleSmall" numberOfLines={1}>
+            {entry.nama}
+          </AppText>
+          <AppText typeRole="bodySmall" tone="muted">
+            {owed ? 'Hutang' : kredit ? 'Kredit' : 'Lunas'}
+          </AppText>
+        </View>
+        <AppText typeRole="numericMedium" tone={owed ? 'owed' : kredit ? 'positive' : 'muted'} align="right">
+          {state.kind === 'lunas' ? '—' : formatRupiah(state.jumlah)}
+        </AppText>
+        <Icon name="arrowRight" size={18} color={colors.onSurfaceVariant} />
+      </CardRow>
+    );
+  };
 
   const list = (
     <>
-      <Note>Hutang pelanggan dihitung dari penjualan yang belum dibayar, pembayaran, dan hapus buku.</Note>
+      <MetricCard
+        label="Total hutang"
+        value={formatRupiah(totalHutang)}
+        tone={totalHutang > 0 ? 'owed' : 'default'}
+        note={
+          belumLunas.length > 0
+            ? `${belumLunas.length} pelanggan belum lunas`
+            : 'Semua pelanggan lunas'
+        }
+        testID="pelanggan-total"
+      />
 
       {live.length === 0 ? (
-        <AppText typeRole="bodyMedium" tone="muted" style={styles.empty}>
-          Belum ada pelanggan. Tambahkan supaya hutang punya nama.
-        </AppText>
+        <Note flush>Belum ada pelanggan. Tambahkan supaya hutang punya nama.</Note>
       ) : null}
 
-      {live.map((entry) => {
-        const { state } = hutangOf(entry.id);
-        return (
-          <RuledRow
-            key={entry.id}
-            title={entry.nama}
-            value={hutangLabel(state)}
-            owed={state.kind === 'hutang'}
-            selected={wide && entry.id === detailId}
-            onPress={() => setDetailId(entry.id)}
-            testID={`pelanggan-baris-${entry.id}`}
-          />
-        );
-      })}
+      {belumLunas.length > 0 ? (
+        <>
+          <SectionHeading flush>Belum lunas</SectionHeading>
+          <Card>{belumLunas.map((entry, index) => row(entry, index > 0))}</Card>
+        </>
+      ) : null}
+
+      {lunas.length > 0 ? (
+        <>
+          <SectionHeading flush>Lunas</SectionHeading>
+          <Card>{lunas.map((entry, index) => row(entry, index > 0))}</Card>
+        </>
+      ) : null}
+
+      <Note flush>Hutang dihitung dari penjualan yang belum dibayar, pembayaran, dan hapus buku.</Note>
     </>
   );
 
   return (
     <Screen
       title="Pelanggan"
-      overline="Orang"
+      subtitle={`${live.length} pelanggan · hutang warung`}
+      role="Orang"
+      onBack={onBack}
       actions={
-        <View style={styles.headerActions}>
-          {onBack ? (
-            <IconButton name="arrow-back" label="Kembali" onPress={onBack} testID="kembali-ke-orang" />
-          ) : null}
-          <IconButton
-            name="add"
-            label="Tambah pelanggan"
-            onPress={() => setAdding(true)}
-            testID="tambah-pelanggan"
-          />
-        </View>
+        <Button
+          label="Baru"
+          icon="add"
+          size="small"
+          fullWidth={false}
+          onPress={() => setAdding(true)}
+          testID="tambah-pelanggan"
+        />
       }
     >
       <SplitPane
@@ -91,11 +144,7 @@ export function PelangganScreen({ onBack }: { onBack?: () => void } = {}) {
         detail={
           detail ? (
             <ScrollView contentContainerStyle={styles.pane}>
-              <PelangganDetail
-                pelanggan={detail}
-                hutang={hutangOf(detail.id)}
-                onClose={() => setDetailId(null)}
-              />
+              <PelangganDetail pelanggan={detail} hutang={hutangOf(detail.id)} onClose={() => setDetailId(null)} />
             </ScrollView>
           ) : (
             <View style={styles.paneEmpty}>
@@ -180,18 +229,18 @@ function PelangganDetail({
 
   return (
     <>
-      <View style={styles.status}>
+      <Card padded style={styles.status}>
         <AppText typeRole="labelSmall" tone="muted">
           Saldo
         </AppText>
         <AppText
-          typeRole="titleMedium"
-          tone={hutang.state.kind === 'hutang' ? 'owed' : 'primary'}
+          typeRole="headlineMedium"
+          tone={hutang.state.kind === 'hutang' ? 'owed' : 'positive'}
           testID="pelanggan-status"
         >
           {hutangLabel(hutang.state)}
         </AppText>
-      </View>
+      </Card>
 
       {mode === 'riwayat' ? <HutangHistory entries={hutang.entries} /> : null}
       {mode === 'bayar' ? (
@@ -202,7 +251,7 @@ function PelangganDetail({
       ) : null}
 
       {error ? (
-        <AppText typeRole="bodyMedium" tone="owed" testID="pelanggan-galat" style={styles.error}>
+        <AppText typeRole="bodySmall" tone="owed" testID="pelanggan-galat" style={styles.error}>
           {error}
         </AppText>
       ) : null}
@@ -211,6 +260,7 @@ function PelangganDetail({
         <View style={styles.actions}>
           <Button
             label="Catat pembayaran"
+            size="medium"
             onPress={() => {
               setError(null);
               setMode('bayar');
@@ -222,6 +272,7 @@ function PelangganDetail({
           <Button
             label="Hapus buku"
             variant="outlined"
+            size="medium"
             onPress={() => {
               setError(null);
               setMode('hapusbuku');
@@ -235,7 +286,7 @@ function PelangganDetail({
 
       {mode === 'riwayat' ? (
         <View style={styles.archive}>
-          <Button label="Arsipkan pelanggan" variant="text" onPress={arsipkan} testID="arsipkan-pelanggan" />
+          <Button label="Arsipkan pelanggan" variant="text" size="small" onPress={arsipkan} testID="arsipkan-pelanggan" />
         </View>
       ) : null}
     </>
@@ -316,25 +367,25 @@ function HutangHistory({ entries }: { entries: HutangLedger['entries'] }) {
   }
 
   return (
-    <View testID="riwayat-hutang">
-      {[...entries].reverse().map((entry) => (
-        <View key={entryKey(entry)} style={styles.historyRow}>
+    <Card testID="riwayat-hutang" style={styles.history}>
+      {[...entries].reverse().map((entry, index) => (
+        <View key={entryKey(entry)} style={[styles.historyRow, index > 0 && styles.historyDivided]}>
           <View style={styles.historyMain}>
-            <AppText typeRole="bodyMedium" numberOfLines={1}>
+            <AppText typeRole="titleSmall" numberOfLines={1}>
               {entryLabel(entry)}
             </AppText>
-            <AppText typeRole="labelSmall" tone="muted">
+            <AppText typeRole="bodySmall" tone="muted">
               {`${formatMoment(entry.at, { withYear: false })} · sisa ${formatRupiah(Math.max(0, entry.setelah))}${
                 entry.setelah < 0 ? ` · kredit ${formatRupiah(-entry.setelah)}` : ''
               }`}
             </AppText>
           </View>
-          <AppText typeRole="numericMedium" tone={entry.kind === 'penjualan' ? 'owed' : 'default'} align="right">
+          <AppText typeRole="numericMedium" tone={entry.kind === 'penjualan' ? 'owed' : 'positive'} align="right">
             {signed(entry)}
           </AppText>
         </View>
       ))}
-    </View>
+    </Card>
   );
 }
 
@@ -355,27 +406,24 @@ function signed(entry: HutangEntry): string {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: space.lg },
-  pane: { paddingBottom: space.lg },
+  content: { paddingHorizontal: space.gutter, paddingBottom: space.xl, gap: space.sm },
+  pane: { paddingBottom: space.lg, gap: space.sm },
   paneEmpty: { paddingTop: space.sm },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  rowText: { flex: 1, gap: 1 },
+  picked: { backgroundColor: colors.primaryContainer },
   empty: { paddingHorizontal: space.gutter, paddingVertical: space.md },
-  status: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingVertical: space.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
-  },
+  status: { gap: space.xs },
+  history: { padding: 0 },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: space.sm,
     minHeight: space.row,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.outline,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
-  historyMain: { flex: 1 },
+  historyDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.outline },
+  historyMain: { flex: 1, gap: 1 },
   actions: { flexDirection: 'row', gap: space.sm, paddingTop: space.md },
   grow: { flex: 1 },
   archive: { paddingTop: space.sm, alignItems: 'flex-end' },
