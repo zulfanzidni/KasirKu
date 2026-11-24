@@ -5,8 +5,8 @@ import type { Shop } from '@/ledger/types';
 import { app, phoneLedger, resetPhone, waitReady, wrap } from './testPhone';
 
 /**
- * The till, driven the way the owner drives it: tapping rows, choosing a
- * size, and saving. Seeding the shop goes through the same catalog the Stok
+ * The till, driven the way the owner drives it: tapping tiles, choosing an
+ * amount, and saving. Seeding the shop goes through the same catalog the Stok
  * screen uses — inside act, because it writes the log the screen is reading.
  */
 
@@ -43,28 +43,43 @@ async function seedIndomie() {
   });
 }
 
-async function seedTepung() {
+async function seedIndomieDua() {
   const { catalog } = await start();
   const seed = seeding(catalog!);
-  const kategoriId = await seed.kategori('Tepung');
-  const produkId = await seed.produk(kategoriId, 'Tepung terigu');
-  const kg1 = await seed.varian({
+  const kategoriId = await seed.kategori('Makanan');
+  const produkId = await seed.produk(kategoriId, 'Indomie goreng');
+  const biasa = await seed.varian({
     produkId,
-    nama: 'Tepung terigu 1 kg',
-    kode: 'TLG-1',
+    nama: 'Indomie goreng',
+    kode: 'IDM',
+    satuan: 'bungkus',
+    jualBy: 'unit',
+    harga: 3500,
+  });
+  const jumbo = await seed.varian({
+    produkId,
+    nama: 'Indomie goreng jumbo',
+    kode: 'IDM-J',
+    satuan: 'bungkus',
+    jualBy: 'unit',
+    harga: 5000,
+  });
+  return { biasa, jumbo };
+}
+
+async function seedGula() {
+  const { catalog } = await start();
+  const seed = seeding(catalog!);
+  const kategoriId = await seed.kategori('Sembako');
+  const produkId = await seed.produk(kategoriId, 'Gula pasir');
+  return seed.varian({
+    produkId,
+    nama: 'Gula pasir',
+    kode: 'GLA',
     satuan: 'kg',
     jualBy: 'weight',
-    harga: 13500,
+    harga: 16000,
   });
-  const kg2 = await seed.varian({
-    produkId,
-    nama: 'Tepung terigu 2 kg',
-    kode: 'TLG-2',
-    satuan: 'kg',
-    jualBy: 'weight',
-    harga: 26000,
-  });
-  return { kg1, kg2 };
 }
 
 describe('Kasir', () => {
@@ -90,33 +105,18 @@ describe('Kasir', () => {
     expect(screen.getByText('10.500')).toBeTruthy();
   });
 
-  it('opens the sizes of a multi-variant product before adding anything', async () => {
-    const { kg1, kg2 } = await seedTepung();
+  it('adds the varian whose tile was tapped, with no size reveal', async () => {
+    const { jumbo } = await seedIndomieDua();
 
-    fireEvent.press(screen.getByTestId(`grid-${kg1}`));
+    fireEvent.press(screen.getByTestId(`grid-${jumbo}`));
 
-    expect(screen.getByText('Pilih ukuran')).toBeTruthy();
-    expect(screen.getByTestId(`pilih-${kg2}`)).toBeTruthy();
-    expect(app.cart).toEqual([]);
-
-    fireEvent.press(screen.getByTestId(`pilih-${kg2}`));
-
-    expect(app.cart).toEqual([expect.objectContaining({ varianId: kg2, qty: 1, jumlah: 26000 })]);
+    expect(app.cart).toEqual([expect.objectContaining({ varianId: jumbo, qty: 1, jumlah: 5000 })]);
+    expect(screen.queryByText('Pilih ukuran')).toBeNull();
+    expect(screen.queryByText('Berapa kg?')).toBeNull();
   });
 
   it('offers 1/4, 1/2, 1 and 1.5 kg for a weight item and puts the chosen amount in the cart', async () => {
-    const { catalog } = await start();
-    const seed = seeding(catalog!);
-    const kategoriId = await seed.kategori('Sembako');
-    const produkId = await seed.produk(kategoriId, 'Gula pasir');
-    const gula = await seed.varian({
-      produkId,
-      nama: 'Gula pasir',
-      kode: 'GLA',
-      satuan: 'kg',
-      jualBy: 'weight',
-      harga: 16000,
-    });
+    const gula = await seedGula();
 
     fireEvent.press(screen.getByTestId(`grid-${gula}`));
 
@@ -133,7 +133,7 @@ describe('Kasir', () => {
 
   it('narrows the grid to matching names as the search box is typed into', async () => {
     await seedIndomie();
-    await seedTepung();
+    await seedGula();
 
     fireEvent.changeText(screen.getByTestId('cari-barang'), 'indomie');
 

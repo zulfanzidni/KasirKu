@@ -40,7 +40,7 @@ import {
 import { buildLaporan, type Laporan, type LaporanFilter } from './laporan';
 import { checkLow, type LowCheck } from './lowStock';
 import { sortStock, stockHistory as historyOf, todayTotals as todayTotalsOf, type TodayTotals } from './queries';
-import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, type Cart } from './register';
+import { addToCart, emptyCart, removeLine as removeFromCart, setLineQty as setQty, WEIGHT_STEPS, type Cart } from './register';
 import { foldStock, normaliseQty, ownedDelta, stockState, type StockRow } from './stock';
 import {
   parseCheckpoint,
@@ -89,9 +89,9 @@ export interface AppState {
   /** Supplier commands: record a supplier, a delivery note, a payment, a return. */
   supplierBook: SupplierBook | null;
 
-  /** Adds one, or says a choice is needed before anything is added. */
+  /** Adds one, or asks for a weight before anything is added. */
   tapItem(varianId: string): TapOutcome;
-  /** Adds a chosen size or weight — what the sheets call. */
+  /** Adds an amount of a varian — what the weight sheet and the tile's + call. */
   addVarian(varianId: string, qty: number): void;
   setLineQty(varianId: string, qty: number): void;
   removeLine(varianId: string): void;
@@ -207,7 +207,6 @@ export interface AppState {
 
 export type TapOutcome =
   | { kind: 'added' }
-  | { kind: 'chooseVariant'; varian: Varian[] }
   | { kind: 'chooseWeight'; varian: Varian; pilihan: number[] }
   | { kind: 'ignored' };
 
@@ -351,9 +350,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         return { kind: 'ignored' };
       }
 
-      const siblings = current.varian.filter((entry) => entry.produkId === varian.produkId && !entry.archived);
-      if (siblings.length > 1) return { kind: 'chooseVariant', varian: siblings };
-      if (varian.jualBy === 'weight') return { kind: 'chooseWeight', varian, pilihan: [0.25, 0.5, 1, 1.5] };
+      // A weight item asks for its amount; a whole-unit varian adds one here.
+      // The grid is one tile per varian, so there is no size reveal: the tile
+      // the owner tapped is the one they chose.
+      if (varian.jualBy === 'weight') return { kind: 'chooseWeight', varian, pilihan: [...WEIGHT_STEPS] };
       updateCart(addToCart(cartRef.current, varian, 1));
       return { kind: 'added' };
     },

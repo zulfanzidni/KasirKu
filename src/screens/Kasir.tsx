@@ -33,9 +33,9 @@ import { ReceiptScreen } from '@/screens/Receipt';
 /**
  * Kasir — the sell screen.
  *
- * The grid lists variants, not products: a tap either adds one, opens the
- * sizes of a multi-variant product, or opens the weight control. A tile is a
- * target, not a line of text: its picture well is the top half of the card.
+ * The grid lists variants, not products: a tap adds that varian, except a
+ * weight item, which opens the amount control. A tile is a target, not a line
+ * of text: its picture well is the top half of the card.
  *
  * The frame is the till. Portrait is one column: the grid with the cart along
  * the bottom. Landscape is two panes: the grid on the left, the nota as a fixed
@@ -59,7 +59,7 @@ export function KasirScreen() {
   } = useApp();
   const [query, setQuery] = useState('');
   const [kategoriId, setKategoriId] = useState<string | null>(null);
-  const [choice, setChoice] = useState<Extract<TapOutcome, { kind: 'chooseVariant' | 'chooseWeight' }> | null>(null);
+  const [choice, setChoice] = useState<Extract<TapOutcome, { kind: 'chooseWeight' }> | null>(null);
   const [step, setStep] = useState<'nota' | 'pelanggan' | 'bayar'>('nota');
   const [notaOpen, setNotaOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -88,7 +88,7 @@ export function KasirScreen() {
 
   function handleTap(item: Varian) {
     const outcome = tapItem(item.id);
-    if (outcome.kind === 'chooseVariant' || outcome.kind === 'chooseWeight') setChoice(outcome);
+    if (outcome.kind === 'chooseWeight') setChoice(outcome);
   }
 
   /**

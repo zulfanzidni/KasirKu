@@ -20,7 +20,6 @@ export const teks = {
   batalPesan: 'Semua barang di nota akan dibuang.',
   yaKosongkan: 'Kosongkan',
   tidak: 'Tidak',
-  pilihUkuran: 'Pilih ukuran',
   pilihBerat: 'Berapa kg?',
   tersimpan: 'Tersimpan',
   tersimpanPesan: 'Penjualan tercatat di buku.',

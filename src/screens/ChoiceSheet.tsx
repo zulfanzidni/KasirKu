@@ -4,8 +4,8 @@ import type { Varian } from '@/ledger';
 import type { TapOutcome } from '@/ledger/useLedger';
 
 export interface ChoiceSheetProps {
-  /** What the last tap asked for, or null when nothing is being chosen. */
-  choice: Extract<TapOutcome, { kind: 'chooseVariant' | 'chooseWeight' }> | null;
+  /** The weight the last tap asked for, or null when nothing is being chosen. */
+  choice: Extract<TapOutcome, { kind: 'chooseWeight' }> | null;
   onClose: () => void;
   onAdd: (varianId: string, qty: number) => void;
 }
@@ -13,20 +13,14 @@ export interface ChoiceSheetProps {
 type Add = ChoiceSheetProps['onAdd'];
 
 /**
- * The two reveals the till has: a product's sizes, and the weight amounts.
+ * The one reveal the till has left: how much of a weight item.
  *
- * Nothing is added until the cashier chooses here, which is the whole point —
- * a multi-variant product must never silently sell its first size.
+ * The grid is already one tile per varian, so a tile tap has already chosen
+ * the size. Only weight still needs an amount before anything is added.
  */
 export function ChoiceSheet({ choice, onClose, onAdd }: ChoiceSheetProps) {
   return (
-    <BottomSheet
-      visible={choice !== null}
-      onClose={onClose}
-      title={choice?.kind === 'chooseWeight' ? 'Berapa kg?' : 'Pilih ukuran'}
-      testID="pilih-varian"
-    >
-      {choice?.kind === 'chooseVariant' ? <VariantChoices varian={choice.varian} onAdd={onAdd} /> : null}
+    <BottomSheet visible={choice !== null} onClose={onClose} title="Berapa kg?" testID="pilih-varian">
       {choice?.kind === 'chooseWeight' ? (
         <WeightChoices varian={choice.varian} pilihan={choice.pilihan} onAdd={onAdd} />
       ) : null}
@@ -34,37 +28,6 @@ export function ChoiceSheet({ choice, onClose, onAdd }: ChoiceSheetProps) {
         <Button label="Batal" variant="text" size="small" fullWidth={false} onPress={onClose} testID="batal-pilih" />
       </View>
     </BottomSheet>
-  );
-}
-
-function VariantChoices({ varian, onAdd }: { varian: Varian[]; onAdd: Add }) {
-  return (
-    <Card>
-      {varian.map((item, index) => (
-        <CardRow
-          key={item.id}
-          divided={index > 0}
-          onPress={() => onAdd(item.id, 1)}
-          testID={`pilih-${item.id}`}
-          accessibilityLabel={`${item.nama}, ${formatRupiah(item.harga)}`}
-        >
-          <View style={styles.rowText}>
-            <AppText typeRole="titleSmall" numberOfLines={1}>
-              {item.nama}
-            </AppText>
-            {item.kode ? (
-              <AppText typeRole="bodySmall" tone="muted">
-                {item.kode}
-              </AppText>
-            ) : null}
-          </View>
-          <AppText typeRole="numericMedium" align="right">
-            {formatRupiah(item.harga)}
-          </AppText>
-          <Icon name="add" size={16} color={colors.primary} strokeWidth={2.2} />
-        </CardRow>
-      ))}
-    </Card>
   );
 }
 

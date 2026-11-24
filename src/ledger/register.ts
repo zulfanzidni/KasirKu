@@ -35,30 +35,10 @@ export function emptyCart(): Cart {
   return [];
 }
 
-/** What the grid does which a varian is tapped. */
+/** What the grid does when a varian is tapped, before screen state is involved. */
 export type TapResult =
   | { kind: 'add'; cart: Cart }
-  | { kind: 'chooseVariant'; produkId: string; varian: Varian[] }
   | { kind: 'chooseWeight'; varian: Varian; pilihan: number[] };
-
-/**
- * The tap rules (spec §Selling):
- *  - a multi-variant product always reveals its sizes first, even if one
- *    varian is archived, so the reveal is predictable
- *  - a weight item opens the 1/4 … 1.5 control
- *  - everything else adds one, which is the common case and must never be
- *    slowed down by a reveal step
- */
-export function tapGridItem(varian: Varian, produkVarian: readonly Varian[], cart: Cart): TapResult {
-  const live = produkVarian.filter((sibling) => sibling.produkId === varian.produkId && !sibling.archived);
-  if (live.length > 1) {
-    return { kind: 'chooseVariant', produkId: varian.produkId, varian: live };
-  }
-  if (varian.jualBy === 'weight') {
-    return { kind: 'chooseWeight', varian, pilihan: [...WEIGHT_STEPS] };
-  }
-  return { kind: 'add', cart: addToCart(cart, varian, 1) };
-}
 
 /** Adds `qty` of a varian, merging into an existing line for the same varian. */
 export function addToCart(cart: Cart, varian: Varian, qty = 1): Cart {
